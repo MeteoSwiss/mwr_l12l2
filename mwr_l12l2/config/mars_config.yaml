@@ -1,0 +1,41 @@
+# config file for requsting ECMWF forecast data using 'mars' #
+##############################################################
+#
+# this file defines the settings common to all stations.
+# 'grid', 'area' and 'target' (output filename) are generated using info in station config files
+
+request:  # configurations of mars keywords common to all requests
+  class: od
+  expver: 1
+  type: fc
+  stream: oper
+  levtype: ml
+  param: 130/133/152  # temperature [K] / specific humidity [kg/kg] / logarithm of surface pressure [-]
+  levelist: 1/70/75/80/85/88/91/94/96/98/100/101/102/103/104/105/106/107/108/109/110/111/112/113/114/115/116/117/118/119/120/121/122/123/124/125/126/127/128/129/130/131/132/133/134/135/136/137
+  date: null  # if set to 'null', get the most recent forecast
+  time: null  # if set to 'null', get the most recent forecast
+  step: 0/1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/16/17/18/19/20/21/22/23/24/25/26  # forecast step. make sure that we can also cope with 1 missing forecast
+
+
+grid:  # lat/lon grid for the region around the station where to request data from
+  lat_res: 0.1  # latitude resolution with which to get data in deg. should be multiple for model resolution
+  lon_res: 0.1  # longitude resolution with which to get data in deg. should be multiple of model resolution
+  lat_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
+  lon_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
+
+outfile:
+  path: tbd
+  basename: tbd
+
+
+# possible additional parameters to request from ECMWF:
+  # t/130: temperature [K]
+  # q/133: specific humidity [kg/kg]
+  # lnsp/152: Logarithm of surface pressure [-] (needed for transformation model level --> pressure/altitude, in GRIB)
+  # clwc/246: specific cloud liquid water content [kg/kg]  (GRIB1 and GRIB2 only, no NetCDF)
+  # iliqw/260016: integrated liquid water path [kg/m2]  (ambiguous)  (GRIB2 only, no GRIB1 or NetCDF)
+  # tclw/78: Total column cloud liquid water [kg/m2]  (GRIB1 and GRIB2 only, no NetCDF)
+  # tcwv/137: total column water vapour [kg/m2]
+  # h2o/217059: Water vapour (chemistry) [kg/kg]  (GRIB2 only, no GRIB1 or NetCDF)
+  # p: pressure [Pa]  (ambiguous)
+  # pres/54: Pressure [Pa]  (GRIB1 and GRIB2 only, no NetCDF)
