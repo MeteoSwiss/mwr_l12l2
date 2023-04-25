@@ -20,15 +20,14 @@ def write_mars_request(request_file, mars_conf, inst_conf_path, inst_conf_file_p
     format_outfile_timestamp_date = '%Y%m%d'
     format_outfile_timestamp_time = '%H%M'
 
-    if not isinstance(update_interval, int):
-        raise TypeError("input argument 'update_interval' is expected to be an integer. "
-                        'Update cycles at fractions of an hour are currently not supported')
-
-    # get config files ready
+    # check and get input ready
+    request_file = abs_file_path(request_file)
     if not isinstance(mars_conf, dict):
         mars_conf = get_mars_config(abs_file_path(mars_conf))
     inst_conf_path = abs_file_path(inst_conf_path)
-    inst_conf_files = glob.glob(os.path.join(inst_conf_path, inst_conf_file_pattern))
+    if not isinstance(update_interval, int):
+        raise TypeError("input argument 'update_interval' is expected to be an integer. "
+                        'Update cycles at fractions of an hour are currently not supported')
 
     # infer last available forecast run from current time
     time_act_avail = dt.datetime.now(tz=dt.timezone(dt.timedelta(0))) - dt.timedelta(hours=availability_offset)
@@ -50,6 +49,7 @@ def write_mars_request(request_file, mars_conf, inst_conf_path, inst_conf_file_p
     dt_time = dt.datetime.strptime(mars_conf['request']['time'], format_request_time)
 
     # define one request per stations (keys that are not re-set will be taken from previous request)
+    inst_conf_files = glob.glob(os.path.join(inst_conf_path, inst_conf_file_pattern))
     for ind, inst_conf_file in enumerate(inst_conf_files):
         # prepare
         inst_conf = get_inst_config(inst_conf_file)
@@ -80,4 +80,4 @@ def get_corner_coord(stn_coord, offset, resol):
 
 
 if __name__ == '__main__':
-    write_mars_request('dummy_mars_request.txt', 'mwr_l12l2/config/mars_config.yaml', 'mwr_l12l2/config/')
+    write_mars_request('mwr_l12l2/data/output/ecmwf/dummy_mars_request.txt', 'mwr_l12l2/config/mars_config.yaml', 'mwr_l12l2/config/')
