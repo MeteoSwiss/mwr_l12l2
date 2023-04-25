@@ -59,7 +59,7 @@ def write_mars_request(request_file, mars_conf, inst_conf_path, inst_conf_file_p
         outfile_path = abs_file_path(conf['outfile']['path'])
         outfile_stamp = '{}_{}_{}{}'.format(inst_conf['wigos_station_id'], inst_conf['instrument_id'],
                                             dt_date.strftime(format_outfile_timestamp_date),
-                                            dt_date.strftime(format_outfile_timestamp_time))
+                                            dt_time.strftime(format_outfile_timestamp_time))
         # append to request file contents
         if ind > 0:
             contents.append('retrieve,')
