@@ -12,10 +12,17 @@ class ModelInterpreter(object):
         self.p = None
         self.p_half = None
 
-    def run(self):
+    def run(self, time=None):
+        self.select_time(time)
         self.hybrid_to_p()
         self.p_to_z()
+        self.compute_stats()
+        self.produce_tropoe_file()
 
+    def select_time(self, time):
+        """reduce dataset to the time of interest (to speed up following computations)"""
+        # TODO: take care to prevent dimensions using slicing rather than indexing
+        pass
 
     def hybrid_to_p(self, file_level_coeffs=None):
         """compute pressure (in Pa) of half and full levels from hybrid levels and fill to self.p and self.p_half"""
@@ -49,10 +56,19 @@ class ModelInterpreter(object):
         self.p = (self.p_half + np.roll(self.p_half, 1, axis=1))[:, 1:,:, :] / 2
 
     def p_to_z(self):
+        """transform pressure grid (from hybrid_to_z) to geometrical altitudes"""
         pass
 
-def virt_temp(temp, q):
-    return temp * (1 + 0.609133*q)
+
+    def virt_temp(self):
+        """return virtual temperature from temperature and specific humdity in self.fc"""
+        return self.fc.t * (1 + 0.609133*self.fc.q)
+
+    def compute_stats(self):
+        pass
+
+    def produce_tropoe_file(self):
+        pass
 
 
 if __name__ == '__main__':
