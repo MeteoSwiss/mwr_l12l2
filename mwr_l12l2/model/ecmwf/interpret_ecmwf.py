@@ -5,40 +5,57 @@ import xarray as xr
 from mwr_l12l2.errors import MWRInputError
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
+class ModelInterpreter(object):
 
-def hybrid_to_p(data, file_level_coeffs=None):
-    if file_level_coeffs is None:
-        file_level_coeffs = abs_file_path('mwr_l12l2/model/ecmwf/ecmwf_model_levels_137.csv')
-    col_headers = ['level', 'a', 'b']  # expected column headers in file_level_coeffs
+    def __init__(self, file_fc_nc):
+        self.fc = xr.open_dataset(abs_file_path(file_fc_nc))
+        self.p = None
+        self.p_half = None
 
-    # get parameters a and b for hybrid model levels from csv and do some basic input checking
-    level_coeffs = pd.read_csv(file_level_coeffs)
-    for name in col_headers:
-        if name not in level_coeffs:
-            MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain a column header "
-                          "'{}' in the first line".format(file_level_coeffs, name))
-    if not (level_coeffs.loc[len(level_coeffs)-1, 'level'] == len(level_coeffs)-1 and level_coeffs.loc[0, 'level'] == 0):
-        MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain all levels "
-                      'from 0 to n_levels (plus one line of column headers at the top)'.format(file_level_coeffs))
-
-    # extract a and b parameters for levels of interest (half levels below and above)
-    ab = np.concatenate([level_coeffs.loc[data.level - 1, ['a', 'b']].to_numpy(),
-                         np.expand_dims(level_coeffs.loc[data.level[-1].data, ['a', 'b']].to_numpy(), axis=0)])
+    def run(self):
+        self.hybrid_to_p()
+        self.p_to_z()
 
 
-    # calculate pressure at model levels passing through half levels
-    p_surf = np.exp(data.lnsp)
-    p_half = ab[:, 0] + ab[:, 1]*p_surf[:,0,:,:]  # TODO respeat p_wurf to match each altitude in ab so that it is broadcastable
-    p = (p_half + np.roll(p_half, 1)) / 2
+    def hybrid_to_p(self, file_level_coeffs=None):
+        """compute pressure (in Pa) of half and full levels from hybrid levels and fill to self.p and self.p_half"""
 
-    return p[1:]
+        if file_level_coeffs is None:
+            file_level_coeffs = abs_file_path('mwr_l12l2/model/ecmwf/ecmwf_model_levels_137.csv')
+        col_headers = ['level', 'a', 'b']  # expected column headers in file_level_coeffs
 
+        # get parameters a and b for hybrid model levels from csv and do some basic input checking
+        level_coeffs = pd.read_csv(file_level_coeffs)
+        for name in col_headers:
+            if name not in level_coeffs:
+                MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain a column header "
+                              "'{}' in the first line".format(file_level_coeffs, name))
+        if not (level_coeffs.loc[len(level_coeffs)-1, 'level'] == len(level_coeffs)-1 and level_coeffs.loc[0, 'level'] == 0):
+            MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain all levels "
+                          'from 0 to n_levels (plus one line of column headers at the top)'.format(file_level_coeffs))
+
+        # extract a and b parameters for levels of interest (half levels below and above)
+        ab = np.concatenate([level_coeffs.loc[self.fc.level - 1, ['a', 'b']].to_numpy(),
+                             np.expand_dims(level_coeffs.loc[self.fc.level[-1].data, ['a', 'b']].to_numpy(), axis=0)])
+        a = ab[:, 0]
+        b = ab[:, 1]
+
+        # calculate pressure at model levels taking the mean between half levels
+        p_surf = np.exp(self.fc.lnsp)  # for testing with pseudo std atm (p, not T/q) use p_surf=np.tile(101325,(27, 48, 3, 3))
+        p_surf_all = np.tile(p_surf[:, 0:1, : , :], (1, ab.shape[0], 1, 1))  # slice instead of index to preserve dim
+        a_all = np.tile(a[np.newaxis, :, np.newaxis, np.newaxis], (p_surf.shape[0], 1, p_surf.shape[2], p_surf.shape[3]))
+        b_all = np.tile(b[np.newaxis, :, np.newaxis, np.newaxis], (p_surf.shape[0], 1, p_surf.shape[2], p_surf.shape[3]))
+        self.p_half = a_all + b_all*p_surf_all
+        self.p = (self.p_half + np.roll(self.p_half, 1, axis=1))[:, 1:,:, :] / 2
+
+    def p_to_z(self):
+        pass
 
 def virt_temp(temp, q):
     return temp * (1 + 0.609133*q)
 
 
 if __name__ == '__main__':
-    ds = xr.open_dataset(abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc'))
-    p = hybrid_to_p(ds)
+    x = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc')
+    x.run()
     pass
