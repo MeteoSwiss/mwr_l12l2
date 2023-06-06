@@ -7,22 +7,29 @@ from mwr_l12l2.utils.file_uitls import abs_file_path
 
 class ModelInterpreter(object):
 
-    def __init__(self, file_fc_nc):
-        self.fc = xr.open_dataset(abs_file_path(file_fc_nc))
+    def __init__(self, file_fc_nc, file_z_grb):
+        self.file_fc_nc = abs_file_path(file_fc_nc)
+        self.file_z_grb = abs_file_path(file_z_grb)
+        self.fc = None
+        self.z_surf = None
         self.p = None
         self.p_half = None
+        self.z = None
 
-    def run(self, time=None):
-        self.select_time(time)
+    def run(self, time):
+        """run for data closest to selected time (in datetime64)"""
+        self.load_data(time)
         self.hybrid_to_p()
         self.p_to_z()
         self.compute_stats()
         self.produce_tropoe_file()
 
-    def select_time(self, time):
-        """reduce dataset to the time of interest (to speed up following computations)"""
-        # TODO: take care to prevent dimensions using slicing rather than indexing
-        pass
+    def load_data(self, time):
+        """load dataset and reduce to the time of interest (to speed up following computations)"""
+        fc_all = xr.open_dataset(self.file_fc_nc)
+        self.fc = fc_all.sel(time=[np.datetime64(time)], method='nearest')  # conserve dimension using slicing
+        self.z_surf = xr.open_dataset(self.file_z_grb, engine='cfgrib')
+
 
     def hybrid_to_p(self, file_level_coeffs=None):
         """compute pressure (in Pa) of half and full levels from hybrid levels and fill to self.p and self.p_half"""
@@ -56,9 +63,32 @@ class ModelInterpreter(object):
         self.p = (self.p_half + np.roll(self.p_half, 1, axis=1))[:, 1:,:, :] / 2
 
     def p_to_z(self):
-        """transform pressure grid (from hybrid_to_z) to geometrical altitudes"""
-        pass
+        """transform pressure grid (from hybrid_to_z) to geometrical altitudes
 
+        according to: https://confluence.ecmwf.int/display/CKB/ERA5%3A+compute+pressure+and+geopotential+on+model+levels%2C+geopotential+height+and+geometric+height
+        """
+
+        gas_const = 287.06  # gas constant for dry air (Rd)
+        g = 9.80665  # gravitational acceleration of Earth
+
+        # TODO: check whole function with hypsometric equation and possibly re-write from scratch using it (clearer)
+        # TODO: check correct order in substraction/division for dp/dlogp.. problem with uppermost level
+        dp = (self.p_half - np.roll(self.p_half, 1, axis=1))[:, 1:, :, :]
+        dlogp = np.log( self.p_half / np.roll(self.p_half, 1, axis=1))[:, 1:, :, :]
+        alpha = 1 - (self.p_half[:, 1:, :, :] / dp) * dlogp
+
+        # correct for uppermost level
+        dlogp[:, 0, :, :] = np.log(self.p_half[:, 1, :, :] / 0.1)
+        alpha[:, 0, :, :] = np.tile(np.log(2), (self.p_half.shape[0], 1, self.p_half.shape[2], self.p_half.shape[3]))
+
+        # transformation to z
+        dzg_half = self.virt_temp() * gas_const * dlogp  # diff between geopotential height half levels
+        zg_surf_all = self.z_surf.z.data[np.newaxis, np.newaxis, :, :] * g
+        dzg_half_with_sfc = np.concatenate((dzg_half, zg_surf_all), axis=1)
+        zg_half = np.flip(np.cumsum(np.flip(dzg_half_with_sfc, axis=1), axis=1), axis=1)  # integrate from surface
+        zg = zg_half[:, 1:, :, :] - alpha*gas_const*self.virt_temp()
+
+        self.z = zg / g
 
     def virt_temp(self):
         """return virtual temperature from temperature and specific humdity in self.fc"""
@@ -72,6 +102,8 @@ class ModelInterpreter(object):
 
 
 if __name__ == '__main__':
-    x = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc')
-    x.run()
+    import datetime as dt
+    model = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc',
+                         'mwr_l12l2/data/ecmwf_fc/z_ecmwf_fc_0-20000-0-10393_A.grb')
+    model.run(dt.datetime(2023,4,25,15,0,0))
     pass
