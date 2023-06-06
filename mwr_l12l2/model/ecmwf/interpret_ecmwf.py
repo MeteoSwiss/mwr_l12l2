@@ -5,6 +5,10 @@ import xarray as xr
 from mwr_l12l2.errors import MWRInputError
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
+
+
+
+
 class ModelInterpreter(object):
 
     def __init__(self, file_fc_nc, file_z_grb):
@@ -15,6 +19,11 @@ class ModelInterpreter(object):
         self.p = None
         self.p_half = None
         self.z = None
+        self.z_ref = None  # reference geometrical altitude profile (1d)
+        self.q_ref = None  # reference humidity profile (1d)
+        self.t_ref = None  # reference temperature profile (1d)
+        self.q_std = None  # standard deviation of humidity profile within lat/lon area (1d)
+        self.t_std = None  # standard deviation of humidity profile within lat/lon area (1d)
 
     def run(self, time):
         """run for data closest to selected time (in datetime64)"""
@@ -90,15 +99,38 @@ class ModelInterpreter(object):
 
         self.z = zg / g
 
+    def compute_stats(self):
+        # take profiles at centre of lat/lon (at last time selected) as reference z grid
+        self.z_ref = get_ref_profile(self.z)
+        self.q_ref = get_ref_profile(self.fc.q)
+        self.t_ref = get_ref_profile(self.fc.t)
+
+        self.q_std = get_std_profile(self.fc.q)
+        self.t_std = get_std_profile(self.fc.t)
+
+    def produce_tropoe_file(self):
+        pass
+
     def virt_temp(self):
         """return virtual temperature from temperature and specific humdity in self.fc"""
         return self.fc.t * (1 + 0.609133*self.fc.q)
 
-    def compute_stats(self):
-        pass
 
-    def produce_tropoe_file(self):
-        pass
+def get_ref_profile(x):
+    """extract ref profile (last time, centre lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
+    return x.data[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]
+
+def get_std_profile(x):
+    """extract std profile (last time, std in lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
+    # flatten lat and lon so that we can take std over all profiles in lat/lon box
+    data_flat = x.data[-1, :, :, :, ].reshape((-1, x.shape[-2] * x.shape[-1]))
+    return np.std(data_flat, axis=1)
+
+    # the following trying to interpolate q and t to same altitude grid using scipy's failed with all NaN
+    # from scipy.interpolate import griddata
+    # z_flat = self.z.data[-1, :, :, :, ].reshape((-1, self.z.data.shape[-2] * self.z.data.shape[-1]))
+    # q_interp = griddata(z_flat[:-1, :], q_flat[:-1, :], np.tile(self.z_ref.data[:-1,np.newaxis],
+    #       (1, self.fc.t.data.shape[-2] * self.fc.t.data.shape[-1])))
 
 
 if __name__ == '__main__':
