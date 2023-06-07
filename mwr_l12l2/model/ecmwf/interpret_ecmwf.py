@@ -23,8 +23,8 @@ class ModelInterpreter(object):
         self.z_ref = None  # reference geometrical altitude profile (1d)
         self.q_ref = None  # reference humidity profile (1d)
         self.t_ref = None  # reference temperature profile (1d)
-        self.q_std = None  # standard deviation of humidity profile within lat/lon area (1d)
-        self.t_std = None  # standard deviation of humidity profile within lat/lon area (1d)
+        self.q_err = None  # standard deviation of humidity profile within lat/lon area (1d)
+        self.t_err = None  # standard deviation of humidity profile within lat/lon area (1d)
 
     def run(self, time):
         """run for data closest to selected time (in datetime64)"""
@@ -101,13 +101,15 @@ class ModelInterpreter(object):
         self.z = zg / g
 
     def compute_stats(self):
-        # take profiles at centre of lat/lon (at last time selected) as reference z grid
+        """take reference profiles and uncertainty"""
+        # take profiles at centre of lat/lon (at last time selected) as reference
         self.z_ref = get_ref_profile(self.z)
         self.q_ref = get_ref_profile(self.fc.q)
         self.t_ref = get_ref_profile(self.fc.t)
 
-        self.q_std = get_std_profile(self.fc.q)
-        self.t_std = get_std_profile(self.fc.t)
+        # take std over lat/lon (at last time selected) as reference
+        self.q_err = get_std_profile(self.fc.q)
+        self.t_err = get_std_profile(self.fc.t)
 
     def produce_tropoe_file(self):
         """write reference profile and associated error to output file readable by TROPoe"""
@@ -138,6 +140,7 @@ def get_std_profile(x):
 if __name__ == '__main__':
     import datetime as dt
     model = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc',
-                         'mwr_l12l2/data/ecmwf_fc/z_ecmwf_fc_0-20000-0-10393_A.grb')
-    model.run(dt.datetime(2023,4,25,15,0,0))
+                             'mwr_l12l2/data/ecmwf_fc/z_ecmwf_fc_0-20000-0-10393_A.grb',
+                             'mwr_l12l2/data/ecmwf_fc/model_stats_0-20000-0-06610_A_202304250000.csv')
+    model.run(dt.datetime(2023, 4, 25, 15, 0, 0))
     pass
