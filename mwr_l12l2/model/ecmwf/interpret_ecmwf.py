@@ -11,9 +11,10 @@ from mwr_l12l2.utils.file_uitls import abs_file_path
 
 class ModelInterpreter(object):
 
-    def __init__(self, file_fc_nc, file_z_grb):
+    def __init__(self, file_fc_nc, file_z_grb, file_out):
         self.file_fc_nc = abs_file_path(file_fc_nc)
         self.file_z_grb = abs_file_path(file_z_grb)
+        self.file_out = abs_file_path(file_out)
         self.fc = None
         self.z_surf = None
         self.p = None
@@ -109,6 +110,7 @@ class ModelInterpreter(object):
         self.t_std = get_std_profile(self.fc.t)
 
     def produce_tropoe_file(self):
+        """write reference profile and associated error to output file readable by TROPoe"""
         pass
 
     def virt_temp(self):
