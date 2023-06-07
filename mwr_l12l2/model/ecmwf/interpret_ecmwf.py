@@ -60,7 +60,7 @@ class ModelInterpreter(object):
 
         # extract a and b parameters for levels of interest (half levels below and above)
         ab = np.concatenate([level_coeffs.loc[self.fc.level - 1, ['a', 'b']].to_numpy(),
-                             np.expand_dims(level_coeffs.loc[self.fc.level[-1].data, ['a', 'b']].to_numpy(), axis=0)])
+                             np.expand_dims(level_coeffs.loc[self.fc.level[-1].values, ['a', 'b']].to_numpy(), axis=0)])
         a = ab[:, 0]
         b = ab[:, 1]
 
@@ -93,7 +93,7 @@ class ModelInterpreter(object):
 
         # transformation to z
         dzg_half = self.virt_temp() * gas_const * dlogp  # diff between geopotential height half levels
-        zg_surf_all = self.z_surf.z.data[np.newaxis, np.newaxis, :, :] * g
+        zg_surf_all = self.z_surf.z.values[np.newaxis, np.newaxis, :, :] * g
         dzg_half_with_sfc = np.concatenate((dzg_half, zg_surf_all), axis=1)
         zg_half = np.flip(np.cumsum(np.flip(dzg_half_with_sfc, axis=1), axis=1), axis=1)  # integrate from surface
         zg = zg_half[:, 1:, :, :] - alpha*gas_const*self.virt_temp()
@@ -107,7 +107,7 @@ class ModelInterpreter(object):
         self.q_ref = get_ref_profile(self.fc.q)
         self.t_ref = get_ref_profile(self.fc.t)
 
-        # take std over lat/lon (at last time selected) as reference
+        # take std over lat/lon (at last time selected) as error
         self.q_err = get_std_profile(self.fc.q)
         self.t_err = get_std_profile(self.fc.t)
 
@@ -122,19 +122,19 @@ class ModelInterpreter(object):
 
 def get_ref_profile(x):
     """extract ref profile (last time, centre lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
-    return x.data[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]
+    return x.values[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]
 
 def get_std_profile(x):
     """extract std profile (last time, std in lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
     # flatten lat and lon so that we can take std over all profiles in lat/lon box
-    data_flat = x.data[-1, :, :, :, ].reshape((-1, x.shape[-2] * x.shape[-1]))
-    return np.std(data_flat, axis=1)
+    x_flat = x.values[-1, :, :, :, ].reshape((-1, x.shape[-2] * x.shape[-1]))
+    return np.std(x_flat, axis=1)
 
     # the following trying to interpolate q and t to same altitude grid using scipy's failed with all NaN
     # from scipy.interpolate import griddata
-    # z_flat = self.z.data[-1, :, :, :, ].reshape((-1, self.z.data.shape[-2] * self.z.data.shape[-1]))
-    # q_interp = griddata(z_flat[:-1, :], q_flat[:-1, :], np.tile(self.z_ref.data[:-1,np.newaxis],
-    #       (1, self.fc.t.data.shape[-2] * self.fc.t.data.shape[-1])))
+    # z_flat = self.z.values[-1, :, :, :, ].reshape((-1, self.z.values.shape[-2] * self.z.values.shape[-1]))
+    # q_interp = griddata(z_flat[:-1, :], q_flat[:-1, :], np.tile(self.z_ref.values[:-1,np.newaxis],
+    #       (1, self.fc.t.values.shape[-2] * self.fc.t.values.shape[-1])))
 
 
 if __name__ == '__main__':
