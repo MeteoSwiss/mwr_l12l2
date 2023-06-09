@@ -6,9 +6,6 @@ from mwr_l12l2.errors import MWRInputError
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
 
-
-
-
 class ModelInterpreter(object):
 
     def __init__(self, file_fc_nc, file_zg_grb, file_out, file_ml='mwr_l12l2/data/ecmwf_fc/ecmwf_model_levels_137.csv'):
@@ -97,7 +94,7 @@ class ModelInterpreter(object):
 
         # correct for uppermost level
         dlogp[:, 0, :, :] = np.log(self.p_half[:, 1, :, :] / 0.1)
-        alpha[:, 0, :, :] = np.tile(np.log(2), (self.p_half.shape[0], 1, self.p_half.shape[2], self.p_half.shape[3]))
+        alpha[:, 0, :, :] = np.tile(-np.log(2), (self.p_half.shape[0], 1, self.p_half.shape[2], self.p_half.shape[3]))
 
         # transformation to geopotential height zg
         dzg_half = self.virt_temp() * gas_const * dlogp  # diff between geopotential height half levels
