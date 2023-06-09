@@ -11,10 +11,21 @@ from mwr_l12l2.utils.file_uitls import abs_file_path
 
 class ModelInterpreter(object):
 
-    def __init__(self, file_fc_nc, file_z_grb, file_out):
+    def __init__(self, file_fc_nc, file_zg_grb, file_out, file_ml='mwr_l12l2/data/ecmwf_fc/ecmwf_model_levels_137.csv'):
+        """class to interpret model data from ECMWF
+
+        Args:
+            file_fc_nc: file containing forecast data in NetCDF. Must have been converted from grib to nc with
+                mwr_l12l2/model/ecmwf/grb_to_nc.sh before. Direct read-in of grib doesn't work because of dim of lnsp
+            file_zg_grb: file containing the geopotential of the lowest model level in grib format
+            file_out: output file where to write model statistics to (as input to TROPoe)
+            file_ml (optional): a and b parameters to transform model levels to pressure and altitude grid
+        """
+
         self.file_fc_nc = abs_file_path(file_fc_nc)
-        self.file_zg_grb = abs_file_path(file_z_grb)
+        self.file_zg_grb = abs_file_path(file_zg_grb)
         self.file_out = abs_file_path(file_out)
+        self.file_ml = abs_file_path(file_ml)
         self.fc = None
         self.zg_surf = None
         self.p = None
@@ -41,22 +52,20 @@ class ModelInterpreter(object):
         self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
 
 
-    def hybrid_to_p(self, file_level_coeffs=None):
+    def hybrid_to_p(self):
         """compute pressure (in Pa) of half and full levels from hybrid levels and fill to self.p and self.p_half"""
 
-        if file_level_coeffs is None:
-            file_level_coeffs = abs_file_path('mwr_l12l2/model/ecmwf/ecmwf_model_levels_137.csv')
-        col_headers = ['level', 'a', 'b']  # expected column headers in file_level_coeffs
+        col_headers = ['level', 'a', 'b']  # expected column headers in self.file_ml
 
         # get parameters a and b for hybrid model levels from csv and do some basic input checking
-        level_coeffs = pd.read_csv(file_level_coeffs)
+        level_coeffs = pd.read_csv(self.file_ml )
         for name in col_headers:
             if name not in level_coeffs:
                 MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain a column header "
-                              "'{}' in the first line".format(file_level_coeffs, name))
+                              "'{}' in the first line".format(self.file_ml, name))
         if not (level_coeffs.loc[len(level_coeffs)-1, 'level'] == len(level_coeffs)-1 and level_coeffs.loc[0, 'level'] == 0):
             MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain all levels "
-                          'from 0 to n_levels (plus one line of column headers at the top)'.format(file_level_coeffs))
+                          'from 0 to n_levels (plus one line of column headers at the top)'.format(self.file_ml))
 
         # extract a and b parameters for levels of interest (half levels below and above)
         ab = np.concatenate([level_coeffs.loc[self.fc.level - 1, ['a', 'b']].to_numpy(),
@@ -82,9 +91,8 @@ class ModelInterpreter(object):
         g = 9.80665  # gravitational acceleration of Earth
 
         # TODO: check whole function with hypsometric equation and possibly re-write from scratch using it (clearer)
-        # TODO: check correct order in substraction/division for dp/dlogp.. problem with uppermost level
         dp = (self.p_half - np.roll(self.p_half, 1, axis=1))[:, 1:, :, :]
-        dlogp = np.log( self.p_half / np.roll(self.p_half, 1, axis=1))[:, 1:, :, :]
+        dlogp = np.log(self.p_half / np.roll(self.p_half, 1, axis=1))[:, 1:, :, :]
         alpha = 1 - (self.p_half[:, 1:, :, :] / dp) * dlogp
 
         # correct for uppermost level
