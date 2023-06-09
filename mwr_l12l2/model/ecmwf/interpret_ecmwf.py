@@ -13,10 +13,10 @@ class ModelInterpreter(object):
 
     def __init__(self, file_fc_nc, file_z_grb, file_out):
         self.file_fc_nc = abs_file_path(file_fc_nc)
-        self.file_z_grb = abs_file_path(file_z_grb)
+        self.file_zg_grb = abs_file_path(file_z_grb)
         self.file_out = abs_file_path(file_out)
         self.fc = None
-        self.z_surf = None
+        self.zg_surf = None
         self.p = None
         self.p_half = None
         self.z = None
@@ -38,7 +38,7 @@ class ModelInterpreter(object):
         """load dataset and reduce to the time of interest (to speed up following computations)"""
         fc_all = xr.open_dataset(self.file_fc_nc)
         self.fc = fc_all.sel(time=[np.datetime64(time)], method='nearest')  # conserve dimension using slicing
-        self.z_surf = xr.open_dataset(self.file_z_grb, engine='cfgrib')
+        self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
 
 
     def hybrid_to_p(self, file_level_coeffs=None):
@@ -91,13 +91,14 @@ class ModelInterpreter(object):
         dlogp[:, 0, :, :] = np.log(self.p_half[:, 1, :, :] / 0.1)
         alpha[:, 0, :, :] = np.tile(np.log(2), (self.p_half.shape[0], 1, self.p_half.shape[2], self.p_half.shape[3]))
 
-        # transformation to z
+        # transformation to geopotential height zg
         dzg_half = self.virt_temp() * gas_const * dlogp  # diff between geopotential height half levels
-        zg_surf_all = self.z_surf.z.values[np.newaxis, np.newaxis, :, :] * g
+        zg_surf_all = self.zg_surf.z.values[np.newaxis, np.newaxis, :, :]
         dzg_half_with_sfc = np.concatenate((dzg_half, zg_surf_all), axis=1)
         zg_half = np.flip(np.cumsum(np.flip(dzg_half_with_sfc, axis=1), axis=1), axis=1)  # integrate from surface
         zg = zg_half[:, 1:, :, :] - alpha*gas_const*self.virt_temp()
 
+        # transformation to geometrical height z
         self.z = zg / g
 
     def compute_stats(self):
@@ -140,7 +141,7 @@ def get_std_profile(x):
 if __name__ == '__main__':
     import datetime as dt
     model = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc',
-                             'mwr_l12l2/data/ecmwf_fc/z_ecmwf_fc_0-20000-0-10393_A.grb',
+                             'mwr_l12l2/data/ecmwf_fc/z_ecmwf_fc_0-20000-0-06610_A.grb',
                              'mwr_l12l2/data/ecmwf_fc/model_stats_0-20000-0-06610_A_202304250000.csv')
     model.run(dt.datetime(2023, 4, 25, 15, 0, 0))
     pass
