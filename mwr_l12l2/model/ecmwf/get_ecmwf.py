@@ -68,8 +68,8 @@ def write_mars_request(request_file, mars_conf_fc, mars_conf_z, inst_conf_path, 
         # prepare request
         lat_box = get_corner_coord(inst_conf['station_latitude'], conf['grid']['lat_offset'], conf['grid']['lat_res'])
         lon_box = get_corner_coord(inst_conf['station_longitude'], conf['grid']['lon_offset'], conf['grid']['lon_res'])
-        area_str = '{:.3f}/{:.3f}/{:.3f}/{:.3f},'.format(lat_box[1], lon_box[0], lat_box[0], lon_box[1])
-        grid_str = '{:.3f}/{:.3f},'.format(conf['grid']['lat_res'], conf['grid']['lon_res'])
+        area_str = '{:.3f}/{:.3f}/{:.3f}/{:.3f}'.format(lat_box[1], lon_box[0], lat_box[0], lon_box[1])
+        grid_str = '{:.3f}/{:.3f}'.format(conf['grid']['lat_res'], conf['grid']['lon_res'])
         outfile_path = abs_file_path(conf['outfile']['path'])
         outfile_path_z = abs_file_path(conf_z['outfile']['path'])
         outfile_stamp_fc = '{}_{}_{}{}'.format(inst_conf['wigos_station_id'], inst_conf['instrument_id'],
@@ -91,6 +91,7 @@ def write_mars_request(request_file, mars_conf_fc, mars_conf_z, inst_conf_path, 
                                                    outfile_stamp_z, conf_z['outfile']['extension']))
         contents_z.append('')
 
+    # concat everything and write request file
     contents = contents_fc + contents_z
     with open(request_file, 'w') as f:
         f.write('\n'.join(contents))
