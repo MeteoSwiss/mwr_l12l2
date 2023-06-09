@@ -132,7 +132,7 @@ def get_std_profile(x):
     return np.std(x_flat, axis=1)
 
     # the following trying to interpolate q and t to same altitude grid using scipy's failed with all NaN
-    # from scipy.interpolate import griddata
+    # from scipy.interpolate import griddata (possibly only because z-grid was not monotonic at this time)
     # z_flat = self.z.values[-1, :, :, :, ].reshape((-1, self.z.values.shape[-2] * self.z.values.shape[-1]))
     # q_interp = griddata(z_flat[:-1, :], q_flat[:-1, :], np.tile(self.z_ref.values[:-1,np.newaxis],
     #       (1, self.fc.t.values.shape[-2] * self.fc.t.values.shape[-1])))
