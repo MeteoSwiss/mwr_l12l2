@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 poetry.lock
 .coverage
+*.idx
 *log.txt
 .idea/
 .~lock.*
