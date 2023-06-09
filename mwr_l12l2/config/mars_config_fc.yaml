@@ -1,5 +1,5 @@
-# config file for requsting ECMWF forecast data using 'mars' #
-##############################################################
+# config file for requesting ECMWF forecast data using 'mars' #
+###############################################################
 #
 # this file defines the settings common to all stations.
 # 'grid', 'area' and 'target' (output filename) are generated using info in station config files
@@ -15,7 +15,6 @@ request:  # configurations of mars keywords common to all requests
   date: null  # if set to 'null', get the most recent forecast
   time: null  # if set to 'null', get the most recent forecast
   step: 0/1/2/3/4/5/6/7/8/9/10/11/12/13/14/15/16/17/18/19/20/21/22/23/24/25/26  # forecast step. make sure that we can also cope with 1 missing forecast
-
 
 grid:  # lat/lon grid for the region around the station where to request data from
   lat_res: 0.1  # latitude resolution with which to get data in deg. should be multiple for model resolution

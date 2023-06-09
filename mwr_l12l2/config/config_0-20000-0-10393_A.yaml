@@ -13,14 +13,14 @@ station_latitude: 52.21
 station_longitude: 14.12
 station_altitude: 98.
 
-# the following can be used to deviate from the standard defined in mars_config.yaml for requesting model data.
+# the following can be used to deviate from the standard defined in mars_config_fc.yaml for requesting model data.
 model_request:
    grid:
       lat_res: 0.1  # latitude resolution with which to write values to the output file
       lon_res: 0.1  # longitude resolution with which to write values to the output file
       lat_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
       lon_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
-#   outfile: # do not set unless you have a very good reason to deviate from default defined in mars_config.yaml
+#   outfile: # do not set unless you have a very good reason to deviate from default defined in mars_config_fc.yaml
 #      path:
 #      basename:
 #      extension:

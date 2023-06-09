@@ -43,12 +43,23 @@ def get_inst_config(file):
     return conf
 
 
-def get_mars_config(file):
-    """get configuration for mars request to obtain ECMWF data and check for completeness of config file"""
+def get_mars_config(file, mandatory_keys=None, mandatory_keys_request=None):
+    """get configuration for mars request to obtain ECMWF data and check for completeness of config file
 
-    mandatory_keys = ['request', 'grid', 'outfile']
-    mandatory_keys_request = ['class', 'expver', 'type', 'stream', 'levtype', 'param', 'levelist', 'date', 'time',
-                              'step']
+    Args:
+        file: configuration file in yaml format to read in
+        mandatory_keys (optional): mandatory primary keys. Default is ['request', 'grid', 'outfile'] for full request.
+            This list can be reduced for subsequent requests inheriting from the primary one
+        mandatory_keys_request (optional): mandatory keys in request section. Default is [class', 'expver', 'type',
+            'stream', 'levtype', 'levelist', 'param', 'date', 'time', 'step']. This list can be reduced for subsequent
+            requests inheriting from the primary one
+    """
+
+    if mandatory_keys is None:
+        mandatory_keys = ['request', 'grid', 'outfile']
+    if mandatory_keys_request is None:
+        mandatory_keys_request = ['class', 'expver', 'type', 'stream', 'levtype', 'levelist', 'param',
+                                  'date', 'time', 'step']
     mandatory_keys_grid = ['lat_res', 'lon_res' , 'lat_offset', 'lon_offset']
     mandatory_keys_outfile = ['path', 'basename']
 
@@ -57,11 +68,14 @@ def get_mars_config(file):
     # verify conf dictionary structure
     note_msg = "Note that some fields can be set to 'null' if waiting for input by instrument config or current time."
     check_conf(conf, mandatory_keys, ['of mars config files but is missing in {}. {}'.format(file, note_msg)])
-    check_conf(conf['request'], mandatory_keys_request,
-               "of field 'request' in mars config files but is missing in {}. {}".format(file, note_msg))
-    check_conf(conf['grid'], mandatory_keys_grid,
-               "of field 'grid' in mars config files but is missing in {}. {}".format(file, note_msg))
-    check_conf(conf['outfile'], mandatory_keys_outfile,
+    if 'request' in conf:
+        check_conf(conf['request'], mandatory_keys_request,
+                   "of field 'request' in mars config files but is missing in {}. {}".format(file, note_msg))
+    if 'grid' in conf:
+        check_conf(conf['grid'], mandatory_keys_grid,
+                   "of field 'grid' in mars config files but is missing in {}. {}".format(file, note_msg))
+    if 'outfile' in conf:
+        check_conf(conf['outfile'], mandatory_keys_outfile,
                    "of field 'outfile' in mars config files but is missing in {}. {}".format(file, note_msg))
 
     return conf
@@ -74,6 +88,8 @@ def merge_mars_inst_config(mars_conf, inst_conf):
     merged_conf = mars_conf
     if inst_conf_mars_block in inst_conf:
         for block_key in inst_conf[inst_conf_mars_block]:
+            if block_key not in merged_conf:
+                continue  # only fill primary keys which are also in mars request. Enforce presence by read-in check.
             for key, val in inst_conf[inst_conf_mars_block][block_key].items():
                 merged_conf[block_key][key] = val
 
@@ -82,5 +98,5 @@ def merge_mars_inst_config(mars_conf, inst_conf):
 
 if __name__ == '__main__':
     conf_inst = get_inst_config(abs_file_path('mwr_l12l2/config/config_0-20000-0-10393_A.yaml'))
-    conf_mars = get_mars_config(abs_file_path('mwr_l12l2/config/mars_config.yaml'))
+    conf_mars = get_mars_config(abs_file_path('mwr_l12l2/config/mars_config_fc.yaml'))
     pass

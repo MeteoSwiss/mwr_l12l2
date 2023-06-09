@@ -1,0 +1,20 @@
+# config file for requesting surface geopotential from ECMWF fanalyses using 'mars' #
+#####################################################################################
+#
+# this file defines the settings common to all stations.
+# 'grid', 'area', 'date', 'time' and filename stamps are taken from mars_config_fc. Specifying them here has no effect!
+
+request:  # configurations of mars keywords common to all z requests
+  class: od
+  expver: 1
+  type: an
+  stream: oper
+  levtype: ml
+  param: 129  # temperature [K] / specific humidity [kg/kg] / logarithm of surface pressure [-]
+  levelist: 1
+  step: 0  # needs to be specified here for avoiding inheritance from mars_config_fc leading to error
+
+outfile:
+  path: mwr_raw2l1/data/output/ecmwf/
+  basename: ecmwf_z_
+  extension: .grb

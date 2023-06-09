@@ -141,7 +141,7 @@ def get_std_profile(x):
 if __name__ == '__main__':
     import datetime as dt
     model = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc',
-                             'mwr_l12l2/data/ecmwf_fc/z_ecmwf_fc_0-20000-0-06610_A.grb',
+                             'mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-06610_A.grb',
                              'mwr_l12l2/data/ecmwf_fc/model_stats_0-20000-0-06610_A_202304250000.csv')
     model.run(dt.datetime(2023, 4, 25, 15, 0, 0))
     pass
