@@ -6,10 +6,10 @@ authors = ["Rolf Rüfenacht <rruefenacht@users.noreply.github.com>"]
 license = "BSD 3-Clause"
 
 [tool.poetry.dependencies]
-python = "^3.9"  # xarray requires >=3.9
+python = "^3.8"
 PyYAML = "^6.0"
-numpy = "^1.24.3"
-xarray = "^2023.5.0"
+numpy = "^1.20"
+xarray = "^2023.1"
 cfgrib = "^0.9.10"
 netCDF4 = "^1.6.3"
 
