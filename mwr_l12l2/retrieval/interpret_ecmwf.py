@@ -8,20 +8,26 @@ from mwr_l12l2.utils.file_uitls import abs_file_path
 
 class ModelInterpreter(object):
 
-    def __init__(self, file_fc_nc, file_zg_grb, file_out, file_ml='mwr_l12l2/data/ecmwf_fc/ecmwf_model_levels_137.csv'):
-        """class to interpret model data from ECMWF
+    def __init__(self, file_fc_nc, file_zg_grb, file_prof_out, file_sfc_out=None, station_altitude=None,
+                 file_ml='mwr_l12l2/data/ecmwf_fc/ecmwf_model_levels_137.csv'):
+        """class to interpret model data from ECMWF and produce input files for TROPoe
 
         Args:
             file_fc_nc: file containing forecast data in NetCDF. Must have been converted from grib to nc with
                 mwr_l12l2/model/ecmwf/grb_to_nc.sh before. Direct read-in of grib doesn't work because of dim of lnsp
             file_zg_grb: file containing the geopotential of the lowest model level in grib format
-            file_out: output file where to write model statistics to (as input to TROPoe)
+            file_prof_out: output file where to write model reference profiles and uncertainties to (as input to TROPoe)
+            file_sfc_out (optional): output file where to write inter/extrapolation of model data to station surface to.
+                If not specified or None/empty no surface data file will be produced
+            station_altitude (optional): If :param:`file_sfc_out` is given also this parameter needs to be specified
             file_ml (optional): a and b parameters to transform model levels to pressure and altitude grid
         """
 
         self.file_fc_nc = abs_file_path(file_fc_nc)
         self.file_zg_grb = abs_file_path(file_zg_grb)
-        self.file_out = abs_file_path(file_out)
+        self.file_prof_out = abs_file_path(file_prof_out)
+        self.file_sfc_out = abs_file_path(file_sfc_out)
+        self.station_altitude = station_altitude
         self.file_ml = abs_file_path(file_ml)
         self.fc = None
         self.zg_surf = None
@@ -30,6 +36,7 @@ class ModelInterpreter(object):
         self.z = None
         self.time_ref = None  # time of reference profiles
         self.z_ref = None  # reference geometrical altitude profile (1d)
+        self.p_ref = None  # reference pressure profile (1d)
         self.q_ref = None  # reference humidity profile (1d)
         self.t_ref = None  # reference temperature profile (1d)
         self.q_err = None  # standard deviation of humidity profile within lat/lon area (1d)
@@ -41,14 +48,13 @@ class ModelInterpreter(object):
         self.hybrid_to_p()
         self.p_to_z()
         self.compute_stats()
-        self.produce_tropoe_file()
+        self.produce_tropoe_files()
 
     def load_data(self, time):
         """load dataset and reduce to the time of interest (to speed up following computations)"""
         fc_all = xr.open_dataset(self.file_fc_nc)
         self.fc = fc_all.sel(time=[np.datetime64(time)], method='nearest')  # conserve dimension using slicing
         self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
-
 
     def hybrid_to_p(self):
         """compute pressure (in Pa) of half and full levels from hybrid levels and fill to self.p and self.p_half"""
@@ -89,6 +95,7 @@ class ModelInterpreter(object):
         g = 9.80665  # gravitational acceleration of Earth
 
         # TODO: check whole function with hypsometric equation and possibly re-write from scratch using it (clearer)
+        # TODO: get rid of RuntimeWarning: divide by zero encountered in log
         dp = (self.p_half - np.roll(self.p_half, 1, axis=1))[:, 1:, :, :]
         dlogp = np.log(self.p_half / np.roll(self.p_half, 1, axis=1))[:, 1:, :, :]
         alpha = 1 - (self.p_half[:, 1:, :, :] / dp) * dlogp
@@ -109,19 +116,50 @@ class ModelInterpreter(object):
 
     def compute_stats(self):
         """take reference profiles and uncertainty"""
+        # TODO: make this method more generic
         # take profiles at centre of lat/lon (at last time selected) as reference
         self.z_ref = get_ref_profile(self.z)
         self.q_ref = get_ref_profile(self.fc.q)
         self.t_ref = get_ref_profile(self.fc.t)
-        self.time_ref = self.fc.time
+        self.p_ref = get_ref_profile(self.p)
+        self.time_ref = self.fc.time.values
 
         # take std over lat/lon (at last time selected) as error
         self.q_err = get_std_profile(self.fc.q)
         self.t_err = get_std_profile(self.fc.t)
 
-    def produce_tropoe_file(self):
-        """write reference profile and associated error to output file readable by TROPoe"""
-        pass
+    def produce_tropoe_files(self):
+        """write reference profile and uncertainties as well as surface data to output files readable by TROPoe"""
+        # TODO: make this method more generic
+        prof_data_specs={'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
+                         'lat': dict(dims=(), data=self.fc.latitude.values[int(len(self.fc.latitude)/2)]),
+                         'lon': dict(dims=(), data=self.fc.longitude.values[int(len(self.fc.latitude)/2)]),
+                         'time_offset': dict(dims='time', data=self.time_ref),
+                         'height': dict(dims='height', data=self.z_ref/1e3),
+                         'temperature': dict(dims=('time', 'height'), data=self.t_ref[np.newaxis, :]-273.15),
+                         'sigma_temperature': dict(dims=('time', 'height'), data=self.t_err[np.newaxis, :]),
+                         'waterVapor': dict(dims=('time', 'height'), data=self.q_ref[np.newaxis, :]*1e3),
+                         'sigma_waterVapor': dict(dims=('time', 'height'), data=self.q_err[np.newaxis, :]*1e3),
+                         }
+        prof_data = xr.Dataset.from_dict(prof_data_specs)
+        prof_data.to_netcdf(self.file_prof_out)
+
+        #TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
+        # instead. use log for pressure
+        sfc_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
+                          'lat': dict(dims=(), data=self.fc.latitude.values[int(len(self.fc.latitude) / 2)]),
+                          'lon': dict(dims=(), data=self.fc.longitude.values[int(len(self.fc.latitude) / 2)]),
+                          'time_offset': dict(dims='time', data=self.time_ref),
+                          'height': dict(dims='height', data=self.z_ref[-1:] / 1e3),
+                          'temperature': dict(dims=('time', 'height'), data=self.t_ref[np.newaxis, -1:] - 273.15),
+                          'sigma_temperature': dict(dims=('time', 'height'), data=self.t_err[np.newaxis, -1:]),
+                          'waterVapor': dict(dims=('time', 'height'), data=self.q_ref[np.newaxis, -1:] * 1e3),
+                          'sigma_waterVapor': dict(dims=('time', 'height'), data=self.q_err[np.newaxis, -1:] * 1e3),
+                          }
+        sfc_data = xr.Dataset.from_dict(sfc_data_specs)
+        sfc_data.to_netcdf(self.file_sfc_out)
+
+        # TODO: add global attribute on data source (ECMWF) for the above 2 files
 
     def virt_temp(self):
         """return virtual temperature from temperature and specific humdity in self.fc"""
@@ -149,8 +187,10 @@ def get_std_profile(x):
 
 if __name__ == '__main__':
     import datetime as dt
-    model = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-06610_A_202304250000_converted_to.nc',
-                             'mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-06610_A.grb',
-                             'mwr_l12l2/data/ecmwf_fc/model_stats_0-20000-0-06610_A_202304250000.csv')
+    model = ModelInterpreter('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc',
+                             'mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb',
+                             'mwr_l12l2/data/output/ecmwf/model_stats_0-20000-0-10393_A_202304251500.nc',
+                             'mwr_l12l2/data/output/ecmwf/model_sfc_0-20000-0-10393_A_202304251500.nc',
+                             127)
     model.run(dt.datetime(2023, 4, 25, 15, 0, 0))
     pass
