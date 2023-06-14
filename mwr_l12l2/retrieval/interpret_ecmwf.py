@@ -28,6 +28,7 @@ class ModelInterpreter(object):
         self.p = None
         self.p_half = None
         self.z = None
+        self.time_ref = None  # time of reference profiles
         self.z_ref = None  # reference geometrical altitude profile (1d)
         self.q_ref = None  # reference humidity profile (1d)
         self.t_ref = None  # reference temperature profile (1d)
@@ -35,7 +36,7 @@ class ModelInterpreter(object):
         self.t_err = None  # standard deviation of humidity profile within lat/lon area (1d)
 
     def run(self, time):
-        """run for data closest to selected time (in datetime64)"""
+        """run for data closest to selected time in :class:`numpy.datetime64` or :class:`datetime.datetime`"""
         self.load_data(time)
         self.hybrid_to_p()
         self.p_to_z()
@@ -112,6 +113,7 @@ class ModelInterpreter(object):
         self.z_ref = get_ref_profile(self.z)
         self.q_ref = get_ref_profile(self.fc.q)
         self.t_ref = get_ref_profile(self.fc.t)
+        self.time_ref = self.fc.time
 
         # take std over lat/lon (at last time selected) as error
         self.q_err = get_std_profile(self.fc.q)
