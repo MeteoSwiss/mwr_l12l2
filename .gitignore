@@ -4,6 +4,7 @@ poetry.lock
 .coverage
 *.idx
 *log.txt
+mwr_l12l2/data/tropoe/node*
 .idea/
 .~lock.*
 
