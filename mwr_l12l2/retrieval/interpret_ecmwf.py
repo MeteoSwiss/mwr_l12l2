@@ -130,7 +130,9 @@ class ModelInterpreter(object):
 
 def get_ref_profile(x):
     """extract ref profile (last time, centre lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
-    return x.values[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]
+    if type(x) is not np.ndarray:
+        x = x.values
+    return x[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]
 
 def get_std_profile(x):
     """extract std profile (last time, std in lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
