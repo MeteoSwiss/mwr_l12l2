@@ -20,6 +20,11 @@ def concat_to_single_file(files_in, file_out, concat_dim='time'):
     # TODO: find out why xarray produces all input arrays as dask array and why to_netcdf() produces warning on encoding
     x = xr.open_mfdataset(files_in, concat_dim=concat_dim, combine='nested')
     x = drop_duplicates(x, dim='time')
+
+    # correct time encoding (especially units) which is broken by open_mfdateset by explicitly loading first file
+    y = xr.open_dataset(files_in[0])
+    x.time.encoding = y.time.encoding
+
     x.to_netcdf(file_out)
 
 
