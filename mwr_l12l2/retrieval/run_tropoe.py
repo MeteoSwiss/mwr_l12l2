@@ -18,20 +18,21 @@ def run_tropoe(data_path, date, vip_file, apriori_file, tropoe_img='davidturner5
         verbosity (optional): verbosity level of TROPoe. Defaults to 1
     """
 
+    # generate date string. Accept datetime.datetime and strings/integers (for special calls, e.g. 0 for vip docs)
     try:
         date_str = date.strftime('%Y%m%d')
     except AttributeError:
         date_str = '{}'.format(date)  # format to handle also integer input
 
     cmd = ['podman', 'run', '-i', '-u', 'root', '--rm',
+           '-v', '{}:/data'.format(abs_file_path(data_path)),  # map the data path to /data inside the container
+           '-v', '{}:/tmp2'.format(abs_file_path(tmp_path)),  # map the tmp path to /tmp2 (for debug only)
            '-e', 'yyyymmdd=' + date_str,
-           '-e', 'vfile=/data/' + vip_file,
-           '-e', 'pfile=/data/' + apriori_file,
+           '-e', 'vfile=/data/' + vip_file,  # path inside container, e.g. relative to dir mapped to /data
+           '-e', 'pfile=/data/' + apriori_file,  # path inside container, e.g. relative to dir mapped to /data
            '-e', 'shour=00',  # achieve time selection over input files, hence consider whole day here
            '-e', 'ehour=24',  # achieve time selection over input files, hence consider whole day here
            '-e', 'verbose={}'.format(verbosity),
-           '-v', '{}:/data'.format(abs_file_path(data_path)),
-           '-v', '{}:/tmp2'.format(abs_file_path(tmp_path)),
            tropoe_img]
     run(cmd)
 
