@@ -128,9 +128,11 @@ class ModelInterpreter(object):
         self.q_err = get_std_profile(self.fc.q)
         self.t_err = get_std_profile(self.fc.t)
 
-    def produce_tropoe_files(self):
+    def produce_tropoe_files(self):  # TODO: extract this method to retrieval class, call interpret_ecmwf.py from retrieval class
         """write reference profile and uncertainties as well as surface data to output files readable by TROPoe"""
         # TODO: make this method more generic
+        # TODO: add some metadata using attrs=... in dict(....)
+        # TODO: very important!!! Modify encoding of base_time and time_offset to seconds since 1970-1-1
         prof_data_specs={'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
                          'lat': dict(dims=(), data=self.fc.latitude.values[int(len(self.fc.latitude)/2)]),
                          'lon': dict(dims=(), data=self.fc.longitude.values[int(len(self.fc.latitude)/2)]),
