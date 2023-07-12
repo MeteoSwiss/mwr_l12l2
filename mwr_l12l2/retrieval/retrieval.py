@@ -34,8 +34,6 @@ class Retrieval(object):
         self.prepare_tropoe_dir()
         self.select_instrument()
         self.list_obs_files()
-        # concatenate E-Profile and deposit in node-n folder under generic name
-
         # TODO: set earliest time to be considered by setting start_time=... in prepare_obs
         self.prepare_obs(delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.prepare_model()
@@ -70,9 +68,8 @@ class Retrieval(object):
         self.alc_files = glob.glob(os.path.join(self.conf['dir_alc_in'],
                                        '{}*{}*.nc'.format(self.conf['prefix_alc_in'], self.wigos)))
 
-
     def prepare_obs(self, delete_mwr_in=False, start_time=None, end_time=None):
-        """function preparing E-PROFILE MWR and ALC inputs"""
+        """function preparing E-PROFILE MWR and ALC inputs (concatenate to one file, select time, saving)"""
 
         tolerance_alc_time = np.timedelta64(5, 'm')
 
@@ -95,7 +92,7 @@ class Retrieval(object):
                 os.remove(file)
 
         if mwr.time.size == 0:
-            # TODO: logger.warning; set mwr_data_exists to False
+            # TODO: logger.warning; remove return. set self.mwr_exists and also alc_exists (below)
             return
 
         # ALC treatment
