@@ -130,15 +130,16 @@ class ModelInterpreter(object):
 
     def produce_tropoe_files(self):  # TODO: extract this method to retrieval class, call interpret_ecmwf.py from retrieval class
         """write reference profile and uncertainties as well as surface data to output files readable by TROPoe"""
-        # TODO: make this method more generic
 
-
+        central_lat = self.fc.latitude.values[int(len(self.fc.latitude)/2)]
+        central_lon = self.fc.longitude.values[int(len(self.fc.latitude) / 2)]
         time_encoding = {'units': 'seconds since 1970-01-01', 'calendar': 'standard'}
+
         prof_data_specs={'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
                          'time_offset': dict(dims='time', data=self.time_ref),
-                         'lat': dict(dims=(), data=self.fc.latitude.values[int(len(self.fc.latitude)/2)],
+                         'lat': dict(dims=(), data=central_lat,
                                      attrs={'units': 'degrees_north'}),
-                         'lon': dict(dims=(), data=self.fc.longitude.values[int(len(self.fc.latitude)/2)],
+                         'lon': dict(dims=(), data=central_lon,
                                      attrs={'units': 'degrees_east'}),
                          'height': dict(dims='height', data=self.z_ref/1e3,
                                         attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
@@ -152,16 +153,12 @@ class ModelInterpreter(object):
                                                   attrs={'units': 'g/kg'}),
                          }
         prof_data_attrs = {'source': 'reference profile and uncertainties extracted from ECMWF operational forecast'}
-        #TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
-        # (info cannot be found inside grib file). Might also want to add lat/lon area used.
 
-        #TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
-        # instead. use log for pressure
         sfc_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
                           'time_offset': dict(dims='time', data=self.time_ref),
-                          'lat': dict(dims=(), data=self.fc.latitude.values[int(len(self.fc.latitude) / 2)],
+                          'lat': dict(dims=(), data=central_lat,
                                       attrs={'units': 'degrees_north'}),
-                          'lon': dict(dims=(), data=self.fc.longitude.values[int(len(self.fc.latitude) / 2)],
+                          'lon': dict(dims=(), data=central_lon,
                                       attrs={'units': 'degrees_east'}),
                           'height': dict(dims='height', data=self.z_ref[-1:] / 1e3,
                                          attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
@@ -174,7 +171,12 @@ class ModelInterpreter(object):
                           'sigma_waterVapor': dict(dims=('time', 'height'), data=self.q_err[np.newaxis, -1:] * 1e3,
                                                    attrs={'units': 'g/kg'}),
                           }
+        #TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
+        # instead. use log for pressure
         sfc_data_attrs = {'source': 'surface quantities and uncertainties extracted from ECMWF operational forecast'}
+        #TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
+        # (info cannot be found inside grib file). Might also want to add lat/lon area used.
+
 
         # construct datasets
         prof_data = xr.Dataset.from_dict(prof_data_specs)
@@ -200,7 +202,7 @@ def get_ref_profile(x):
     """extract ref profile (last time, centre lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
     if type(x) is not np.ndarray:
         x = x.values
-    return x[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]
+    return x[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]  # CARE: if you edit, also edit central_lat/lon in writer
 
 def get_std_profile(x):
     """extract std profile (last time, std in lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
