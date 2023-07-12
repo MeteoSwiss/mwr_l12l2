@@ -23,7 +23,7 @@ def main(mwr_files_in, mwr_file_out, alc_files_in=None, alc_file_out=None, delet
         for file in mwr_files_in:
             os.remove(file)
 
-    if not mwr.time:
+    if mwr.time.size == 0:
         # TODO: logger.warning; set mwr_data_exists to False
         return
 
