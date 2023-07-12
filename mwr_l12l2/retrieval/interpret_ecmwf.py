@@ -132,19 +132,19 @@ class ModelInterpreter(object):
         """write reference profile and uncertainties as well as surface data to output files readable by TROPoe"""
         # TODO: make this method more generic
         # TODO: add some metadata using attrs=... in dict(....)
-        # TODO: very important!!! Modify encoding of base_time and time_offset to seconds since 1970-1-1
+        time_encoding = {'units': 'seconds since 1970-01-01', 'calendar': 'standard'}
         prof_data_specs={'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
                          'lat': dict(dims=(), data=self.fc.latitude.values[int(len(self.fc.latitude)/2)]),
                          'lon': dict(dims=(), data=self.fc.longitude.values[int(len(self.fc.latitude)/2)]),
                          'time_offset': dict(dims='time', data=self.time_ref),
                          'height': dict(dims='height', data=self.z_ref/1e3),
-                         'temperature': dict(dims=('time', 'height'), data=self.t_ref[np.newaxis, :]-273.15),
+                         'temperature': dict(dims=('time', 'height'), data=self.t_ref[np.newaxis, :]-273.15,
+                                             attrs={'units': 'degrees C'}),
                          'sigma_temperature': dict(dims=('time', 'height'), data=self.t_err[np.newaxis, :]),
                          'waterVapor': dict(dims=('time', 'height'), data=self.q_ref[np.newaxis, :]*1e3),
                          'sigma_waterVapor': dict(dims=('time', 'height'), data=self.q_err[np.newaxis, :]*1e3),
                          }
-        prof_data = xr.Dataset.from_dict(prof_data_specs)
-        prof_data.to_netcdf(self.file_prof_out)
+
 
         #TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
         # instead. use log for pressure
@@ -158,7 +158,14 @@ class ModelInterpreter(object):
                           'waterVapor': dict(dims=('time', 'height'), data=self.q_ref[np.newaxis, -1:] * 1e3),
                           'sigma_waterVapor': dict(dims=('time', 'height'), data=self.q_err[np.newaxis, -1:] * 1e3),
                           }
+
+        prof_data = xr.Dataset.from_dict(prof_data_specs)
         sfc_data = xr.Dataset.from_dict(sfc_data_specs)
+
+        for ds in [prof_data, sfc_data]:
+            ds = set_encoding(ds, ['base_time', 'time_offset'], time_encoding)
+
+        prof_data.to_netcdf(self.file_prof_out)
         sfc_data.to_netcdf(self.file_sfc_out)
 
         # TODO: add global attribute on data source (ECMWF) for the above 2 files
@@ -185,6 +192,12 @@ def get_std_profile(x):
     # z_flat = self.z.values[-1, :, :, :, ].reshape((-1, self.z.values.shape[-2] * self.z.values.shape[-1]))
     # q_interp = griddata(z_flat[:-1, :], q_flat[:-1, :], np.tile(self.z_ref.values[:-1,np.newaxis],
     #       (1, self.fc.t.values.shape[-2] * self.fc.t.values.shape[-1])))
+
+
+def set_encoding(ds, vars, enc):
+    for var in vars:
+        ds[var].encoding = enc
+    return ds
 
 
 if __name__ == '__main__':
