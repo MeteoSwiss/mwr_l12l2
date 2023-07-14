@@ -7,7 +7,7 @@ import numpy as np
 import xarray as xr
 
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.utils.data_utils import get_from_nc_files, set_encoding
+from mwr_l12l2.utils.data_utils import get_from_nc_files, set_encoding, has_data
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
 
@@ -38,6 +38,9 @@ class Retrieval(object):
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
         self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')
         self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')
+        self.sfc_temp_obs_exists = None
+        self.sfc_rh_obs_exists = None
+        self.sfc_p_obs_exists = None
 
     def run(self):
         self.prepare_paths()
@@ -108,6 +111,10 @@ class Retrieval(object):
             # TODO: logger.warning; remove return. set self.mwr_exists and also alc_exists (below)
             return
 
+        self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')  # TODO: put mwr file varnames in config
+        self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
+        self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
+
         # ALC treatment
         if self.alc_files:  # not empty list, not None
             # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
@@ -117,7 +124,6 @@ class Retrieval(object):
             alc.to_netcdf(self.alc_file_tropoe)
 
         # TODO: return time_min, time_max whether ALC data is not empty and not NaN.
-        # TODO: return whether MWR has surface T, RH, p):
 
     def prepare_model(self, time):
         """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe"""
