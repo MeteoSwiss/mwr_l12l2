@@ -7,7 +7,7 @@ import numpy as np
 import xarray as xr
 
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.utils.data_utils import get_from_nc_files
+from mwr_l12l2.utils.data_utils import get_from_nc_files, set_encoding
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
 
@@ -187,12 +187,6 @@ class Retrieval(object):
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and """
         pass
-
-
-def set_encoding(ds, vars, enc):
-    for var in vars:
-        ds[var].encoding = enc
-    return ds
 
 
 if __name__ == '__main__':
