@@ -22,6 +22,8 @@ class Retrieval(object):
                      'tropoe_subfolder_basename': 'node_',
                      'mwr_filename_tropoe': 'mwr.nc',
                      'alc_filename_tropoe': 'alc.nc',
+                     'model_prof_filename_tropoe': 'model_prof.nc',
+                     'model_sfc_filename_tropoe': 'model_sfc.nc',
                      }
                      # TODO: put this dict to retrieval config file at retrieval_conf and set up a config reader
         self.node = node
@@ -32,12 +34,13 @@ class Retrieval(object):
         self.alc_files = None
         self.mwr_file_tropoe = None
         self.alc_file_tropoe = None
-        self.model_prof_file_tropoe = abs_file_path('mwr_l12l2/data/output/ecmwf/model_stats_0-20000-0-10393_A_202304251500.nc')  # None  # model reference profiles and uncertainties to (as input to TROPoe)
-        self.model_sfc_file_tropoe = abs_file_path('mwr_l12l2/data/output/ecmwf/model_sfc_0-20000-0-10393_A_202304251500.nc')  # None  # output file for inter/extrapolation of model data to station altitude
+        self.model_prof_file_tropoe = None  # model reference profiles and uncertainties to (as input to TROPoe)
+        self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
         self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')
         self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')
 
     def run(self):
+        self.prepare_paths()
         self.prepare_tropoe_dir()
         self.select_instrument()
         self.list_obs_files()
@@ -50,11 +53,17 @@ class Retrieval(object):
         # TODO: adapt drawing on https://meteoswiss.atlassian.net/wiki/spaces/MDA/pages/46564537/L2+retrieval+EWC
         #  by inverting order between interpret_ecmwf and prepare_eprofile
 
+    def prepare_paths(self):
+        """prepare output paths and filenames from config"""
+        self.tropoe_dir = os.path.join(self.conf['basedir_tropoe_files'],
+                                       '{}{}/'.format(self.conf['tropoe_subfolder_basename'], self.node))
+        self.mwr_file_tropoe = os.path.join(self.tropoe_dir, self.conf['mwr_filename_tropoe'])
+        self.alc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['alc_filename_tropoe'])
+        self.model_prof_file_tropoe = os.path.join(self.tropoe_dir, self.conf['model_prof_filename_tropoe'])
+        self.model_sfc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['model_sfc_filename_tropoe'])
 
     def prepare_tropoe_dir(self):
         """set up an empty tropoe tmp file directory for the current node (remove old one if existing)"""
-        self.tropoe_dir = os.path.join(self.conf['basedir_tropoe_files'],
-                                       '{}{}/'.format(self.conf['tropoe_subfolder_basename'], self.node))
         if os.path.exists(self.tropoe_dir):
             shutil.rmtree(self.tropoe_dir)
         os.mkdir(self.tropoe_dir)
@@ -82,9 +91,6 @@ class Retrieval(object):
 
         start_time = np.datetime64(start_time)
         end_time = np.datetime64(end_time)
-
-        self.mwr_file_tropoe = os.path.join(self.tropoe_dir, self.conf['mwr_filename_tropoe'])
-        self.alc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['alc_filename_tropoe'])
 
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
