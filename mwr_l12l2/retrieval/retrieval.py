@@ -13,7 +13,7 @@ from mwr_l12l2.utils.file_uitls import abs_file_path
 
 class Retrieval(object):
 
-    def __init__(self):
+    def __init__(self, node=0):
         self.conf = {'dir_mwr_in': abs_file_path('mwr_l12l2/data/mwr/'),
                      'prefix_mwr_in': 'MWR_1C01_',
                      'dir_alc_in': abs_file_path('mwr_l12l2/data/alc/'),
@@ -24,7 +24,7 @@ class Retrieval(object):
                      'alc_filename_tropoe': 'alc.nc',
                      }
                      # TODO: put this dict to retrieval config file at retrieval_conf and set up a config reader
-        self.node = 0
+        self.node = node
         self.wigos = None
         self.inst_id = None
         self.tropoe_dir = None
@@ -159,10 +159,10 @@ class Retrieval(object):
                           'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[np.newaxis, -1:] * 1e3,
                                                    attrs={'units': 'g/kg'}),
                           }
-        #TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
+        # TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
         # instead. use log for pressure
         sfc_data_attrs = {'source': 'surface quantities and uncertainties extracted from ECMWF operational forecast'}
-        #TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
+        # TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
         # (info cannot be found inside grib file). Might also want to add lat/lon area used.
 
 
