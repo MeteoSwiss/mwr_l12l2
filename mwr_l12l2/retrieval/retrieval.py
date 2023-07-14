@@ -2,8 +2,11 @@ import glob
 import os
 import shutil
 
+import datetime as dt
 import numpy as np
+import xarray as xr
 
+from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.utils.data_utils import get_from_nc_files
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
@@ -29,6 +32,10 @@ class Retrieval(object):
         self.alc_files = None
         self.mwr_file_tropoe = None
         self.alc_file_tropoe = None
+        self.model_prof_file_tropoe = abs_file_path('mwr_l12l2/data/output/ecmwf/model_stats_0-20000-0-10393_A_202304251500.nc')  # None  # model reference profiles and uncertainties to (as input to TROPoe)
+        self.model_sfc_file_tropoe = abs_file_path('mwr_l12l2/data/output/ecmwf/model_sfc_0-20000-0-10393_A_202304251500.nc')  # None  # output file for inter/extrapolation of model data to station altitude
+        self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')
+        self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')
 
     def run(self):
         self.prepare_tropoe_dir()
@@ -36,7 +43,7 @@ class Retrieval(object):
         self.list_obs_files()
         # TODO: set earliest time to be considered by setting start_time=... in prepare_obs
         self.prepare_obs(delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
-        self.prepare_model()
+        self.prepare_model(dt.datetime(2023, 4, 25, 15, 0, 0))  # TODO select mean between min and max MWR time instead
         self.prepare_vip()
         # TODO launch run_tropoe.py here
         self.postprocess_tropoe()
@@ -106,8 +113,72 @@ class Retrieval(object):
         # TODO: return time_min, time_max whether ALC data is not empty and not NaN.
         # TODO: return whether MWR has surface T, RH, p):
 
-    def prepare_model(self):
-        pass
+    def prepare_model(self, time):
+        """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe"""
+
+        model = ModelInterpreter(self.model_fc_file, self.model_zg_file)
+        model.run(time)
+
+        central_lat = model.fc.latitude.values[int(len(model.fc.latitude)/2)]
+        central_lon = model.fc.longitude.values[int(len(model.fc.latitude) / 2)]
+        time_encoding = {'units': 'seconds since 1970-01-01', 'calendar': 'standard'}
+
+        prof_data_specs={'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
+                         'time_offset': dict(dims='time', data=model.time_ref),
+                         'lat': dict(dims=(), data=central_lat,
+                                     attrs={'units': 'degrees_north'}),
+                         'lon': dict(dims=(), data=central_lon,
+                                     attrs={'units': 'degrees_east'}),
+                         'height': dict(dims='height', data=model.z_ref/1e3,
+                                        attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
+                         'temperature': dict(dims=('time', 'height'), data=model.t_ref[np.newaxis, :]-273.15,
+                                             attrs={'units': 'Celsius'}),
+                         'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[np.newaxis, :],
+                                                   attrs={'units': 'Celsius'}),
+                         'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[np.newaxis, :]*1e3,
+                                            attrs={'units': 'g/kg'}),
+                         'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[np.newaxis, :]*1e3,
+                                                  attrs={'units': 'g/kg'}),
+                         }
+        prof_data_attrs = {'source': 'reference profile and uncertainties extracted from ECMWF operational forecast'}
+
+        sfc_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
+                          'time_offset': dict(dims='time', data=model.time_ref),
+                          'lat': dict(dims=(), data=central_lat,
+                                      attrs={'units': 'degrees_north'}),
+                          'lon': dict(dims=(), data=central_lon,
+                                      attrs={'units': 'degrees_east'}),
+                          'height': dict(dims='height', data=model.z_ref[-1:] / 1e3,
+                                         attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
+                          'temperature': dict(dims=('time', 'height'), data=model.t_ref[np.newaxis, -1:] - 273.15,
+                                              attrs={'units': 'Celsius'}),
+                          'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[np.newaxis, -1:],
+                                                    attrs={'units': 'Celsius'}),
+                          'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[np.newaxis, -1:] * 1e3,
+                                             attrs={'units': 'g/kg'}),
+                          'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[np.newaxis, -1:] * 1e3,
+                                                   attrs={'units': 'g/kg'}),
+                          }
+        #TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
+        # instead. use log for pressure
+        sfc_data_attrs = {'source': 'surface quantities and uncertainties extracted from ECMWF operational forecast'}
+        #TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
+        # (info cannot be found inside grib file). Might also want to add lat/lon area used.
+
+
+        # construct datasets
+        prof_data = xr.Dataset.from_dict(prof_data_specs)
+        sfc_data = xr.Dataset.from_dict(sfc_data_specs)
+
+        # add encodings and global attrs to datasets
+        for ds in [prof_data, sfc_data]:  #c ommon time encodings for all datasets
+            ds = set_encoding(ds, ['base_time', 'time_offset'], time_encoding)
+        prof_data.attrs = prof_data_attrs
+        sfc_data.attrs = sfc_data_attrs
+
+        # save
+        prof_data.to_netcdf(self.model_prof_file_tropoe)
+        sfc_data.to_netcdf(self.model_sfc_file_tropoe)
 
     def prepare_vip(self):
         """prepare the configuration file (vip.txt) for running the TROPoe container"""
@@ -117,6 +188,11 @@ class Retrieval(object):
         """post-process the outputs of TROPoe and """
         pass
 
+
+def set_encoding(ds, vars, enc):
+    for var in vars:
+        ds[var].encoding = enc
+    return ds
 
 
 if __name__ == '__main__':

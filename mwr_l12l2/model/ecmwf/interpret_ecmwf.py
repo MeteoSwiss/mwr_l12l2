@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -8,27 +10,26 @@ from mwr_l12l2.utils.file_uitls import abs_file_path
 
 class ModelInterpreter(object):
 
-    def __init__(self, file_fc_nc, file_zg_grb, file_prof_out, file_sfc_out=None, station_altitude=None,
-                 file_ml='mwr_l12l2/data/ecmwf_fc/ecmwf_model_levels_137.csv'):
+    def __init__(self, file_fc_nc, file_zg_grb, station_altitude=None,
+                 file_ml=None):
         """class to interpret model data from ECMWF and produce input files for TROPoe
 
         Args:
             file_fc_nc: file containing forecast data in NetCDF. Must have been converted from grib to nc with
                 mwr_l12l2/model/ecmwf/grb_to_nc.sh before. Direct read-in of grib doesn't work because of dim of lnsp
             file_zg_grb: file containing the geopotential of the lowest model level in grib format
-            file_prof_out: output file where to write model reference profiles and uncertainties to (as input to TROPoe)
-            file_sfc_out (optional): output file where to write inter/extrapolation of model data to station surface to.
-                If not specified or None/empty no surface data file will be produced
-            station_altitude (optional): If :param:`file_sfc_out` is given also this parameter needs to be specified
-            file_ml (optional): a and b parameters to transform model levels to pressure and altitude grid
+            station_altitude (optional): Station altitude to inter/extrapolate model data to for sfc data.
+                If not specified the lowest model level will be used for surface data.
+            file_ml (optional): a and b parameters to transform model levels to pressure and altitude grid.
+                If not specified the file named 'ecmwf_model_levels_137.csv' in the current dir will be usesd.
         """
 
         self.file_fc_nc = abs_file_path(file_fc_nc)
         self.file_zg_grb = abs_file_path(file_zg_grb)
-        self.file_prof_out = abs_file_path(file_prof_out)
-        self.file_sfc_out = abs_file_path(file_sfc_out)
         self.station_altitude = station_altitude
-        self.file_ml = abs_file_path(file_ml)
+        self.file_ml = file_ml
+        if self.file_ml is None:
+            self.file_ml = os.path.join(os.path.dirname(__file__), 'ecmwf_model_levels_137.csv')
         self.fc = None
         self.zg_surf = None
         self.p = None
@@ -48,7 +49,6 @@ class ModelInterpreter(object):
         self.hybrid_to_p()
         self.p_to_z()
         self.compute_stats()
-        self.produce_tropoe_files()
 
     def load_data(self, time):
         """load dataset and reduce to the time of interest (to speed up following computations)"""
@@ -128,71 +128,6 @@ class ModelInterpreter(object):
         self.q_err = get_std_profile(self.fc.q)
         self.t_err = get_std_profile(self.fc.t)
 
-    def produce_tropoe_files(self):  # TODO: extract this method to retrieval class, call interpret_ecmwf.py from retrieval class
-        """write reference profile and uncertainties as well as surface data to output files readable by TROPoe"""
-
-        central_lat = self.fc.latitude.values[int(len(self.fc.latitude)/2)]
-        central_lon = self.fc.longitude.values[int(len(self.fc.latitude) / 2)]
-        time_encoding = {'units': 'seconds since 1970-01-01', 'calendar': 'standard'}
-
-        prof_data_specs={'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
-                         'time_offset': dict(dims='time', data=self.time_ref),
-                         'lat': dict(dims=(), data=central_lat,
-                                     attrs={'units': 'degrees_north'}),
-                         'lon': dict(dims=(), data=central_lon,
-                                     attrs={'units': 'degrees_east'}),
-                         'height': dict(dims='height', data=self.z_ref/1e3,
-                                        attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
-                         'temperature': dict(dims=('time', 'height'), data=self.t_ref[np.newaxis, :]-273.15,
-                                             attrs={'units': 'Celsius'}),
-                         'sigma_temperature': dict(dims=('time', 'height'), data=self.t_err[np.newaxis, :],
-                                                   attrs={'units': 'Celsius'}),
-                         'waterVapor': dict(dims=('time', 'height'), data=self.q_ref[np.newaxis, :]*1e3,
-                                            attrs={'units': 'g/kg'}),
-                         'sigma_waterVapor': dict(dims=('time', 'height'), data=self.q_err[np.newaxis, :]*1e3,
-                                                  attrs={'units': 'g/kg'}),
-                         }
-        prof_data_attrs = {'source': 'reference profile and uncertainties extracted from ECMWF operational forecast'}
-
-        sfc_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
-                          'time_offset': dict(dims='time', data=self.time_ref),
-                          'lat': dict(dims=(), data=central_lat,
-                                      attrs={'units': 'degrees_north'}),
-                          'lon': dict(dims=(), data=central_lon,
-                                      attrs={'units': 'degrees_east'}),
-                          'height': dict(dims='height', data=self.z_ref[-1:] / 1e3,
-                                         attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
-                          'temperature': dict(dims=('time', 'height'), data=self.t_ref[np.newaxis, -1:] - 273.15,
-                                              attrs={'units': 'Celsius'}),
-                          'sigma_temperature': dict(dims=('time', 'height'), data=self.t_err[np.newaxis, -1:],
-                                                    attrs={'units': 'Celsius'}),
-                          'waterVapor': dict(dims=('time', 'height'), data=self.q_ref[np.newaxis, -1:] * 1e3,
-                                             attrs={'units': 'g/kg'}),
-                          'sigma_waterVapor': dict(dims=('time', 'height'), data=self.q_err[np.newaxis, -1:] * 1e3,
-                                                   attrs={'units': 'g/kg'}),
-                          }
-        #TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
-        # instead. use log for pressure
-        sfc_data_attrs = {'source': 'surface quantities and uncertainties extracted from ECMWF operational forecast'}
-        #TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
-        # (info cannot be found inside grib file). Might also want to add lat/lon area used.
-
-
-        # construct datasets
-        prof_data = xr.Dataset.from_dict(prof_data_specs)
-        sfc_data = xr.Dataset.from_dict(sfc_data_specs)
-
-        # add encodings and global attrs to datasets
-        for ds in [prof_data, sfc_data]:  #c ommon time encodings for all datasets
-            ds = set_encoding(ds, ['base_time', 'time_offset'], time_encoding)
-        prof_data.attrs = prof_data_attrs
-        sfc_data.attrs = sfc_data_attrs
-
-        # save
-        prof_data.to_netcdf(self.file_prof_out)
-        sfc_data.to_netcdf(self.file_sfc_out)
-
-
     def virt_temp(self):
         """return virtual temperature from temperature and specific humdity in self.fc"""
         return self.fc.t * (1 + 0.609133*self.fc.q)
@@ -215,12 +150,6 @@ def get_std_profile(x):
     # z_flat = self.z.values[-1, :, :, :, ].reshape((-1, self.z.values.shape[-2] * self.z.values.shape[-1]))
     # q_interp = griddata(z_flat[:-1, :], q_flat[:-1, :], np.tile(self.z_ref.values[:-1,np.newaxis],
     #       (1, self.fc.t.values.shape[-2] * self.fc.t.values.shape[-1])))
-
-
-def set_encoding(ds, vars, enc):
-    for var in vars:
-        ds[var].encoding = enc
-    return ds
 
 
 if __name__ == '__main__':
