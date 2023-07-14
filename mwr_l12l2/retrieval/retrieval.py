@@ -38,9 +38,12 @@ class Retrieval(object):
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
         self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')
         self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')
+        self.time_max = None
+        self.time_min = None
         self.sfc_temp_obs_exists = None
         self.sfc_rh_obs_exists = None
         self.sfc_p_obs_exists = None
+        self.alc_exists = None
 
     def run(self):
         self.prepare_paths()
@@ -98,9 +101,9 @@ class Retrieval(object):
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
 
-        time_min = max(mwr.time.min(), start_time)
-        time_max = min(mwr.time.max(), end_time)
-        mwr = mwr.where((mwr.time >= time_min) & (mwr.time <= time_max), drop=True)  # brackets because of precedence of & over > and <
+        self.time_min = max(mwr.time.min(), start_time)
+        self.time_max = min(mwr.time.max(), end_time)
+        mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max), drop=True)  # brackets because of precedence of & over > and <
 
         mwr.to_netcdf(self.mwr_file_tropoe)
         if delete_mwr_in:
@@ -116,14 +119,17 @@ class Retrieval(object):
         self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
 
         # ALC treatment
+        self.alc_exists = True  # start assuming ALC obs exist, set to False if not.
         if self.alc_files:  # not empty list, not None
             # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
             alc = get_from_nc_files(self.alc_files)
-            alc = alc.where((alc.time >= time_min-tolerance_alc_time)
-                            & (alc.time <= time_max+tolerance_alc_time), drop=True)
+            alc = alc.where((alc.time >= self.time_min-tolerance_alc_time)
+                            & (alc.time <= self.time_max+tolerance_alc_time), drop=True)
             alc.to_netcdf(self.alc_file_tropoe)
-
-        # TODO: return time_min, time_max whether ALC data is not empty and not NaN.
+            if alc.time.size == 0:
+                self.alc_exists = False
+        else:
+            self.alc_exists = False
 
     def prepare_model(self, time):
         """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe"""
@@ -183,7 +189,7 @@ class Retrieval(object):
         sfc_data = xr.Dataset.from_dict(sfc_data_specs)
 
         # add encodings and global attrs to datasets
-        for ds in [prof_data, sfc_data]:  #c ommon time encodings for all datasets
+        for ds in [prof_data, sfc_data]:  #common time encodings for all datasets
             ds = set_encoding(ds, ['base_time', 'time_offset'], time_encoding)
         prof_data.attrs = prof_data_attrs
         sfc_data.attrs = sfc_data_attrs
