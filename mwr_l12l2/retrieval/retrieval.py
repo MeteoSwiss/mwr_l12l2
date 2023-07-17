@@ -27,23 +27,31 @@ class Retrieval(object):
                      }
                      # TODO: put this dict to retrieval config file at retrieval_conf and set up a config reader
         self.node = node
-        self.wigos = None
-        self.inst_id = None
+
+        # set by prepare_pahts():
         self.tropoe_dir = None
-        self.mwr_files = None
-        self.alc_files = None
         self.mwr_file_tropoe = None
         self.alc_file_tropoe = None
         self.model_prof_file_tropoe = None  # model reference profiles and uncertainties to (as input to TROPoe)
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
         self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')
         self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')
-        self.time_max = None
-        self.time_min = None
-        self.sfc_temp_obs_exists = None
-        self.sfc_rh_obs_exists = None
-        self.sfc_p_obs_exists = None
-        self.alc_exists = None
+
+        # set by select_instrument():
+        self.wigos = None
+        self.inst_id = None
+
+        # set by list_obs():
+        self.mwr_files = None
+        self.alc_files = None
+
+        # set by prepare_obs():
+        self.time_max = None  # max time of MWR observations available
+        self.time_min = None  # min time of MWR observations available
+        self.sfc_temp_obs_exists = None  # is temperature measured by met station of MWR instrument?
+        self.sfc_rh_obs_exists = None  # is rel humidity measured by met station of MWR instrument?
+        self.sfc_p_obs_exists = None  # is pressure measured by met station of MWR instrument?
+        self.alc_exists = None  # is cloud base measured by co-located ceilometer?
 
     def run(self):
         self.prepare_paths()
@@ -83,8 +91,12 @@ class Retrieval(object):
         self.inst_id = 'A'
 
     def list_obs_files(self):
-        """get file lists for the selected station"""
-        # TODO: might want to use function from mwr_raw2l1.utils.file_utils to select also dependent on time limits
+        """get file lists for the selected station
+
+        Note:
+             this method shall list all (MWR) files not just the ones matching time settings. Like that old (obsolete)
+             files are removed when :meth:`prepare_obs` is run with delete_mwr_in=True
+        """
         self.mwr_files = glob.glob(os.path.join(self.conf['dir_mwr_in'],
                                        '{}*{}_{}*.nc'.format(self.conf['prefix_mwr_in'], self.wigos, self.inst_id)))
         self.alc_files = glob.glob(os.path.join(self.conf['dir_alc_in'],
@@ -111,8 +123,8 @@ class Retrieval(object):
                 os.remove(file)
 
         if mwr.time.size == 0:
-            # TODO: logger.warning; remove return. set self.mwr_exists and also alc_exists (below)
-            return
+
+            pass
 
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')  # TODO: put mwr file varnames in config
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
