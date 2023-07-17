@@ -1,0 +1,27 @@
+# config file for general retrieval settings #
+##############################################
+#
+# the data section contains paths of data files and age of data to consider
+# the vip section contains configurations for the TROPoe retrieval
+# this file defines the settings common to all stations.
+
+data:  # definitions of which data to use for retrieval. Paths are absolute or relative to mwr_l12l2 project dir
+  max_age: 90  # maximum age of MWR data to be considered for retrieval in minutes
+  mwr_dir: mwr_l12l2/data/mwr/  # directory for microwave radiometer input data
+  mwr_file_prefix: MWR_1C01_
+  alc_dir: mwr_l12l2/data/alc/  # directory for automatic lidar's or ceilometer's cloud base input data
+  alc_file_prefix: L2_
+  # TODO: add option to set the model_... keys to null in order to re-use the ones from mars-config. only spedify value here to deviate from these settings. Also think about removing these from mandatory keys
+  model_dir: mwr_l12l2/data/ecmwf_fc/  # directory for NWP model input data
+  model_fc_file_prefix: ecmwf_fc_
+  model_fc_nc_file_suffix: _converted_to  # for file converted from grib to NetCDF
+  model_z_file_prefix: ecmwf_z_
+  tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
+  tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
+  mwr_filename_tropoe: mwr.nc
+  alc_filename_tropoe: alc.nc
+  model_prof_filename_tropoe: model_prof.nc
+  model_sfc_filename_tropoe: model_sfc.nc
+
+vip:  # general settings for TROPoe's vip files (must match TROPoe vip keywords)
+# TODO: add vip config here and in config_utils.get_retrieval_config

@@ -42,6 +42,24 @@ def get_inst_config(file):
 
     return conf
 
+def get_retrieval_config(file):
+    """get configuration for running the retrieval check for completeness of config file"""
+    mandatory_keys = ['data', 'vip']
+    mandatory_keys_data = ['max_age',
+                           'mwr_dir', 'mwr_file_prefix', 'alc_dir', 'alc_file_prefix',
+                           'model_dir', 'model_fc_file_prefix', 'model_fc_nc_file_suffix', 'model_z_file_prefix',
+                           'tropoe_basedir', 'tropoe_subfolder_basename', 'mwr_filename_tropoe', 'alc_filename_tropoe',
+                           'model_prof_filename_tropoe', 'model_sfc_filename_tropoe']
+    mandatory_keys_vip = []
+
+    conf = get_conf(file)
+
+    check_conf(conf, mandatory_keys, 'of retrieval config files but is missing in {}.'.format(file))
+    check_conf(conf['data'], mandatory_keys_data,
+               "of field 'data' in retrieval config files but is missing in {}.".format(file))
+    check_conf(conf['vip'], mandatory_keys_vip,
+               "of field 'vip' in retrieval config files but is missing in {}.".format(file))
+    return conf
 
 def get_mars_config(file, mandatory_keys=None, mandatory_keys_request=None):
     """get configuration for mars request to obtain ECMWF data and check for completeness of config file
@@ -98,5 +116,6 @@ def merge_mars_inst_config(mars_conf, inst_conf):
 
 if __name__ == '__main__':
     conf_inst = get_inst_config(abs_file_path('mwr_l12l2/config/config_0-20000-0-10393_A.yaml'))
+    conf_ret = get_retrieval_config(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
     conf_mars = get_mars_config(abs_file_path('mwr_l12l2/config/mars_config_fc.yaml'))
     pass
