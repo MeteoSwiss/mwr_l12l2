@@ -47,8 +47,9 @@ class Retrieval(object):
         self.alc_files = None
 
         # set by prepare_obs():
-        self.time_max = None  # max time of MWR observations available
-        self.time_min = None  # min time of MWR observations available
+        self.time_min = None  # min time of MWR observations available and considered
+        self.time_max = None  # max time of MWR observations available and considered
+        self.time_mean = None  # average time of period containing considered MWR observations
         self.sfc_temp_obs_exists = None  # is temperature measured by met station of MWR instrument?
         self.sfc_rh_obs_exists = None  # is rel humidity measured by met station of MWR instrument?
         self.sfc_p_obs_exists = None  # is pressure measured by met station of MWR instrument?
@@ -61,8 +62,7 @@ class Retrieval(object):
         self.list_obs_files()
         # TODO: set earliest time to be considered by setting start_time=... in prepare_obs
         self.prepare_obs(delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
-        self.prepare_model(dt.datetime(2023, 4, 25, 15, 0, 0))  # TODO select mean between min and max MWR time instead
-        self.prepare_vip()
+        self.prepare_model(self.time_mean)
         # TODO launch run_tropoe.py here
         self.postprocess_tropoe()
         # TODO: adapt drawing on https://meteoswiss.atlassian.net/wiki/spaces/MDA/pages/46564537/L2+retrieval+EWC
@@ -121,8 +121,9 @@ class Retrieval(object):
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
 
-        self.time_min = max(mwr.time.min(), start_time)
-        self.time_max = min(mwr.time.max(), end_time)
+        self.time_min = max(mwr.time.min(), start_time).values
+        self.time_max = min(mwr.time.max(), end_time).values
+        self.time_mean = self.time_min + (self.time_max-self.time_min)/2  # need to work with diff to get timedelta
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max), drop=True)  # brackets because of precedence of & over > and <
 
         mwr.to_netcdf(self.mwr_file_tropoe)

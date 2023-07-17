@@ -54,6 +54,7 @@ class ModelInterpreter(object):
         """load dataset and reduce to the time of interest (to speed up following computations)"""
         fc_all = xr.open_dataset(self.file_fc_nc)
         self.fc = fc_all.sel(time=[np.datetime64(time)], method='nearest')  # conserve dimension using slicing
+        # TODO: instead of just picking nearest time, we would better interpolate (care on potential flags)
         self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
 
     def hybrid_to_p(self):
