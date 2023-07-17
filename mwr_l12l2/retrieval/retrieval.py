@@ -6,27 +6,23 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 
-from mwr_l12l2.errors import MissingDataError
+from mwr_l12l2.errors import MissingDataError, MWRConfigError
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
+from mwr_l12l2.utils.config_utils import get_retrieval_config
 from mwr_l12l2.utils.data_utils import get_from_nc_files, set_encoding, has_data
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
 
 class Retrieval(object):
 
-    def __init__(self, node=0):
-        self.conf = {'dir_mwr_in': abs_file_path('mwr_l12l2/data/mwr/'),
-                     'prefix_mwr_in': 'MWR_1C01_',
-                     'dir_alc_in': abs_file_path('mwr_l12l2/data/alc/'),
-                     'prefix_alc_in': 'L2_',
-                     'basedir_tropoe_files': abs_file_path('mwr_l12l2/data/tropoe/'),
-                     'tropoe_subfolder_basename': 'node_',
-                     'mwr_filename_tropoe': 'mwr.nc',
-                     'alc_filename_tropoe': 'alc.nc',
-                     'model_prof_filename_tropoe': 'model_prof.nc',
-                     'model_sfc_filename_tropoe': 'model_sfc.nc',
-                     }
-                     # TODO: put this dict to retrieval config file at retrieval_conf and set up a config reader
+    def __init__(self, conf, node=0):
+        if isinstance(conf, dict):
+            self.conf = conf
+        elif os.path.isfile(conf):
+            self.conf = get_retrieval_config(conf)
+        else:
+            raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
+
         self.node = node
 
         # set by prepare_pahts():
@@ -35,8 +31,8 @@ class Retrieval(object):
         self.alc_file_tropoe = None
         self.model_prof_file_tropoe = None  # model reference profiles and uncertainties to (as input to TROPoe)
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
-        self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')
-        self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')
+        self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')  # TODO: include to conf
+        self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')  # TODO: include to conf with dir and basename
 
         # set by select_instrument():
         self.wigos = None
@@ -60,7 +56,7 @@ class Retrieval(object):
         self.prepare_tropoe_dir()
         self.select_instrument()
         self.list_obs_files()
-        # TODO: set earliest time to be considered by setting start_time=... in prepare_obs
+        # TODO: set earliest time to be considered by setting start_time=... in prepare_obs (use max_age from conf)
         self.prepare_obs(delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.prepare_model(self.time_mean)
         # TODO launch run_tropoe.py here
@@ -70,12 +66,12 @@ class Retrieval(object):
 
     def prepare_paths(self):
         """prepare output paths and filenames from config"""
-        self.tropoe_dir = os.path.join(self.conf['basedir_tropoe_files'],
-                                       '{}{}/'.format(self.conf['tropoe_subfolder_basename'], self.node))
-        self.mwr_file_tropoe = os.path.join(self.tropoe_dir, self.conf['mwr_filename_tropoe'])
-        self.alc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['alc_filename_tropoe'])
-        self.model_prof_file_tropoe = os.path.join(self.tropoe_dir, self.conf['model_prof_filename_tropoe'])
-        self.model_sfc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['model_sfc_filename_tropoe'])
+        self.tropoe_dir = os.path.join(self.conf['data']['tropoe_basedir'],
+                                       '{}{}/'.format(self.conf['data']['tropoe_subfolder_basename'], self.node))
+        self.mwr_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['mwr_filename_tropoe'])
+        self.alc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['alc_filename_tropoe'])
+        self.model_prof_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['model_prof_filename_tropoe'])
+        self.model_sfc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['model_sfc_filename_tropoe'])
 
     def prepare_tropoe_dir(self):
         """set up an empty tropoe tmp file directory for the current node (remove old one if existing)"""
@@ -99,14 +95,15 @@ class Retrieval(object):
              this method shall list all (MWR) files not just the ones matching time settings. Like that old (obsolete)
              files are removed when :meth:`prepare_obs` is run with delete_mwr_in=True
         """
-        self.mwr_files = glob.glob(os.path.join(self.conf['dir_mwr_in'],
-                                       '{}*{}_{}*.nc'.format(self.conf['prefix_mwr_in'], self.wigos, self.inst_id)))
-        self.alc_files = glob.glob(os.path.join(self.conf['dir_alc_in'],
-                                       '{}*{}*.nc'.format(self.conf['prefix_alc_in'], self.wigos)))
+        self.mwr_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
+                                                '{}*{}_{}*.nc'.format(self.conf['data']['mwr_file_prefix'],
+                                                                      self.wigos, self.inst_id)))
+        self.alc_files = glob.glob(os.path.join(self.conf['data']['alc_dir'],
+                                                '{}*{}*.nc'.format(self.conf['data']['alc_file_prefix'], self.wigos)))
         if not self.mwr_files:
             err_msg = ('No MWR data for {} {} found in {}. These files must have been removed between station selection'
                        ' and file listing. This should not happen!'.format(self.wigos, self.inst_id,
-                                                                           self.conf['dir_mwr_in']))
+                                                                           self.conf['data']['mwr_dir']))
             # TODO: also add a CRITICAL entry with err_msg to logger before raising the exception
             raise MissingDataError(err_msg)
 
@@ -229,6 +226,6 @@ class Retrieval(object):
 
 
 if __name__ == '__main__':
-    ret = Retrieval()
+    ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
     ret.run()
     pass
