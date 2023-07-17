@@ -6,6 +6,7 @@ import datetime as dt
 import numpy as np
 import xarray as xr
 
+from mwr_l12l2.errors import MissingDataError
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.utils.data_utils import get_from_nc_files, set_encoding, has_data
 from mwr_l12l2.utils.file_uitls import abs_file_path
@@ -86,7 +87,8 @@ class Retrieval(object):
         """select instrument which has oldest (processable) mwr file in input dir"""
         # TODO: implement this
         # TODO: Need to lock lookup for station selection for other nodes until prepare_eprofile_main with delete_mwr_in
-        #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work
+        #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work.
+        #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
         self.wigos = '0-20000-0-10393'
         self.inst_id = 'A'
 
@@ -101,6 +103,12 @@ class Retrieval(object):
                                        '{}*{}_{}*.nc'.format(self.conf['prefix_mwr_in'], self.wigos, self.inst_id)))
         self.alc_files = glob.glob(os.path.join(self.conf['dir_alc_in'],
                                        '{}*{}*.nc'.format(self.conf['prefix_alc_in'], self.wigos)))
+        if not self.mwr_files:
+            err_msg = ('No MWR data for {} {} found in {}. These files must have been removed between station selection'
+                       ' and file listing. This should not happen!'.format(self.wigos, self.inst_id,
+                                                                           self.conf['dir_mwr_in']))
+            # TODO: also add a CRITICAL entry with err_msg to logger before raising the exception
+            raise MissingDataError(err_msg)
 
     def prepare_obs(self, delete_mwr_in=False, start_time=None, end_time=None):
         """function preparing E-PROFILE MWR and ALC inputs (concatenate to one file, select time, saving)"""
@@ -122,9 +130,9 @@ class Retrieval(object):
             for file in self.mwr_files:
                 os.remove(file)
 
-        if mwr.time.size == 0:
-
-            pass
+        if mwr.time.size == 0:  # this must happen after file deletion
+            raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
+                                   'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
 
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')  # TODO: put mwr file varnames in config
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
