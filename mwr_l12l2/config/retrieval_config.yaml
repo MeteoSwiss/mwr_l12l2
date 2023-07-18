@@ -6,7 +6,7 @@
 # this file defines the settings common to all stations.
 
 data:  # definitions of which data to use for retrieval. Paths are absolute or relative to mwr_l12l2 project dir
-  max_age: 90  # maximum age of MWR data to be considered for retrieval in minutes
+  max_age: 90  # maximum age of MWR data to be considered for retrieval in minutes. Set to null for unlimited
   mwr_dir: mwr_l12l2/data/mwr/  # directory for microwave radiometer input data
   mwr_file_prefix: MWR_1C01_
   alc_dir: mwr_l12l2/data/alc/  # directory for automatic lidar's or ceilometer's cloud base input data

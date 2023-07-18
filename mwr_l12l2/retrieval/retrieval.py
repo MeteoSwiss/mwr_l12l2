@@ -52,7 +52,14 @@ class Retrieval(object):
         self.alc_exists = None  # is cloud base measured by co-located ceilometer?
 
     def run(self, start_time=None, end_time=None):
+        """run the entire retrieval chain
 
+        Args:
+            start_time (optional): earliest time from which to consider data. If not specified, all data younger than
+                'max_age' specified in retrieval config will be used or, if 'max_age' is None, age of data is unlimited.
+            end_time (optional): latest time from which to consider data. If not specified, all data received by now is
+                processed.
+        """
         if start_time is None and self.conf['data']['max_age'] is not None:
             start_time = dt.datetime.utcnow()-dt.timedelta(minutes=self.conf['data']['max_age'])
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
@@ -136,7 +143,7 @@ class Retrieval(object):
             raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
                                    'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
 
-        self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')  # TODO: put mwr file varnames in config
+        self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
         self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
 
