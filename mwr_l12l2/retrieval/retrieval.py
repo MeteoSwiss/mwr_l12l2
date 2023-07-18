@@ -107,10 +107,10 @@ class Retrieval(object):
             # TODO: also add a CRITICAL entry with err_msg to logger before raising the exception
             raise MissingDataError(err_msg)
 
-    def prepare_obs(self, delete_mwr_in=False, start_time=None, end_time=None):
+    def prepare_obs(self, start_time=None, end_time=None, delete_mwr_in=False):
         """function preparing E-PROFILE MWR and ALC inputs (concatenate to one file, select time, saving)"""
 
-        tolerance_alc_time = np.timedelta64(5, 'm')
+        tolerance_alc_time = np.timedelta64(5, 'm')  # get ALC up to 5 minutes before/after start/end of MWR interval
 
         start_time = np.datetime64(start_time)
         end_time = np.datetime64(end_time)
