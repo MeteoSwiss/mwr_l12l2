@@ -51,13 +51,17 @@ class Retrieval(object):
         self.sfc_p_obs_exists = None  # is pressure measured by met station of MWR instrument?
         self.alc_exists = None  # is cloud base measured by co-located ceilometer?
 
-    def run(self):
+    def run(self, start_time=None, end_time=None):
+
+        if start_time is None and self.conf['data']['max_age'] is not None:
+            start_time = dt.datetime.utcnow()-dt.timedelta(minutes=self.conf['data']['max_age'])
+        # end_time/start_time can be left at None to consider latest/earliest available MWR data
+
         self.prepare_paths()
         self.prepare_tropoe_dir()
         self.select_instrument()
         self.list_obs_files()
-        # TODO: set earliest time to be considered by setting start_time=... in prepare_obs (use max_age from conf)
-        self.prepare_obs(delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
+        self.prepare_obs(start_time=start_time, end_time=end_time, delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.prepare_model(self.time_mean)
         # TODO launch run_tropoe.py here
         self.postprocess_tropoe()
@@ -118,8 +122,8 @@ class Retrieval(object):
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
 
-        self.time_min = max(mwr.time.min(), start_time).values
-        self.time_max = min(mwr.time.max(), end_time).values
+        self.time_min = max(mwr.time.min().values, start_time)
+        self.time_max = min(mwr.time.max().values, end_time)
         self.time_mean = self.time_min + (self.time_max-self.time_min)/2  # need to work with diff to get timedelta
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max), drop=True)  # brackets because of precedence of & over > and <
 
@@ -227,5 +231,5 @@ class Retrieval(object):
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    ret.run()
+    ret.run(start_time=np.datetime64('2023-04-25 00:00:00'))
     pass
