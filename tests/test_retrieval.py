@@ -15,10 +15,16 @@ mwr_ext = '.nc'
 alc_dir = abs_file_path('tests/data/alc/')
 alc_basename = 'L2_0-20000-0-10393_0'
 alc_ext = '.nc'
+model_fc_file = abs_file_path('tests/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')
+model_zg_file = abs_file_path('tests/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')
+model_get_time = np.datetime64('2023-04-25 14:30:00')
 
 dir_out = abs_file_path('tests/data/output/')
 mwr_file_out = os.path.join(dir_out, 'mwr.nc')
 alc_file_out = os.path.join(dir_out, 'alc.nc')
+model_prof_file_out = os.path.join(dir_out, 'model_prof.nc')
+model_sfc_file_out = os.path.join(dir_out, 'model_sfc.nc')
+
 
 class TestRetrieval(unittest.TestCase):
     @classmethod
@@ -129,8 +135,20 @@ class TestRetrieval(unittest.TestCase):
 
     def test_prepare_model(self):
         """test the preparation of model data for TROPoe"""
-        self.ret.model_fc_file = None
-        self.ret.model_zg_file = None
+        self.ret.model_fc_file = model_fc_file
+        self.ret.model_zg_file = model_zg_file
+        self.ret.model_prof_file_tropoe = model_prof_file_out
+        self.ret.model_sfc_file_tropoe = model_sfc_file_out
+
+        with self.subTest(operation='run main'):
+            """run prepare_model method"""
+            self.ret.prepare_model(model_get_time)
+        with self.subTest(operation='check output files exist'):
+            """check that model profiles and surface files for TROPoe have been generated"""
+            self.assertTrue(os.path.exists(model_prof_file_out),
+                            msg='expected model profile data file for TROPoe run has not been generated')
+            self.assertTrue(os.path.exists(model_sfc_file_out),
+                            msg='expected moddel surface data file for TROPoe run has not been generated')
 
 
 if __name__ == '__main__':
