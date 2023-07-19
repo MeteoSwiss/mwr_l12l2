@@ -38,10 +38,13 @@ class TestRetrieval(unittest.TestCase):
     def tearDownClass(cls):
         """remove test config directory again"""
         shutil.rmtree(dir_out)
+
     def setUp(self):
+        """initialize a new instance of Retrieval class for each test"""
         self.ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
 
     def test_prepare_obs(self):
+        """test the preparation of observation files for TROPoe (MWR and ALC)"""
         self.ret.mwr_files = [os.path.join(mwr_dir, mwr_basename + '202304251300' + mwr_ext),
                               os.path.join(mwr_dir, mwr_basename + '202304251400' + mwr_ext),
                               os.path.join(mwr_dir, mwr_basename + '202304251500' + mwr_ext)]
@@ -53,11 +56,14 @@ class TestRetrieval(unittest.TestCase):
         self.ret.alc_file_tropoe = alc_file_out
 
         with self.subTest(operation='run main'):
+            """run prepare_obs method"""
             self.ret.prepare_obs()
         with self.subTest(operation='check data times'):
+            """check that data times inferred by prepare_obs correspond to what is expected from input files"""
             self.assertTrue(np.abs(self.ret.time_mean - expected_mean_time) < np.timedelta64(10, 'm'),
                             msg='mean time inferred from MWR data is not as expected')
         with self.subTest(operation='check vars/files existence status'):
+            """check that data data existence inferred by prepare_obs correspond to what is expected from input files"""
             self.assertEqual(self.ret.alc_exists, expected_alc_file_existence,
                              msg='ALC data existence is expected to be {} but retrieval class says {}'.format(
                                  expected_alc_file_existence, self.ret.alc_exists))
@@ -65,10 +71,12 @@ class TestRetrieval(unittest.TestCase):
                 self.assertEqual(getattr(self.ret, key), val,
                                  msg='{} in retrieval class was expected to return {}'.format(key, val))
         with self.subTest(operation='check output files exist'):
+            """check that MWR and ALC files for TROPoe have been generated"""
             self.assertTrue(os.path.exists(mwr_file_out), msg='expected MWR file for TROPoe run has not been generated')
             self.assertTrue(os.path.exists(alc_file_out), msg='expected ALC file for TROPoe run has not been generated')
 
     def test_prepare_obs_single_mwr(self):
+        """test the preparation of observation files for TROPoe with one single MWR file present"""
         self.ret.mwr_files = [os.path.join(mwr_dir, mwr_basename + '202304251300' + mwr_ext),]
         expected_mean_time = np.datetime64('2023-04-25 13:30:00')
         expected_mwr_met_existence = {'sfc_temp_obs_exists': True, 'sfc_p_obs_exists': True, 'sfc_rh_obs_exists': False}
@@ -78,11 +86,14 @@ class TestRetrieval(unittest.TestCase):
         self.ret.alc_file_tropoe = alc_file_out
 
         with self.subTest(operation='run main'):
+            """run prepare_obs method"""
             self.ret.prepare_obs()
         with self.subTest(operation='check data times'):
+            """check that data times inferred by prepare_obs correspond to what is expected from input files"""
             self.assertTrue(np.abs(self.ret.time_mean - expected_mean_time) < np.timedelta64(10, 'm'),
                             msg='mean time inferred from MWR data is not as expected')
         with self.subTest(operation='check vars/files existence status'):
+            """check that data data existence inferred by prepare_obs correspond to what is expected from input files"""
             self.assertEqual(self.ret.alc_exists, expected_alc_file_existence,
                              msg='ALC data existence is expected to be {} but retrieval class says {}'.format(
                                  expected_alc_file_existence, self.ret.alc_exists))
@@ -90,10 +101,12 @@ class TestRetrieval(unittest.TestCase):
                 self.assertEqual(getattr(self.ret, key), val,
                                  msg='{} in retrieval class was expected to return {}'.format(key, val))
         with self.subTest(operation='check output files exist'):
+            """check that MWR and ALC files for TROPoe have been generated"""
             self.assertTrue(os.path.exists(mwr_file_out), msg='expected MWR file for TROPoe run has not been generated')
             self.assertTrue(os.path.exists(alc_file_out), msg='expected ALC file for TROPoe run has not been generated')
 
     def test_prepare_obs_no_alc(self):
+        """test the preparation of observation files for TROPoe with no ALC present (no need to redo all subtests)"""
         self.ret.mwr_files = [os.path.join(mwr_dir, mwr_basename + '202304251300' + mwr_ext),
                               os.path.join(mwr_dir, mwr_basename + '202304251400' + mwr_ext),
                               os.path.join(mwr_dir, mwr_basename + '202304251500' + mwr_ext)]
@@ -103,15 +116,19 @@ class TestRetrieval(unittest.TestCase):
         self.ret.alc_file_tropoe = alc_file_out
 
         with self.subTest(operation='run main'):
+            """run prepare_obs method"""
             self.ret.prepare_obs()
         with self.subTest(operation='check vars/files existence status'):
+            """check that data data existence inferred by prepare_obs correspond to what is expected from input files"""
             self.assertEqual(self.ret.alc_exists, expected_alc_file_existence,
                              msg='ALC data existence is expected to be {} but retrieval class says {}'.format(
                                  expected_alc_file_existence, self.ret.alc_exists))
         with self.subTest(operation='check output files exist'):
+            """check that MWR file for TROPoe has been generated"""
             self.assertTrue(os.path.exists(mwr_file_out), msg='expected MWR file for TROPoe run has not been generated')
 
     def test_prepare_model(self):
+        """test the preparation of model data for TROPoe"""
         self.ret.model_fc_file = None
         self.ret.model_zg_file = None
 
