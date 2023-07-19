@@ -6,7 +6,7 @@ output_directory: tbd  # use absolute path (or relative to mwr_l12l1 project dir
 base_filename_in: MWR_1C01_0-20000-0-06610_A
 base_filename_out: MWR_tbd_0-20000-0-06610_A
 
-# the following keys are most possibly duplicates of the input file's attributes. If both exist, they are used to check
+# the following keys are most possibly duplicates of the input file's attributes. If both exist, should be used to check
 wigos_station_id: 0-20000-0-06610
 instrument_id: A
 station_latitude: 46.81
