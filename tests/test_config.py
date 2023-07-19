@@ -9,7 +9,7 @@ from mwr_l12l2.utils.config_utils import get_retrieval_config, get_mars_config
 from mwr_l12l2.utils.file_uitls import abs_file_path
 
 dir_config_orig = abs_file_path('mwr_l12l2/config/')
-dir_config_test = abs_file_path('tests/config/')
+dir_config_test = abs_file_path('tests/config_testfiles/')
 
 file_ret_orig = os.path.join(dir_config_orig, 'retrieval_config.yaml')
 file_ret_test = os.path.join(dir_config_test, 'retrieval_config.yaml')
