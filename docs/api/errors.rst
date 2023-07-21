@@ -1,4 +1,7 @@
 Errors
 ======
 
-To be written
+.. automodule:: mwr_l12l2.errors
+   :members:
+   :undoc-members:
+   :show-inheritance:
