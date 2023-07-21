@@ -9,7 +9,7 @@ needed ECMWF forecast data, preprocessing tools for running TROPoe as well as po
 quality-controlled E-PROFILE level 2 NetCDF formats. The package contains pre-computed a priori statistics for 
 radiosonde sites representing typical European climates. Each instrument needs an own config file.
 
-The operational service of E-PROFILE uses this package to run centralised near real-time retrievals and generate level2 
+The operational service of [E-PROFILE](https://doi.org/10.1007/s42865-021-00033-w) uses this package to run centralised near real-time retrievals and generate level2 
 NetCDF messages from its network of ground-based microwave radiometers.
 
 ## External dependencies
