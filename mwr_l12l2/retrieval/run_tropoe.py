@@ -11,8 +11,8 @@ def run_tropoe(data_path, date, vip_file, apriori_file, tropoe_img='davidturner5
         data_path: path that will be mounted to /data inside the container. Absolute path or relative to project dir
         date: date for which retrieval shall be executed. For now retrievals cannot encompass more than one day.
             Make sure that it is of type :class:`datetime.datetime` or as a string of type 'yyyymmdd' (or 0)
-        vip_file: path to vip file relative to :param:`data_path`
-        apriori_file:  path to a-priori file relative to :param:`data_path`
+        vip_file: path to vip file relative to :obj:`data_path`
+        apriori_file:  path to a-priori file relative to :obj:`data_path`
         tropoe_img (optional): reference of TROPoe continer image to use. Will take latest available by default
         tmp_path (optional): tmp path that will be mounted to /tmp inside the container. Uses a dummy folder by default
         verbosity (optional): verbosity level of TROPoe. Defaults to 1
