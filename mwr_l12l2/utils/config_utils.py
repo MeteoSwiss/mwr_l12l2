@@ -1,7 +1,7 @@
 import yaml
 
 from mwr_l12l2.errors import MissingConfig
-from mwr_l12l2.utils.file_uitls import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 def get_conf(file):

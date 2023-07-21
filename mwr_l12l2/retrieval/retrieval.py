@@ -10,7 +10,7 @@ from mwr_l12l2.errors import MissingDataError, MWRConfigError
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.utils.config_utils import get_retrieval_config
 from mwr_l12l2.utils.data_utils import get_from_nc_files, set_encoding, has_data
-from mwr_l12l2.utils.file_uitls import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 class Retrieval(object):

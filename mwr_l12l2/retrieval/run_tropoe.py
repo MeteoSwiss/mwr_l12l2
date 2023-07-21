@@ -1,6 +1,6 @@
 from subprocess import run
 
-from mwr_l12l2.utils.file_uitls import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 def run_tropoe(data_path, date, vip_file, apriori_file, tropoe_img='davidturner53/tropoe',

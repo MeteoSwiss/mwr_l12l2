@@ -6,7 +6,7 @@ import numpy as np
 
 from mwr_l12l2.errors import MWRTestError
 from mwr_l12l2.retrieval.retrieval import Retrieval
-from mwr_l12l2.utils.file_uitls import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 mwr_dir = abs_file_path('tests/data/mwr/')

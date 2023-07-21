@@ -5,7 +5,7 @@ import datetime as dt
 import numpy as np
 
 from mwr_l12l2.utils.config_utils import get_inst_config, get_mars_config, merge_mars_inst_config
-from mwr_l12l2.utils.file_uitls import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 def write_mars_request(request_file, mars_conf_fc, mars_conf_z, inst_conf_path, inst_conf_file_pattern='config_0*.yaml',

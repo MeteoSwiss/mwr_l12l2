@@ -6,7 +6,7 @@ import yaml
 
 from mwr_l12l2.errors import MWRConfigError, MWRTestError
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_mars_config
-from mwr_l12l2.utils.file_uitls import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path
 
 dir_config_orig = abs_file_path('mwr_l12l2/config/')
 dir_config_test = abs_file_path('tests/config_testfiles/')

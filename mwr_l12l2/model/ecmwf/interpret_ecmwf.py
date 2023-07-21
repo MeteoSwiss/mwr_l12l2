@@ -5,7 +5,7 @@ import pandas as pd
 import xarray as xr
 
 from mwr_l12l2.errors import MWRInputError
-from mwr_l12l2.utils.file_uitls import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 class ModelInterpreter(object):
