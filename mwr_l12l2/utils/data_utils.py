@@ -36,7 +36,7 @@ def set_encoding(ds, vars, enc):
         vars: list of variables for which encoding is to be adapted
         enc: encoding dictionary (containing e.g. units) that encoding of the respective variables shall to be set to.
     Returns:
-        ds with updated encoding for var in :param:`vars`
+        ds with updated encoding for var in :obj:`vars`
     """
     for var in vars:
         ds[var].encoding = enc
