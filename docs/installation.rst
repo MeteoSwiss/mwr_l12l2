@@ -19,12 +19,12 @@ To run correctly *mwr_l12l2* needs some external dependencies which cannot be in
 
 Install mwr_l12l2
 ^^^^^^^^^^^^^^^^^
-*mwr_l12l2* with all its internal depedencies can be installed by *pip*, *poetry* or any other tools which understand
-dependency specifications in pyptroject.toml.
+*mwr_l12l2* with all its internal dependencies can be installed by *pip*, *poetry* or any other tools which understand
+dependency specifications in pyproject.toml.
 
 from *pypi*
 -----------
-The package will be released on pypi once it has been thoruoghly tested and quality controlled.
+The package will be released on pypi once it has been thoroughly tested and quality controlled.
 Until then, install from *git*
 
 ..
