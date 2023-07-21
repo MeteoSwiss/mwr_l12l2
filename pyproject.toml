@@ -13,6 +13,12 @@ cfgrib = "^0.9.10"
 netCDF4 = "^1.6.3"
 xarray = "0.21.1"
 dask = "2023.1.0"
+Sphinx = {version = "^6", optional = true}
+sphinx-rtd-theme = {version = "^1.2.2", optional = true}
+sphinxcontrib-napoleon = {version = "^0.7", optional = true}
+
+[tool.poetry.extras]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinxcontrib-napoleon"]
 
 [tool.poetry.dev-dependencies]
 
