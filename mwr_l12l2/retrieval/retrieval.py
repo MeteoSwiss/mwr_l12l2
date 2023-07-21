@@ -66,7 +66,7 @@ class Retrieval(object):
 
         self.prepare_paths()
         self.prepare_tropoe_dir()
-        self.select_instrument()
+        self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
         self.list_obs_files()
         self.prepare_obs(start_time=start_time, end_time=end_time, delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.prepare_model(self.time_mean)
