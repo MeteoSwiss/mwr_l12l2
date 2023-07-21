@@ -87,7 +87,7 @@ class ModelInterpreter(object):
         self.p = (self.p_half + np.roll(self.p_half, 1, axis=1))[:, 1:,:, :] / 2
 
     def p_to_z(self):
-        """transform pressure grid (from hybrid_to_z) to geometrical altitudes
+        """transform pressure grid (from :meth:`hybrid_to_p`) to geometrical altitudes
 
         according to: https://confluence.ecmwf.int/display/CKB/ERA5%3A+compute+pressure+and+geopotential+on+model+levels%2C+geopotential+height+and+geometric+height
         """
