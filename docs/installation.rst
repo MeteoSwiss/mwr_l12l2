@@ -5,17 +5,25 @@ Installation
 
 from *pypi*
 ^^^^^^^^^^^
-*mwr_l12l2* is directly installable through *pip*. To install the latest released version and its dependencies do
+The package will be released on pypi once it has been thoruoghly tested and quality controlled.
+Until then, install from *git*
 
-.. code-block::
+..
+    UNCOMMENT THE FOLLOWING LINES (REMOVING THE ABOVE ".." AND THE FOLLOWING INDENTS) ONCE THE PACKAGE IS ON PYPI
+    =============================================================================================================
 
-    pip install mwr_l12l2
+    *mwr_l12l2* is directly installable through *pip*. To install the latest released version and its dependencies do
 
-for more colorful logging you may want to do
+    .. code-block::
 
-.. code-block::
+        pip install mwr_l12l2
 
-    pip install mwr_l12l2[colorlog]
+    for more colorful logging you may want to do
+
+    .. code-block::
+
+        pip install mwr_l12l2[colorlog]
+
 
 from *git*
 ^^^^^^^^^^
