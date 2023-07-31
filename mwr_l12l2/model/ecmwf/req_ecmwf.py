@@ -2,6 +2,8 @@ import glob
 import os
 
 import datetime as dt
+from subprocess import Popen
+
 import numpy as np
 
 from mwr_l12l2.utils.config_utils import get_inst_config, get_mars_config, merge_mars_inst_config
@@ -111,6 +113,23 @@ def get_corner_coord(stn_coord, offset, resol):
     """get corners of a coordinate box around station coordinates which match model grid points"""
     stn_coord_rounded = round(stn_coord/resol) * resol  # round centre coordinate to model resolution
     return stn_coord_rounded + np.array(offset)
+
+
+def get_from_mars(request_file):
+    """run mars request as a child process that will continue running even if function here is exited"""
+    Popen(['mars', request_file], start_new_session=True)
+
+
+def main(**kwargs):
+    """write mars request and get according model data from ECMWF using the mars command
+
+    Args:
+        **kwargs: keyword arguments passed on to :func:`write_mars_request`. Request file must not be specified!
+    """
+    request_file = 'mars_req_act.txt'
+    write_mars_request(request_file, **kwargs)
+    get_from_mars(request_file)
+
 
 
 if __name__ == '__main__':
