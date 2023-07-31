@@ -56,7 +56,7 @@ def write_mars_request(request_file, mars_conf_fc, mars_conf_z, inst_conf_path, 
 
     # define part of forecast request common to all stations (interpret None in time fields as most recent forecast)
     for key, val in mars_conf_fc['request'].items():
-        if key in analysis_time_strs and val is None:
+        if key in analysis_time_strs and val is None:  # if date and time is not explicitly set in conf, get latest run
             val = analysis_time_strs[key]
             mars_conf_fc['request'][key] = val  # need to keep track of these modifications for timestamp of output file
         contents_fc.append('  {}={},'.format(key, val))
