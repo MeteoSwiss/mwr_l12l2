@@ -37,5 +37,6 @@ def run_tropoe(data_path, date, vip_file, apriori_file, tropoe_img='davidturner5
            tropoe_img]
     run(cmd)
 
+
 if __name__ == '__main__':
     run_tropoe('mwr_l12l2/data', 0, 'tropoe/vip.txt', 'apriori/Xa_Sa.Lindenberg.55level.08.cdf')
