@@ -49,12 +49,13 @@ def get_inst_config(file):
 
     return conf
 
+
 def get_retrieval_config(file):
     """get configuration for running the retrieval check for completeness of config file and ensure absolute paths"""
     mandatory_keys = ['data', 'vip']
     mandatory_keys_data = ['max_age',
                            'mwr_dir', 'mwr_file_prefix', 'alc_dir', 'alc_file_prefix',
-                           'model_dir', 'model_fc_file_prefix', 'model_fc_nc_file_suffix', 'model_z_file_prefix',
+                           'model_dir', 'model_fc_file_prefix', 'model_fc_file_suffix', 'model_z_file_prefix',
                            'tropoe_basedir', 'tropoe_subfolder_basename', 'mwr_filename_tropoe', 'alc_filename_tropoe',
                            'model_prof_filename_tropoe', 'model_sfc_filename_tropoe']
     paths_data = ['mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']  # paths that shall be transformed to abs paths

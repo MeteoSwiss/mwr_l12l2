@@ -21,7 +21,7 @@ data:
   # TODO: write sort_model (put mars output to right location and run grb_to_nc) and sort_eprofile (get from FTP)
   model_dir: mwr_l12l2/data/ecmwf_fc/  # directory for NWP model input data
   model_fc_file_prefix: ecmwf_fc_
-  model_fc_nc_file_suffix: _converted_to  # for file converted from grib to NetCDF
+  model_fc_file_suffix: _converted_to  # for file converted from grib to NetCDF
   model_z_file_prefix: ecmwf_z_
 
   # location and filenames of temporary TROPoe files
