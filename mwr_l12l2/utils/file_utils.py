@@ -52,7 +52,7 @@ def datestr_from_filename(filename, suffix=''):
     """
     min_date_length = 4
     filename_no_ext = os.path.splitext(filename)[0]
-    fn_no_suffix = filename_no_ext[0:len(suffix)]
+    fn_no_suffix = filename_no_ext[0:-len(suffix)]
     fn_parts = fn_no_suffix.split('_')
     for block in reversed(fn_parts):  # try to find date str parts of filename, starting at the end
         if len(block) < min_date_length:
