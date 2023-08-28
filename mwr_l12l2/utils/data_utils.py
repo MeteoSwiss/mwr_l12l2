@@ -42,6 +42,7 @@ def set_encoding(ds, vars, enc):
         ds[var].encoding = enc
     return ds
 
+
 def has_data(ds, var):
     """check if a variable in a :class:`xarray.Dataset` exists and contains non-NaN data"""
     if var in ds and not ds[var].isnull().all():

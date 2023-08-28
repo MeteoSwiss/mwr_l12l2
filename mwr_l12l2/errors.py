@@ -3,6 +3,10 @@ class MWRError(Exception):
 
 
 ###############################
+class MWRFileError(MWRError):
+    """Base exception for problems with files used in mwr_l12l2"""
+
+
 class MWRInputError(MWRError):
     """Base exception for calling of MWR functions"""
 
@@ -27,3 +31,8 @@ class MissingConfig(MWRConfigError):
 ###############################
 class MissingDataError(MWRDataError):
     """Raised if some expected data is not present"""
+
+
+###############################
+class FilenameError(MWRFileError):
+    """Raised if the filename does not correspond to the expected pattern"""

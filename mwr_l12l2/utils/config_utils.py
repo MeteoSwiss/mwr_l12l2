@@ -113,6 +113,7 @@ def get_mars_config(file, mandatory_keys=None, mandatory_keys_request=None):
 
     return conf
 
+
 def merge_mars_inst_config(mars_conf, inst_conf):
     """merge mars config and definitions in instrument config for model request giving instrument config precedence"""
 
