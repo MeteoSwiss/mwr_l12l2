@@ -9,20 +9,19 @@ from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 class ModelInterpreter(object):
+    """class to interpret model data from ECMWF and produce input files for TROPoe
 
-    def __init__(self, file_fc_nc, file_zg_grb, station_altitude=None,
-                 file_ml=None):
-        """class to interpret model data from ECMWF and produce input files for TROPoe
+    Args:
+        file_fc_nc: file containing forecast data in NetCDF. Must have been converted from grib to nc with
+            mwr_l12l2/model/ecmwf/grb_to_nc.sh before. Direct read-in of grib doesn't work because of dim of lnsp
+        file_zg_grb: file containing the geopotential of the lowest model level in grib format
+        station_altitude (optional): Station altitude to inter/extrapolate model data to for sfc data.
+            If not specified the lowest model level will be used for surface data.
+        file_ml (optional): a and b parameters to transform model levels to pressure and altitude grid.
+            If not specified the file named 'ecmwf_model_levels_137.csv' in same dir as interpret_ecmwf.py will be used.
+    """
 
-        Args:
-            file_fc_nc: file containing forecast data in NetCDF. Must have been converted from grib to nc with
-                mwr_l12l2/model/ecmwf/grb_to_nc.sh before. Direct read-in of grib doesn't work because of dim of lnsp
-            file_zg_grb: file containing the geopotential of the lowest model level in grib format
-            station_altitude (optional): Station altitude to inter/extrapolate model data to for sfc data.
-                If not specified the lowest model level will be used for surface data.
-            file_ml (optional): a and b parameters to transform model levels to pressure and altitude grid.
-                If not specified the file named 'ecmwf_model_levels_137.csv' in the current dir will be usesd.
-        """
+    def __init__(self, file_fc_nc, file_zg_grb, station_altitude=None, file_ml=None):
 
         self.file_fc_nc = abs_file_path(file_fc_nc)
         self.file_zg_grb = abs_file_path(file_zg_grb)
@@ -63,12 +62,13 @@ class ModelInterpreter(object):
         col_headers = ['level', 'a', 'b']  # expected column headers in self.file_ml
 
         # get parameters a and b for hybrid model levels from csv and do some basic input checking
-        level_coeffs = pd.read_csv(self.file_ml )
+        level_coeffs = pd.read_csv(self.file_ml)
         for name in col_headers:
             if name not in level_coeffs:
-                MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain a column header "
-                              "'{}' in the first line".format(self.file_ml, name))
-        if not (level_coeffs.loc[len(level_coeffs)-1, 'level'] == len(level_coeffs)-1 and level_coeffs.loc[0, 'level'] == 0):
+                MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain "
+                              "a column header '{}' in the first line".format(self.file_ml, name))
+        if not (level_coeffs.loc[len(level_coeffs)-1, 'level'] == len(level_coeffs)-1
+                and level_coeffs.loc[0, 'level'] == 0):
             MWRInputError("the file describing the model level coefficients at '{}' is supposed to contain all levels "
                           'from 0 to n_levels (plus one line of column headers at the top)'.format(self.file_ml))
 
@@ -79,18 +79,20 @@ class ModelInterpreter(object):
         b = ab[:, 1]
 
         # calculate pressure at model levels taking the mean between half levels
-        p_surf = np.exp(self.fc.lnsp)  # for testing with pseudo std atm (p, not T/q) use p_surf=np.tile(101325,(27, 48, 3, 3))
-        p_surf_all = np.tile(p_surf[:, 0:1, : , :], (1, ab.shape[0], 1, 1))  # slice instead of index to preserve dim
-        a_all = np.tile(a[np.newaxis, :, np.newaxis, np.newaxis], (p_surf.shape[0], 1, p_surf.shape[2], p_surf.shape[3]))
-        b_all = np.tile(b[np.newaxis, :, np.newaxis, np.newaxis], (p_surf.shape[0], 1, p_surf.shape[2], p_surf.shape[3]))
+        p_surf = np.exp(self.fc.lnsp)  # to test pseudo std atm (p, not T/q) use p_surf=np.tile(101325,(27, 48, 3, 3))
+        p_surf_all = np.tile(p_surf[:, 0:1, :, :], (1, ab.shape[0], 1, 1))  # slice instead of index to preserve dim
+        a_all = np.tile(a[np.newaxis, :, np.newaxis, np.newaxis],
+                        (p_surf.shape[0], 1, p_surf.shape[2], p_surf.shape[3]))
+        b_all = np.tile(b[np.newaxis, :, np.newaxis, np.newaxis],
+                        (p_surf.shape[0], 1, p_surf.shape[2], p_surf.shape[3]))
         self.p_half = a_all + b_all*p_surf_all
-        self.p = (self.p_half + np.roll(self.p_half, 1, axis=1))[:, 1:,:, :] / 2
+        self.p = (self.p_half + np.roll(self.p_half, 1, axis=1))[:, 1:, :, :] / 2
 
     def p_to_z(self):
         """transform pressure grid (from :meth:`hybrid_to_p`) to geometrical altitudes
 
         according to: https://confluence.ecmwf.int/display/CKB/ERA5%3A+compute+pressure+and+geopotential+on+model+levels%2C+geopotential+height+and+geometric+height
-        """
+        """  # noqa: E501
 
         gas_const = 287.06  # gas constant for dry air (Rd)
         g = 9.80665  # gravitational acceleration of Earth
@@ -130,7 +132,7 @@ class ModelInterpreter(object):
         self.t_err = get_std_profile(self.fc.t)
 
     def virt_temp(self):
-        """return virtual temperature from temperature and specific humdity in self.fc"""
+        """return virtual temperature from temperature and specific humidity in self.fc"""
         return self.fc.t * (1 + 0.609133*self.fc.q)
 
 
@@ -139,6 +141,7 @@ def get_ref_profile(x):
     if type(x) is not np.ndarray:
         x = x.values
     return x[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]  # CARE: if you edit, also edit central_lat/lon in writer
+
 
 def get_std_profile(x):
     """extract std profile (last time, std in lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
