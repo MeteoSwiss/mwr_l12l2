@@ -14,6 +14,12 @@ from mwr_l12l2.utils.file_utils import abs_file_path
 
 
 class Retrieval(object):
+    """Class for gathering and preparing all necessary information to run the retrieval
+
+    Args:
+        conf: configuration file or dictionary
+        node: identifier for different parallel TROPoe runs. Defaults to 0.
+    """
 
     def __init__(self, conf, node=0):
         if isinstance(conf, dict):
@@ -29,7 +35,7 @@ class Retrieval(object):
         self.tropoe_dir = None
         self.mwr_file_tropoe = None
         self.alc_file_tropoe = None
-        self.model_prof_file_tropoe = None  # model reference profiles and uncertainties to (as input to TROPoe)
+        self.model_prof_file_tropoe = None  # extracted model reference profiles and uncertainties (as input to TROPoe)
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
         self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')  # TODO: include to conf
         self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')  # TODO: include to conf with dir and basename
