@@ -1,5 +1,8 @@
 import os
 
+import datetime as dt
+import numpy as np
+
 from pathlib import Path
 
 import mwr_l12l2
@@ -64,6 +67,23 @@ def datestr_from_filename(filename, suffix=''):
         raise FilenameError("found no date in '{}'".format(filename))
 
 
+def datetime64_from_filename(filename, *args, **kwargs):
+    """get :class:`numpy.datetime64` object from filename. Calling as :func:`datestr_from_fielename`"""
+
+    accepted_formats = {'yyyymmddHHMMSS': '%Y%m%d%H%M%S',  # matching between datestring formats and datetime format spec
+                        'yyyymmddHHMM': '%Y%m%d%H%M',
+                        'yyyymmddHH': '%Y%m%d%H',
+                        'yyyymmdd': '%Y%m%d',
+                        'yyyymm': '%Y%m'}  # only one entry per length of key as right one is picked by length
+
+    dstr = datestr_from_filename(filename, *args, **kwargs)
+    for dstr_format, datetime_format in accepted_formats.items():
+        if len(dstr) == len(dstr_format):
+            return np.datetime64(dt.datetime.strptime(dstr, datetime_format))
+    raise FilenameError('length of date string in filename is {} what does not match any '
+                        'of the accepted formats ({})'.format(len(dstr), accepted_formats))
+
+
 if __name__ == '__main__':
     fn1 = concat_filename('L2_', '0-20000-0-06610')
     fn2 = concat_filename('L2_', '0-20000-0-06610', ext='.grb')
@@ -72,7 +92,7 @@ if __name__ == '__main__':
     fn5 = concat_filename('L2_', '0-20000-0-06610', suffix='*')
     fn6 = concat_filename('L2_', '0-20000-0-06610', suffix='*', ext='')
 
-    dstr1 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc', '2031')
-    dstr2 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc')
+    dstr1 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc', '2031')  # 20230828
+    dstr2 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc')  # 2031
     # the following shall raise: dstr3 = datestr_from_filename('L2_0-20000-0-06610_A.nc')
     pass
