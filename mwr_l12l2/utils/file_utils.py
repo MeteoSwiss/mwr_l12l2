@@ -71,7 +71,7 @@ def datestr_from_filename(filename, suffix=''):
 def datetime64_from_filename(filename, *args, **kwargs):
     """get :class:`numpy.datetime64` object from filename. Calling as :func:`datestr_from_fielename`"""
 
-    accepted_formats = {'yyyymmddHHMMSS': '%Y%m%d%H%M%S',  # matching between datestring formats and datetime format spec
+    accepted_formats = {'yyyymmddHHMMSS': '%Y%m%d%H%M%S',  # matching between datestring formats and datetime format
                         'yyyymmddHHMM': '%Y%m%d%H%M',
                         'yyyymmddHH': '%Y%m%d%H',
                         'yyyymmdd': '%Y%m%d',
@@ -85,6 +85,23 @@ def datetime64_from_filename(filename, *args, **kwargs):
                         'of the accepted formats ({})'.format(len(dstr), accepted_formats))
 
 
+def dict_to_file(data, file, sep, header=None):
+    """write dictionary contents to a file. One item per line matching keys and values using 'sep'.
+
+    Args:
+        data: dictionary to write to file in question
+        file: output file incl. path and extension
+        sep: separator sign between key and value as string. Can include whitespaces around separator.
+        header: header string to write to the head of the file before the first dictionary item. Defaults to None
+    """
+
+    with open(file, 'w') as f:
+        if header is not None:
+            f.write(header + '\n')
+        for key, val in data.items():
+            f.write(sep.join([key, val]) + '\n')
+
+
 if __name__ == '__main__':
     fn1 = concat_filename('L2_', '0-20000-0-06610')
     fn2 = concat_filename('L2_', '0-20000-0-06610', ext='.grb')
@@ -96,4 +113,7 @@ if __name__ == '__main__':
     dstr1 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc', '2031')  # 20230828
     dstr2 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc')  # 2031
     # the following shall raise: dstr3 = datestr_from_filename('L2_0-20000-0-06610_A.nc')
+
+    dd = {'key1': 'val1', 'key2': 'val2'}
+    dict_to_file(dd, 'test.vip', ' = ', '# this is just a test file')
     pass
