@@ -19,7 +19,6 @@ file_mars_test = os.path.join(dir_config_test, 'mars_config_fc.yaml')
 file_mars_mocked = os.path.join(dir_config_test, 'mars_config_fc_mocked.yaml')
 
 
-
 class TestConfig(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

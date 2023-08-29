@@ -110,8 +110,8 @@ if __name__ == '__main__':
     fn5 = concat_filename('L2_', '0-20000-0-06610', suffix='*')
     fn6 = concat_filename('L2_', '0-20000-0-06610', suffix='*', ext='')
 
-    dstr1 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc', '2031')  # 20230828
-    dstr2 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_2031.nc')  # 2031
+    dstr1 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_20311201.nc', '20311201')  # 20230828
+    dstr2 = datestr_from_filename('L2_0-20000-0-06610_A_20230828_20311201.nc')  # 20311201
     # the following shall raise: dstr3 = datestr_from_filename('L2_0-20000-0-06610_A.nc')
 
     dd = {'key1': 'val1', 'key2': 'val2'}
