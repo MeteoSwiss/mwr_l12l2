@@ -10,7 +10,7 @@ from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe
 from mwr_l12l2.utils.config_utils import get_retrieval_config
 from mwr_l12l2.utils.data_utils import get_from_nc_files, has_data
-from mwr_l12l2.utils.file_utils import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename
 
 
 class Retrieval(object):
@@ -37,8 +37,6 @@ class Retrieval(object):
         self.alc_file_tropoe = None
         self.model_prof_file_tropoe = None  # extracted model reference profiles and uncertainties (as input to TROPoe)
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
-        self.model_fc_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_fc_0-20000-0-10393_A_202304250000_converted_to.nc')  # TODO: include to conf
-        self.model_zg_file = abs_file_path('mwr_l12l2/data/ecmwf_fc/ecmwf_z_0-20000-0-10393_A.grb')  # TODO: include to conf with dir and basename
 
         # set by select_instrument():
         self.wigos = None
@@ -56,6 +54,10 @@ class Retrieval(object):
         self.sfc_rh_obs_exists = None  # is rel humidity measured by met station of MWR instrument?
         self.sfc_p_obs_exists = None  # is pressure measured by met station of MWR instrument?
         self.alc_exists = None  # is cloud base measured by co-located ceilometer?
+
+        # set by choose_mode_files():
+        self.model_fc_file = None
+        self.model_zg_file = None
 
     def run(self, start_time=None, end_time=None):
         """run the entire retrieval chain
@@ -75,6 +77,7 @@ class Retrieval(object):
         self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
         self.list_obs_files()
         self.prepare_obs(start_time=start_time, end_time=end_time, delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
+        self.choose_model_files()
         self.prepare_model(self.time_mean)
         # TODO launch run_tropoe.py here
         self.postprocess_tropoe()
@@ -82,7 +85,7 @@ class Retrieval(object):
         #  by inverting order between interpret_ecmwf and prepare_eprofile
 
     def prepare_paths(self):
-        """prepare output paths and filenames from config"""
+        """prepare input and output paths and filenames from config"""
         self.tropoe_dir = os.path.join(self.conf['data']['tropoe_basedir'],
                                        '{}{}/'.format(self.conf['data']['tropoe_subfolder_basename'], self.node))
         self.mwr_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['mwr_filename_tropoe'])
@@ -165,6 +168,37 @@ class Retrieval(object):
                 self.alc_exists = False
         else:
             self.alc_exists = False
+
+    def choose_model_files(self):
+        """choose most actual model forecast run containing time range in MWR data and according zg file"""
+        # TODO: write a test for this method
+
+        # find forecast file
+        file_pattern_fc = concat_filename(self.conf['data']['model_fc_file_prefix'], self.wigos, self.inst_id,
+                                          suffix='*' + self.conf['data']['model_fc_file_suffix'],
+                                          ext=self.conf['data']['model_fc_file_ext'])
+        fc_files = glob.glob(os.path.join(self.conf['data']['model_dir'], file_pattern_fc))
+
+        file_fc_youngest = None
+        ts_youngest_fc = np.datetime64('1900-01-01')  # simple init to be sure to always find younger
+        for file in fc_files:
+            ts_fc = datetime64_from_filename(file, self.conf['data']['model_fc_file_suffix'])
+            if ts_youngest_fc <= ts_fc <= self.time_min:
+                ts_youngest_fc = ts_fc
+                file_fc_youngest = file
+        if file_fc_youngest is None:
+            raise MissingDataError('found no model forecast file containing data from {}'.format(self.time_min))
+        else:
+            self.model_fc_file = file_fc_youngest
+
+        # find z file with model altitude at grid points relevant to station (not expected to be dated)
+        file_z = os.path.join(self.conf['data']['model_dir'],
+                              concat_filename(self.conf['data']['model_z_file_prefix'], self.wigos, self.inst_id,
+                                              ext=self.conf['data']['model_z_file_ext']))
+        if os.path.exists(file_z):
+            self.model_zg_file = file_z
+        else:
+            raise MissingDataError('found no model file containing model altitude grid points')
 
     def prepare_model(self, time):
         """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe"""
