@@ -131,7 +131,6 @@ def main(**kwargs):
     get_from_mars(request_file)
 
 
-
 if __name__ == '__main__':
     write_mars_request('mwr_l12l2/data/output/ecmwf/mars_request.txt',
                        'mwr_l12l2/config/mars_config_fc.yaml', 'mwr_l12l2/config/mars_config_z.yaml',
