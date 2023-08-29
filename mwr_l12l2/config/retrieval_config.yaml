@@ -29,6 +29,7 @@ data:
   # location and filenames of temporary TROPoe files
   tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
   tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
+  vip_filename_tropoe: vip.txt
   mwr_filename_tropoe: mwr.nc
   alc_filename_tropoe: alc.nc
   model_prof_filename_tropoe: model_prof.nc
@@ -36,4 +37,5 @@ data:
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
-  # TODO: add vip config here and in config_utils.get_retrieval_config
+  testkey: testval
+  # TODO: add vip config here and in config_utils.get_retrieval_config and remove testkey: testval above
