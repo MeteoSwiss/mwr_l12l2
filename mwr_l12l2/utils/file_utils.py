@@ -51,9 +51,10 @@ def datestr_from_filename(filename, suffix=''):
         string containing the date in same representation as in the filename
     """
     min_date_length = 4
-    filename_no_ext = os.path.splitext(filename)[0]
-    fn_no_suffix = filename_no_ext[0:-len(suffix)]
-    fn_parts = fn_no_suffix.split('_')
+    filename_cut = os.path.splitext(filename)[0]
+    if len(suffix) > 0:
+        filename_cut = filename_cut[0:-len(suffix)]  # zero length suffix would yield empty str, hence if-clause
+    fn_parts = filename_cut.split('_')
     for block in reversed(fn_parts):  # try to find date str parts of filename, starting at the end
         if len(block) < min_date_length:
             continue
