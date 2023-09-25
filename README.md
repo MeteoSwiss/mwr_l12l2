@@ -13,8 +13,12 @@ The operational service of [E-PROFILE](https://doi.org/10.1007/s42865-021-00033-
 NetCDF messages from its network of ground-based microwave radiometers.
 
 ## External dependencies
-* **TROPoe**: https://hub.docker.com/r/davidturner53/tropoe
 * **podman**: https://podman.io/
+* **TROPoe**: https://hub.docker.com/r/davidturner53/tropoe
+  * Make sure to pull the container with podman:
+
+      `podman pull docker.io/davidturner53/tropoe`
+  
 * for using ECMWF forecasts:
   * **libeccodes0** and **libeccodes-tools**: grib file utilities available through apt
   * **mars**: command line utility to obtain ECMWF data, see https://confluence.ecmwf.int/display/UDOC/MARS+user+documentation
@@ -58,19 +62,10 @@ To install *mwr_l12l2* from the source code do the following
     - with *pip* (>=21.3)
    
         - `pip install .`
-   
-        - or for including the colorful logging
-   
-          `pip install .[colorlog]`
-   
+      
     - with *poetry*
    
-        - `poetry install`
-   
-        - or for including the colorful logging
-      
-          `poetry install -E colorlog`
-          
+        - `poetry install`        
     
 
 
