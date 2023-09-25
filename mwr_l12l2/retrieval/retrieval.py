@@ -5,7 +5,7 @@ import shutil
 import datetime as dt
 import numpy as np
 
-from mwr_l12l2.errors import MissingDataError, MWRConfigError
+from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe
 from mwr_l12l2.utils.config_utils import get_retrieval_config
@@ -69,6 +69,8 @@ class Retrieval(object):
             end_time (optional): latest time from which to consider data. If not specified, all data received by now is
                 processed.
         """
+        if start_time is not None and not isinstance(start_time, dt.datetime):
+            raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
         if start_time is None and self.conf['data']['max_age'] is not None:
             start_time = dt.datetime.utcnow() - dt.timedelta(minutes=self.conf['data']['max_age'])
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
@@ -262,5 +264,5 @@ class Retrieval(object):
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    ret.run(start_time=np.datetime64('2023-04-25 00:00:00'))
+    ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
     pass
