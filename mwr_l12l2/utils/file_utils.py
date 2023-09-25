@@ -99,7 +99,7 @@ def dict_to_file(data, file, sep, header=None):
         if header is not None:
             f.write(header + '\n')
         for key, val in data.items():
-            f.write(sep.join([key, val]) + '\n')
+            f.write(sep.join([key, str(val)]) + '\n')
 
 
 if __name__ == '__main__':
