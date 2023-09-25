@@ -37,5 +37,45 @@ data:
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
-  testkey: testval
   # TODO: add vip config here and in config_utils.get_retrieval_config and remove testkey: testval above
+
+  # Set the temporal resolution and vertical grid of the retrieval
+  avg_instant: 1
+  tres: 10
+  zgrid: [0, 0.060, 0.120, 0.240, 0.480, 0.720, 0.960, 1.2, 1.44, 1.68, 1.98, 2.28, 2.58, 2.88, 3.25, 3.6, 4.014, 4.426, 4.879, 5.376, 5.924, 6.526, 7.189, 7.918, 8.72, 9.602, 10.572, 11.639, 12.813, 14.104, 15.525, 17.087]
+
+  # Indicate that this is a MWR-based retrieval
+  irs_type: -1
+
+  # The parameters for a zenith-pointing radiometer
+  mwr_type: 4
+  mwr_elev_field: ele
+  mwr_freq_field: frequency
+  mwr_tb_field_names: tb
+  mwr_tb_field1_tbmax: 100.
+
+  # The parameters for an elevation scanning radiometer
+  mwrscan_type: 4
+  mwrscan_elev_field: ele
+  mwrscan_freq_field: frequency
+  mwrscan_tb_field_names: tb
+  mwrscan_tb_field1_tbmax: 330.
+  mwrscan_time_delta: 0.25  # The maximum amount of time [hours] that the elevation scan must be to the
+
+  # Surface met parameters (where we read from the MWR's fields)
+  ext_sfc_relative_height: 0
+
+  # The model input
+  mod_temp_prof_type: 0
+  mod_temp_noise_adder_val: [10, 4, 4]
+  mod_temp_noise_adder_hts: [0,  5, 20]
+  mod_wv_prof_type: 0
+  mod_wv_noise_mult_val: [8, 4, 4]
+  mod_wv_noise_mult_hts: [0, 5, 20]
+
+  # The ceilometer input
+  cbh_type: 7
+  cbh_default_ht: 2.
+
+  # The output information
+  output_clobber: 1
