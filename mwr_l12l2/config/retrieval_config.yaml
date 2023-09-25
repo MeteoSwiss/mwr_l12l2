@@ -30,10 +30,10 @@ data:
   tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
   tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
   vip_filename_tropoe: vip.txt
-  mwr_filename_tropoe: mwr.nc
-  alc_filename_tropoe: alc.nc
-  model_prof_filename_tropoe: model_prof.nc
-  model_sfc_filename_tropoe: model_sfc.nc
+  mwr_basefilename_tropoe: mwr
+  alc_basefilename_tropoe: alc
+  model_prof_basefilename_tropoe: model_prof
+  model_sfc_basefilename_tropoe: model_sfc
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:

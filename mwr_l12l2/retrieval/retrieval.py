@@ -75,7 +75,7 @@ class Retrieval(object):
             start_time = dt.datetime.utcnow() - dt.timedelta(minutes=self.conf['data']['max_age'])
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
 
-        self.prepare_paths()
+        self.prepare_paths(start_time.strftime('%Y%m%d'))
         self.prepare_tropoe_dir()
         self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
         self.list_obs_files()
@@ -89,15 +89,20 @@ class Retrieval(object):
         # TODO: adapt drawing on https://meteoswiss.atlassian.net/wiki/spaces/MDA/pages/46564537/L2+retrieval+EWC
         #  by inverting order between interpret_ecmwf and prepare_eprofile
 
-    def prepare_paths(self):
+    def prepare_paths(self, datestamp='', netcdf_ext='.nc'):
         """prepare input and output paths and filenames from config"""
         self.tropoe_dir = os.path.join(self.conf['data']['tropoe_basedir'],
                                        '{}{}/'.format(self.conf['data']['tropoe_subfolder_basename'], self.node))
         self.vip_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['vip_filename_tropoe'])
-        self.mwr_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['mwr_filename_tropoe'])
-        self.alc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['alc_filename_tropoe'])
-        self.model_prof_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['model_prof_filename_tropoe'])
-        self.model_sfc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['model_sfc_filename_tropoe'])
+        self.mwr_file_tropoe = os.path.join(self.tropoe_dir,
+                                            self.conf['data']['mwr_basefilename_tropoe'] + datestamp + netcdf_ext)
+        self.alc_file_tropoe = os.path.join(self.tropoe_dir,
+                                            self.conf['data']['alc_basefilename_tropoe'] + datestamp + netcdf_ext)
+        self.model_prof_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['model_prof_basefilename_tropoe']
+                                                   + datestamp + netcdf_ext)
+        self.model_sfc_file_tropoe = os.path.join(self.tropoe_dir, self.conf['data']['model_sfc_basefilename_tropoe']
+                                                  + datestamp + netcdf_ext
+                                                  )
 
     def prepare_tropoe_dir(self):
         """set up an empty tropoe tmp file directory for the current node (remove old one if existing)"""
