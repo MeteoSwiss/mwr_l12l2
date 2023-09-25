@@ -70,14 +70,15 @@ class Retrieval(object):
                 processed.
         """
         if start_time is None and self.conf['data']['max_age'] is not None:
-            start_time = dt.datetime.utcnow()-dt.timedelta(minutes=self.conf['data']['max_age'])
+            start_time = dt.datetime.utcnow() - dt.timedelta(minutes=self.conf['data']['max_age'])
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
 
         self.prepare_paths()
         self.prepare_tropoe_dir()
         self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
         self.list_obs_files()
-        self.prepare_obs(start_time=start_time, end_time=end_time, delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
+        self.prepare_obs(start_time=start_time, end_time=end_time,
+                         delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.choose_model_files()
         self.prepare_model(self.time_mean)
         self.prepare_vip()
@@ -143,8 +144,9 @@ class Retrieval(object):
 
         self.time_min = max(mwr.time.min().values, start_time)
         self.time_max = min(mwr.time.max().values, end_time)
-        self.time_mean = self.time_min + (self.time_max-self.time_min)/2  # need to work with diff to get timedelta
-        mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max), drop=True)  # brackets because of precedence of & over > and <
+        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta
+        mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
+                        drop=True)  # brackets because of precedence of & over > and <
 
         mwr.to_netcdf(self.mwr_file_tropoe)
         if delete_mwr_in:
@@ -164,8 +166,8 @@ class Retrieval(object):
         if self.alc_files:  # not empty list, not None
             # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
             alc = get_from_nc_files(self.alc_files)
-            alc = alc.where((alc.time >= self.time_min-tolerance_alc_time)
-                            & (alc.time <= self.time_max+tolerance_alc_time), drop=True)
+            alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
+                            & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
             alc.to_netcdf(self.alc_file_tropoe)
             if alc.time.size == 0:
                 self.alc_exists = False
