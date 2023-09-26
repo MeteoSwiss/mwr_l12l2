@@ -11,13 +11,19 @@ from mwr_l12l2.errors import FilenameError
 
 def abs_file_path(*file_path):
     """
-    Make a relative file_path absolute in respect to the mwr_raw2l1 project directory.
+    Make a relative file_path absolute in respect to the mwr_l12l2 project directory.
     Absolute paths wil not be changed
     """
     path = Path(*file_path)
     if path.is_absolute():
         return path
     return Path(mwr_l12l2.__file__).parent.parent / path
+
+
+def replace_path(path, part_to_replace, replace_by):
+    """replace parts of a path with another path (e.g. useful when mounting a path to another location)"""
+    rel_path = os.path.relpath(path, part_to_replace)
+    return os.path.join(replace_by, rel_path)
 
 
 def concat_filename(prefix, wigos, inst_id='', suffix='', ext='.nc'):
@@ -116,4 +122,6 @@ if __name__ == '__main__':
 
     dd = {'key1': 'val1', 'key2': 'val2'}
     dict_to_file(dd, 'test.vip', ' = ', '# this is just a test file')
+
+    replace_path('tropoe/node_0/mwr/mwr.nc', 'tropoe/node_0', '/data')
     pass
