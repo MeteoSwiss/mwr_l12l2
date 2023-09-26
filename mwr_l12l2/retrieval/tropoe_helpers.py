@@ -1,10 +1,11 @@
+import os.path
 from subprocess import run
 
 import numpy as np
 import xarray as xr
 
 from mwr_l12l2.utils.data_utils import set_encoding
-from mwr_l12l2.utils.file_utils import abs_file_path
+from mwr_l12l2.utils.file_utils import abs_file_path, replace_path
 
 
 def model_to_tropoe(model):
@@ -78,7 +79,7 @@ def model_to_tropoe(model):
     return prof_data, sfc_data
 
 
-def run_tropoe(data_path, date, vip_file, apriori_file, tropoe_img='davidturner53/tropoe',
+def run_tropoe(data_path, date, vip_file, apriori_file, data_mountpoint='/data', tropoe_img='davidturner53/tropoe',
                tmp_path='mwr_l12l2/retrieval/tmp', verbosity=1):
     """Run TROPoe container using podman for one specific retrieval
 
@@ -87,9 +88,10 @@ def run_tropoe(data_path, date, vip_file, apriori_file, tropoe_img='davidturner5
         date: date for which retrieval shall be executed. For now retrievals cannot encompass more than one day.
             Make sure that it is of type :class:`datetime.datetime` or a string of type 'yyyymmdd'. Alternatively you
             can pass 0 or '0' to let TROPoe print back the vip-file parameter options.
-        vip_file: path to vip file relative to :obj:`data_path`
+        vip_file: path to vip file relative to :obj:`data_path` or packaged inside container if matching 'prior.*'
         apriori_file:  path to a-priori file relative to :obj:`data_path`
-        tropoe_img (optional): reference of TROPoe continer image to use. Will take latest available by default
+        data_mountpoint (optional): where the data path will be mounted
+        tropoe_img (optional): reference of TROPoe container image to use. Will take latest available by default
         tmp_path (optional): tmp path that will be mounted to /tmp inside the container. Uses a dummy folder by default
         verbosity (optional): verbosity level of TROPoe. Defaults to 1
     """
@@ -100,12 +102,20 @@ def run_tropoe(data_path, date, vip_file, apriori_file, tropoe_img='davidturner5
     except AttributeError:
         date_str = '{}'.format(date)  # format to handle also integer input
 
+    # map outside files into container
+    vip_fullpath = replace_path(vip_file, data_path, data_mountpoint)
+    if apriori_file[:6] == 'prior.':
+        apriori_fullpath = apriori_file
+    else:
+        apriori_fullpath = replace_path(apriori_file, data_path, data_mountpoint)
+
+    # construct cmd for subprocess
     cmd = ['podman', 'run', '-i', '-u', 'root', '--rm',
-           '-v', '{}:/data'.format(abs_file_path(data_path)),  # map the data path to /data inside the container
+           '-v', '{}:{}'.format(abs_file_path(data_path), data_mountpoint),  # map the data path inside the container
            '-v', '{}:/tmp2'.format(abs_file_path(tmp_path)),  # map the tmp path to /tmp2 (for debug only)
            '-e', 'yyyymmdd=' + date_str,
-           '-e', 'vfile=/data/' + vip_file,  # path inside container, e.g. relative to dir mapped to /data
-           '-e', 'pfile=/data/' + apriori_file,  # path inside container, e.g. relative to dir mapped to /data
+           '-e', 'vfile=' + vip_fullpath,  # path inside container, e.g. relative to dir mapped to /data
+           '-e', 'pfile=' + apriori_fullpath,  # path inside container, e.g. relative to dir mapped to /data
            '-e', 'shour=00',  # achieve time selection over input files, hence consider whole day here
            '-e', 'ehour=24',  # achieve time selection over input files, hence consider whole day here
            '-e', 'verbose={}'.format(verbosity),

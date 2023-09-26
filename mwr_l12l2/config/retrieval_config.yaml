@@ -29,6 +29,7 @@ data:
   # location and filenames of temporary TROPoe files
   tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
   tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
+  tropoe_dir_mountpoint: /data  # where the tropoe subfolder shall be mounted inside the TROPoe container
   vip_filename_tropoe: vip.txt
   result_basefilename_tropoe: tropoe_out
   mwr_basefilename_tropoe: mwr
