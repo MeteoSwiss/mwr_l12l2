@@ -250,15 +250,15 @@ class Retrieval(object):
                          station_psfc_min=800.,
                          ext_sfc_wv_type=4,  # 4 for mwr file, 0 for model file
                          ext_sfc_temp_type=4,  # 4 for mwr file, 0 for model file
-                         mwr_path=self.conf['data']['tropoe_basedir'],
+                         mwr_path=self.tropoe_dir,
                          mwr_rootname='mwr',
-                         mwrscan_path=self.conf['data']['tropoe_basedir'],
+                         mwrscan_path=self.tropoe_dir,
                          mwrscan_rootname='mwr',
-                         mod_temp_prof_path=self.conf['data']['tropoe_basedir'],
-                         mod_wv_prof_path=self.conf['data']['tropoe_basedir'],
-                         cbh_path=self.conf['data']['tropoe_basedir'],
-                         ext_sfc_path=self.conf['data']['tropoe_basedir'],
-                         output_path=self.conf['data']['tropoe_basedir'],
+                         mod_temp_prof_path=self.tropoe_dir,
+                         mod_wv_prof_path=self.tropoe_dir,
+                         cbh_path=self.tropoe_dir,
+                         ext_sfc_path=self.tropoe_dir,
+                         output_path=self.tropoe_dir,
                          output_rootname=self.conf['data']['result_basefilename_tropoe'],
                          )
         self.conf['vip'].update(vip_edits)
