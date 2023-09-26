@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 
@@ -49,3 +50,14 @@ def has_data(ds, var):
         return True
     else:
         return False
+
+
+def datetime64_to_str(x, date_format):
+    """transform :class:`numpy.datetime64` to a datestring corresponding to 'date_format'
+
+    Args:
+        x: datetime as :class:`numpy.datetime64` object
+        date_format: date format understood by :class:`datetime.datetime`
+    """
+    t = pd.to_datetime(x)
+    return t.strftime(date_format)
