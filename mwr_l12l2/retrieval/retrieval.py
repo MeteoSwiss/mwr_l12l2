@@ -7,7 +7,7 @@ import numpy as np
 
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe
 from mwr_l12l2.utils.config_utils import get_retrieval_config
 from mwr_l12l2.utils.data_utils import get_from_nc_files, has_data
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file
@@ -30,6 +30,8 @@ class Retrieval(object):
             raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
 
         self.node = node
+
+
 
         # set by prepare_pahts():
         self.tropoe_dir = None  # directory to store temporary data and config files for the current run of TROPoe
@@ -75,7 +77,9 @@ class Retrieval(object):
             start_time = dt.datetime.utcnow() - dt.timedelta(minutes=self.conf['data']['max_age'])
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
 
-        self.prepare_paths(start_time.strftime('%Y%m%d'))
+        datestamp = start_time.strftime('%Y%m%d')
+
+        self.prepare_paths(datestamp)
         self.prepare_tropoe_dir()
         self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
         self.list_obs_files()
@@ -84,7 +88,7 @@ class Retrieval(object):
         self.choose_model_files()
         self.prepare_model(self.time_mean)
         self.prepare_vip()
-        # TODO launch run_tropoe.py here
+        self.do_retrieval()
         self.postprocess_tropoe()
         # TODO: adapt drawing on https://meteoswiss.atlassian.net/wiki/spaces/MDA/pages/46564537/L2+retrieval+EWC
         #  by inverting order between interpret_ecmwf and prepare_eprofile
@@ -261,6 +265,10 @@ class Retrieval(object):
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header)
         pass
         # TODO set paths according to data availability
+
+    def do_retrieval(self):
+        """run the retrieval using the TROPoe container"""
+        run_tropoe(self.tropoe_dir, self.datestamp, self.vip_file_tropoe, 'dummy/Xa_Sa.Lindenberg.55level.08.cdf')
 
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and """
