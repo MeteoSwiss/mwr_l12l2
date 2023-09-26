@@ -268,7 +268,11 @@ class Retrieval(object):
 
     def do_retrieval(self):
         """run the retrieval using the TROPoe container"""
-        run_tropoe(self.tropoe_dir, self.datestamp, self.vip_file_tropoe, 'dummy/Xa_Sa.Lindenberg.55level.08.cdf')
+        # TODO: decide which a-priori file to use. associate with inst or general? where to store this config:
+        #  inst config file, some DB or a apriori config file with info for all instruments
+        apriori_file = 'prior.MIDLAT.nc'  # located outside TROPoe container unless starting with prior.*
+        date = 0
+        run_tropoe(self.tropoe_dir, date, self.vip_file_tropoe, apriori_file)
 
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and """
