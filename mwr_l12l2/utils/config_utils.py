@@ -57,7 +57,8 @@ def get_retrieval_config(file):
                            'mwr_dir', 'mwr_file_prefix', 'alc_dir', 'alc_file_prefix',
                            'model_dir', 'model_fc_file_prefix', 'model_fc_file_suffix', 'model_fc_file_ext',
                            'model_z_file_prefix', 'model_z_file_ext',
-                           'tropoe_basedir', 'tropoe_subfolder_basename', 'vip_filename_tropoe',
+                           'tropoe_basedir', 'tropoe_subfolder_basename',
+                           'vip_filename_tropoe', 'result_basefilename_tropoe',
                            'mwr_basefilename_tropoe', 'alc_basefilename_tropoe',
                            'model_prof_basefilename_tropoe', 'model_sfc_basefilename_tropoe']
     paths_data = ['mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']  # paths that shall be transformed to abs paths

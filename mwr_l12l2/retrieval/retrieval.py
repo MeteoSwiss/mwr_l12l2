@@ -255,7 +255,7 @@ class Retrieval(object):
                          cbh_path=self.conf['data']['tropoe_basedir'],
                          ext_sfc_path=self.conf['data']['tropoe_basedir'],
                          output_path=self.conf['data']['tropoe_basedir'],
-                         output_rootname=self.conf['data']['tropoe_basedir'],
+                         output_rootname=self.conf['data']['result_basefilename_tropoe'],
                          )
         self.conf['vip'].update(vip_edits)
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header)

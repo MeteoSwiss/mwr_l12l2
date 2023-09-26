@@ -30,6 +30,7 @@ data:
   tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
   tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
   vip_filename_tropoe: vip.txt
+  result_basefilename_tropoe: tropoe_out
   mwr_basefilename_tropoe: mwr
   alc_basefilename_tropoe: alc
   model_prof_basefilename_tropoe: model_prof
@@ -37,8 +38,6 @@ data:
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
-  # TODO: add vip config here and in config_utils.get_retrieval_config and remove testkey: testval above
-
   # Set the temporal resolution and vertical grid of the retrieval
   avg_instant: 1
   tres: 10
