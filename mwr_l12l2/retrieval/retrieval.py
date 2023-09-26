@@ -251,9 +251,9 @@ class Retrieval(object):
                          ext_sfc_wv_type=4,  # 4 for mwr file, 0 for model file
                          ext_sfc_temp_type=4,  # 4 for mwr file, 0 for model file
                          mwr_path=self.tropoe_dir,
-                         mwr_rootname='mwr',
+                         mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mwrscan_path=self.tropoe_dir,
-                         mwrscan_rootname='mwr',
+                         mwrscan_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mod_temp_prof_path=self.tropoe_dir,
                          mod_wv_prof_path=self.tropoe_dir,
                          cbh_path=self.tropoe_dir,
