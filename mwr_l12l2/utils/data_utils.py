@@ -61,3 +61,12 @@ def datetime64_to_str(x, date_format):
     """
     t = pd.to_datetime(x)
     return t.strftime(date_format)
+
+
+def datetime64_to_hour(x):
+    """transform :class:`numpy.datetime64` to a float representing time of day in hours"""
+    date_format = '%H:%M:%S.%f'
+    hour_frac = np.array([1, 60, 3600])
+    dstr = datetime64_to_str(x, date_format)
+    hms = np.array(list(map(float, dstr.split(':'))))
+    return np.sum(hms / hour_frac)
