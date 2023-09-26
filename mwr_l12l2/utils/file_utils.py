@@ -91,7 +91,7 @@ def datetime64_from_filename(filename, *args, **kwargs):
                         'of the accepted formats ({})'.format(len(dstr), accepted_formats))
 
 
-def dict_to_file(data, file, sep, header=None):
+def dict_to_file(data, file, sep, header=None, remove_brackets=False, remove_parentheses=False, remove_braces=False):
     """write dictionary contents to a file. One item per line matching keys and values using 'sep'.
 
     Args:
@@ -99,13 +99,25 @@ def dict_to_file(data, file, sep, header=None):
         file: output file incl. path and extension
         sep: separator sign between key and value as string. Can include whitespaces around separator.
         header: header string to write to the head of the file before the first dictionary item. Defaults to None
+        remove_brackets (optional): Remove square brackets [ and ], e.g. from lists, while printing to file.
+            Defaults to False
+        remove_parentheses (optional): Remove parantheses ( and ), e.g. from tuples, while printing to file.
+            Defaults to False
+        remove_braces (optional): Remove curly braces { and } while printing to file. Defaults to False
     """
 
     with open(file, 'w') as f:
         if header is not None:
             f.write(header + '\n')
         for key, val in data.items():
-            f.write(sep.join([key, str(val)]) + '\n')
+            val = str(val)
+            if remove_brackets:
+                val = val.replace('[', '').replace(']', '')
+            if remove_parentheses:
+                val = val.replace('(', '').replace(')', '')
+            if remove_braces:
+                val = val.replace('{', '').replace('}', '')
+            f.write(sep.join([key, val]) + '\n')
 
 
 if __name__ == '__main__':

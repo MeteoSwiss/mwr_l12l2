@@ -31,8 +31,6 @@ class Retrieval(object):
 
         self.node = node
 
-
-
         # set by prepare_pahts():
         self.tropoe_dir = None  # directory to store temporary data and config files for the current run of TROPoe
         self.vip_file_tropoe = None
@@ -262,7 +260,8 @@ class Retrieval(object):
                          output_rootname=self.conf['data']['result_basefilename_tropoe'],
                          )
         self.conf['vip'].update(vip_edits)
-        dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header)
+        dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header,
+                     remove_brackets=True, remove_parentheses=True, remove_braces=True)
         pass
         # TODO set paths according to data availability
 
