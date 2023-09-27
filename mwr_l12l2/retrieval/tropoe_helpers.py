@@ -79,8 +79,9 @@ def model_to_tropoe(model):
     return prof_data, sfc_data
 
 
-def run_tropoe(data_path, date, vip_file, apriori_file, data_mountpoint='/data', tropoe_img='davidturner53/tropoe',
-               tmp_path='mwr_l12l2/retrieval/tmp', verbosity=1):
+def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
+               data_mountpoint='/data', tropoe_img='davidturner53/tropoe', tmp_path='mwr_l12l2/retrieval/tmp',
+               verbosity=1):
     """Run TROPoe container using podman for one specific retrieval
 
     Args:
@@ -88,6 +89,8 @@ def run_tropoe(data_path, date, vip_file, apriori_file, data_mountpoint='/data',
         date: date for which retrieval shall be executed. For now retrievals cannot encompass more than one day.
             Make sure that it is of type :class:`datetime.datetime` or a string of type 'yyyymmdd'. Alternatively you
             can pass 0 or '0' to let TROPoe print back the vip-file parameter options.
+        start_hour: hour of the day defining the start time of the retrieval period. Can be a float, int or string.
+        end_hour: hour of the day defining the end time of the retrieval period. Can be a float, int or string.
         vip_file: path to vip file relative to :obj:`data_path` or packaged inside container if matching 'prior.*'
         apriori_file:  path to a-priori file relative to :obj:`data_path`
         data_mountpoint (optional): where the data path will be mounted
@@ -114,10 +117,10 @@ def run_tropoe(data_path, date, vip_file, apriori_file, data_mountpoint='/data',
            '-v', '{}:{}'.format(abs_file_path(data_path), data_mountpoint),  # map the data path inside the container
            '-v', '{}:/tmp2'.format(abs_file_path(tmp_path)),  # map the tmp path to /tmp2 (for debug only)
            '-e', 'yyyymmdd=' + date_str,
+           '-e', 'shour={}'.format(start_hour),
+           '-e', 'ehour={}'.format(end_hour),
            '-e', 'vfile=' + vip_fullpath,  # path inside container, e.g. relative to dir mapped to /data
            '-e', 'pfile=' + apriori_fullpath,  # path inside container, e.g. relative to dir mapped to /data
-           '-e', 'shour=00',  # achieve time selection over input files, hence consider whole day here
-           '-e', 'ehour=24',  # achieve time selection over input files, hence consider whole day here
            '-e', 'verbose={}'.format(verbosity),
            tropoe_img]
     run(cmd)

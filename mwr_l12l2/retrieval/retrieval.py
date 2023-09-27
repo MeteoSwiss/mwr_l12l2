@@ -9,7 +9,7 @@ from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe
 from mwr_l12l2.utils.config_utils import get_retrieval_config
-from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data
+from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file
 
 
@@ -272,8 +272,8 @@ class Retrieval(object):
         #  inst config file, some DB or a apriori config file with info for all instruments
         apriori_file = 'prior.MIDLAT.nc'  # located outside TROPoe container unless starting with prior.*
         date = datetime64_to_str(self.time_mean, '%Y%m%d')
-        # TODO: add end and start hour to TROPoe call using datetime64_to_hour
-        run_tropoe(self.tropoe_dir, date, self.vip_file_tropoe, apriori_file)
+        run_tropoe(self.tropoe_dir, date, datetime64_to_hour(self.time_min), datetime64_to_hour(self.time_max),
+                   self.vip_file_tropoe, apriori_file)
 
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and """
