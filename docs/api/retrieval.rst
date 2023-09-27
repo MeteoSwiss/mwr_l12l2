@@ -18,12 +18,12 @@ This is the main module orchestrating the retrieval including pre- and post-proc
 helper modules
 --------------
 
-mwr\_l12l2.retrieval.run\_tropoe
+mwr\_l12l2.retrieval.tropoe\_helpers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This module contains utilities for running the TROPoe container
 
-.. automodule:: mwr_l12l2.retrieval.run_tropoe
+.. automodule:: mwr_l12l2.retrieval.tropoe_helpers
    :members:
    :undoc-members:
    :show-inheritance:
