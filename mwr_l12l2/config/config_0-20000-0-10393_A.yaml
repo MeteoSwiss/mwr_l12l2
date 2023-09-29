@@ -24,3 +24,14 @@ model_request:
 #      path:
 #      basename:
 #      extension:
+
+retrieval:
+  tb_noise: [0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30,
+             0.70, 0.70, 0.70, 0.70, 0.70, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.25, 0.25, 0.25]
+  tb_bias: [5.20, -1.35, -0.17, 0.47, 1.75, 0.29, 0.60, -3.75,
+            2.12, 1.57, 3.50, 3.99, 3.38, 1.44, -0.14, 0.16, -0.15, -0.08, 0.39, 0.96, -0.42, 0.34]
+  zenith_channels: [True, True, True, True, True, True, True, True,
+                    True, True, True, True, True, True, True, True, True, True, True, True, True, True]
+  scan_channels: [False, False, False, False, False, False, False, False,
+                  False, False, False, False, False, False, False, False, False, False, False, True, True, True]
+  scan_ele: [19.8, 160.2]
