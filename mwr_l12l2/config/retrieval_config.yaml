@@ -11,6 +11,10 @@ data:
   # maximum age of MWR data to be considered for retrieval in minutes. Set to null for unlimited
   max_age: 90
 
+  # info on instrument configuration files
+  inst_config_dir: mwr_l12l2/config/
+  inst_config_file_prefix: config_
+
   # location and filenames of E-PROFILE data
   mwr_dir: mwr_l12l2/data/mwr/  # directory for microwave radiometer input data
   mwr_file_prefix: MWR_1C01_

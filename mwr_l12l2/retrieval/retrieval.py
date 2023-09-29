@@ -8,7 +8,7 @@ import numpy as np
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe
-from mwr_l12l2.utils.config_utils import get_retrieval_config
+from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file
 
@@ -43,6 +43,7 @@ class Retrieval(object):
         # set by select_instrument():
         self.wigos = None
         self.inst_id = None
+        self.inst_conf = None
 
         # set by list_obs():
         self.mwr_files = None
@@ -122,6 +123,9 @@ class Retrieval(object):
         #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
         self.wigos = '0-20000-0-10393'
         self.inst_id = 'A'
+        inst_conf_file = '{}{}_{}.yaml'.format(self.conf['data']['inst_config_file_prefix'],
+                                               self.wigos, self.inst_id)
+        self.inst_conf = get_inst_config(os.path.join(self.conf['data']['inst_config_dir'], inst_conf_file))
 
     def list_obs_files(self):
         """get file lists for the selected station

@@ -33,7 +33,7 @@ def get_inst_config(file):
     """get configuration for each instrument and check for completeness of config file"""
 
     mandatory_keys = ['wigos_station_id', 'instrument_id', 'station_latitude', 'station_longitude', 'station_altitude']
-    # TODO: compare all of the previous keys wiht input in L1 nc
+    # TODO: compare all of the previous keys with input in L1 nc
     optional_keys = ['input_directory', 'output_directory', 'base_filename_in', 'base_filename_out', 'nc_attributes']
 
     # TODO: make reader get the following from L1 nc. give possibility to overwrite from config
@@ -54,6 +54,7 @@ def get_retrieval_config(file):
     """get configuration for running the retrieval check for completeness of config file and ensure absolute paths"""
     mandatory_keys = ['data', 'vip']
     mandatory_keys_data = ['max_age',
+                           'inst_config_dir', 'inst_config_file_prefix',
                            'mwr_dir', 'mwr_file_prefix', 'alc_dir', 'alc_file_prefix',
                            'model_dir', 'model_fc_file_prefix', 'model_fc_file_suffix', 'model_fc_file_ext',
                            'model_z_file_prefix', 'model_z_file_ext',
@@ -61,7 +62,7 @@ def get_retrieval_config(file):
                            'vip_filename_tropoe', 'result_basefilename_tropoe',
                            'mwr_basefilename_tropoe', 'alc_basefilename_tropoe',
                            'model_prof_basefilename_tropoe', 'model_sfc_basefilename_tropoe']
-    paths_data = ['mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']  # paths that shall be transformed to abs paths
+    paths_data = ['inst_config_dir', 'mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']  # paths that shall be transformed to abs paths
     mandatory_keys_vip = []
     paths_vip = []  # paths that shall be transformed to abs paths
 
