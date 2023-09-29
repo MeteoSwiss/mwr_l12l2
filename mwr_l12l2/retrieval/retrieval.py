@@ -251,8 +251,8 @@ class Retrieval(object):
                          mwr_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_zenith],
                          mwrscan_elevations=self.inst_conf['retrieval']['scan_ele'],
                          mwrscan_n_elevations=len(self.inst_conf['retrieval']['scan_ele']),
-                         mwrscan_n_tb_fields=len(self.mwr.frequency[ch_zenith]),
-                         mwrscan_tb_freqs=self.mwr.frequency[ch_zenith].values,
+                         mwrscan_n_tb_fields=len(self.mwr.frequency[ch_scan]),
+                         mwrscan_tb_freqs=self.mwr.frequency[ch_scan].values,
                          mwrscan_tb_noise=self.inst_conf['retrieval']['tb_noise'][ch_scan],
                          mwrscan_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_scan],
                          station_psfc_max=1030.,  # TODO: calc from station altitude
