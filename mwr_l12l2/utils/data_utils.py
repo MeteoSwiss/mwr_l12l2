@@ -70,3 +70,11 @@ def datetime64_to_hour(x):
     dstr = datetime64_to_str(x, date_format)
     hms = np.array(list(map(float, dstr.split(':'))))
     return np.sum(hms / hour_frac)
+
+
+def lists_to_np(indict):
+    """transform all values of a dict with type list to a :class:`numpy.ndarray`"""
+    for key, val in indict.items():
+        if isinstance(val, list):
+            indict[key] = np.array(val)
+    return indict

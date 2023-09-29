@@ -1,6 +1,7 @@
 import yaml
 
 from mwr_l12l2.errors import MissingConfig
+from mwr_l12l2.utils.data_utils import lists_to_np
 from mwr_l12l2.utils.file_utils import abs_file_path
 
 
@@ -46,6 +47,8 @@ def get_inst_config(file):
 
     # verify conf dictionary structure
     check_conf(conf, mandatory_keys, 'of instrument config files but is missing in {}'.format(file))
+
+    conf['retrieval'] = lists_to_np(conf['retrieval'])
 
     return conf
 
