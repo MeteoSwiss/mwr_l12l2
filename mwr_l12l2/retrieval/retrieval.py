@@ -263,15 +263,18 @@ class Retrieval(object):
                          mwrscan_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_scan],
                          station_psfc_max=1030.,  # TODO: calc from station altitude
                          station_psfc_min=800.,
-                         ext_sfc_wv_type=4,  # 4 for mwr file, 0 for model file
-                         ext_sfc_temp_type=4,  # 4 for mwr file, 0 for model file
+                         ext_sfc_wv_type=4,  # 4 for mwr file, 0? for model file
+                         ext_sfc_temp_type=4,  # 4 for mwr file, 0? for model file
+                         # TODO set above type according to observation availability,
+                         #  i.e. sfc_p_obs_exists, sfc_sh_obs_exists, sfc_temp_obs_exists
+                         # TODO check what happens with surface pressure
                          mwr_path=self.tropoe_dir_mountpoint,
                          mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mwrscan_path=self.tropoe_dir_mountpoint,
                          mwrscan_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mod_temp_prof_path=self.tropoe_dir_mountpoint,
                          mod_wv_prof_path=self.tropoe_dir_mountpoint,
-                         cbh_path=self.tropoe_dir_mountpoint,
+                         cbh_path=self.tropoe_dir_mountpoint,  # TODO: check what happens if no ALC is available
                          ext_sfc_path=self.tropoe_dir_mountpoint,
                          output_path=self.tropoe_dir_mountpoint,
                          output_rootname=self.conf['data']['result_basefilename_tropoe'],
