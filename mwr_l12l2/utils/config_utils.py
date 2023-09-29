@@ -1,6 +1,6 @@
 import yaml
 
-from mwr_l12l2.errors import MissingConfig
+from mwr_l12l2.errors import MissingConfig, MWRConfigError
 from mwr_l12l2.utils.data_utils import lists_to_np
 from mwr_l12l2.utils.file_utils import abs_file_path
 
@@ -33,21 +33,40 @@ def to_abspath(conf, keys):
 def get_inst_config(file):
     """get configuration for each instrument and check for completeness of config file"""
 
-    mandatory_keys = ['wigos_station_id', 'instrument_id', 'station_latitude', 'station_longitude', 'station_altitude']
-    # TODO: compare all of the previous keys with input in L1 nc
-    optional_keys = ['input_directory', 'output_directory', 'base_filename_in', 'base_filename_out', 'nc_attributes']
-
+    mandatory_keys = ['wigos_station_id', 'instrument_id', 'station_latitude', 'station_longitude', 'station_altitude',
+                      # TODO: compare all of the previous keys with input in L1 nc or remove from config
+                      'model_request', 'retrieval']
     # TODO: make reader get the following from L1 nc. give possibility to overwrite from config
     #         ncattrs = ['wigos_station_id', 'instrument_id', 'site_location', 'institution', 'principal_investigator',
     #                    'instrument_manufacturer', 'instrument_model', 'instrument_generation', 'instrument_hw_id',
     #                    'instrument_calibration_status', 'date_of_last_absolute_calibration',
     #                    'type_of_automatic_calibrations']
+    mandatory_keys_model_request = ['grid']
+    mandatory_keys_model_request_grid = ['lat_res', 'lon_res', 'lat_offset', 'lon_offset']
+    mandatory_keys_retrieval = ['tb_noise', 'tb_bias', 'zenith_channels', 'scan_channels']
 
     conf = get_conf(file)
 
     # verify conf dictionary structure
     check_conf(conf, mandatory_keys, 'of instrument config files but is missing in {}'.format(file))
+    check_conf(conf['model_request'], mandatory_keys_model_request,
+               'of the model_request section in instrument config files but is missing in {}'.format(file))
+    check_conf(conf['model_request']['grid'], mandatory_keys_model_request_grid,
+               'of the model_request.grid section in instrument config files but is missing in {}'.format(file))
+    check_conf(conf['retrieval'], mandatory_keys_retrieval,
+               'of the retrieval section in instrument config files but is missing in {}'.format(file))
 
+    # dimension checking for retrieval config
+    if not (len(conf['retrieval']['tb_noise']) == len(conf['retrieval']['tb_bias'])
+            == len(conf['retrieval']['zenith_channels']) == len(conf['retrieval']['scan_channels'])):
+        raise MWRConfigError('Length of tb_noise ({}), tb_bias ({}), zenith_channels ({}) and scan_channels ({}) '
+                             'does not match in {}'.format(len(conf['retrieval']['tb_noise']),
+                                                           len(conf['retrieval']['tb_bias']),
+                                                           len(conf['retrieval']['zenith_channels']),
+                                                           len(conf['retrieval']['scan_channels']),
+                                                           file))
+
+    # transformation of lists to numpy arrays to allow logical indexing
     conf['retrieval'] = lists_to_np(conf['retrieval'])
 
     return conf

@@ -244,6 +244,12 @@ class Retrieval(object):
 
         ch_zenith = self.inst_conf['retrieval']['zenith_channels']
         ch_scan = self.inst_conf['retrieval']['scan_channels']
+        if not (len(ch_zenith) == len(ch_scan) == len(self.mwr.frequency)):
+            err_msg_1 = ('Length of zenith_channels ({}) and scan_channels ({}) in instrument config must match length '
+                         'of frequency dimension in level 1 data file ({}).'.format(len(ch_zenith), len(ch_scan),
+                                                                                    len(self.mwr.frequency)))
+            err_msg_2 = 'This is not the case for {}_{}'.format(self.wigos, self.inst_id)
+            raise MWRConfigError(' '.join([err_msg_1, err_msg_2]))
 
         vip_edits = dict(mwr_n_tb_fields=len(self.mwr.frequency[ch_zenith]),
                          mwr_tb_freqs=self.mwr.frequency[ch_zenith].values,
