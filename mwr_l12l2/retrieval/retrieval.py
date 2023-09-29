@@ -159,14 +159,20 @@ class Retrieval(object):
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
 
-        mwr.to_netcdf(self.mwr_file_tropoe)
         if delete_mwr_in:
             for file in self.mwr_files:
                 os.remove(file)
 
-        if mwr.time.size == 0:  # this must happen after file deletion
+        if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
             raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
                                    'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
+        # TODO: uncomment the following block once getting good test files with ok quality flags
+        # mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
+        # if mwr.tb.isnull().all():
+        #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
+        #                            'Nothing to retrieve!'.format(start_time, end_time))
+
+        mwr.to_netcdf(self.mwr_file_tropoe)
 
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
