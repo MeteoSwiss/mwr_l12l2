@@ -49,6 +49,7 @@ class Retrieval(object):
         self.alc_files = None
 
         # set by prepare_obs():
+        self.mwr = None  # Level1 contents of MWR instrument for considered time period
         self.time_min = None  # min time of MWR observations available and considered
         self.time_max = None  # max time of MWR observations available and considered
         self.time_mean = None  # average time of period containing considered MWR observations
@@ -170,6 +171,8 @@ class Retrieval(object):
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
         self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
+
+        self.mwr = mwr
 
         # ALC treatment
         self.alc_exists = True  # start assuming ALC obs exist, set to False if not.
