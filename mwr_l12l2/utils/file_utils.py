@@ -95,7 +95,7 @@ def dict_to_file(data, file, sep, header=None, remove_brackets=False, remove_par
     """write dictionary contents to a file. One item per line matching keys and values using 'sep'.
 
     Args:
-        data: dictionary to write to file in question
+        data: dictionary to write to file in question. Numpy 1d-arrays as values are ok, matrices not
         file: output file incl. path and extension
         sep: separator sign between key and value as string. Can include whitespaces around separator.
         header: header string to write to the head of the file before the first dictionary item. Defaults to None
@@ -110,6 +110,8 @@ def dict_to_file(data, file, sep, header=None, remove_brackets=False, remove_par
         if header is not None:
             f.write(header + '\n')
         for key, val in data.items():
+            if isinstance(val, np.ndarray):  # ensure numpy arrays are printed with elements separated by commas
+                val = list(val)
             val = str(val)
             if remove_brackets:
                 val = val.replace('[', '').replace(']', '')
