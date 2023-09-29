@@ -44,6 +44,15 @@ def set_encoding(ds, vars, enc):
     return ds
 
 
+def get_nearest(data, find_vals):
+    """find values in data nearest values in the input data"""
+    x = np.unique(data)
+    out = []
+    for fv in find_vals:
+        out.append(x[np.abs(x-fv).argmin()])
+    return out
+
+
 def has_data(ds, var):
     """check if a variable in a :class:`xarray.Dataset` exists and contains non-NaN data"""
     if var in ds and not ds[var].isnull().all():
