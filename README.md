@@ -14,6 +14,7 @@ NetCDF messages from its network of ground-based microwave radiometers.
 
 ## External dependencies
 * **podman**: https://podman.io/
+  * on some distros the package **slirp4nets** is not installed. Make sure to have it for root-less execution of podman. Available through apt
 * **TROPoe**: https://hub.docker.com/r/davidturner53/tropoe
   * Make sure to pull the container with podman:
 
