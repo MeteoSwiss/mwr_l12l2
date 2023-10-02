@@ -283,7 +283,6 @@ class Retrieval(object):
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header,
                      remove_brackets=True, remove_parentheses=True, remove_braces=True)
         pass
-        # TODO set paths according to data availability
 
     def do_retrieval(self):
         """run the retrieval using the TROPoe container"""
@@ -295,7 +294,10 @@ class Retrieval(object):
                    self.vip_file_tropoe, apriori_file)
 
     def postprocess_tropoe(self):
-        """post-process the outputs of TROPoe and """
+        """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
+        # TODO: set up a writer producing the E-PROFILE format. 90% of mwr_raw2l1.write_netcdf() and
+        #  mwr_raw2l1.config.L1_format.yaml will be re-usable by just modifying the .yaml to match TROPoe output vars to
+        #  the output format varnames and attributes
         pass
 
 
