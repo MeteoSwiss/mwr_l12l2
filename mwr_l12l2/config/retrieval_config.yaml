@@ -66,8 +66,10 @@ vip:
   mwrscan_tb_field1_tbmax: 330.
   mwrscan_time_delta: 0.25  # The maximum amount of time [hours] that the elevation scan must be to the
 
-  # Surface met parameters (where we read from the MWR's fields)
+  # Surface met parameters
   ext_sfc_relative_height: 0
+  ext_sfc_temp_type: null  # null means choosing from data availability with priority for MWR-internal met station
+  ext_sfc_wv_type: null  # null means choosing from data availability with priority for MWR-internal met station
 
   # The model input
   mod_temp_prof_type: 0
