@@ -191,9 +191,10 @@ class Retrieval(object):
             alc = get_from_nc_files(self.alc_files)
             alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
                             & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
-            alc.to_netcdf(self.alc_file_tropoe)
             if alc.time.size == 0:
                 self.alc_exists = False
+            else:
+                alc.to_netcdf(self.alc_file_tropoe)
         else:
             self.alc_exists = False
 
@@ -303,5 +304,6 @@ class Retrieval(object):
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
+    #ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
+    ret.run(start_time=dt.datetime(2023, 9, 29, 0, 0, 0))
     pass
