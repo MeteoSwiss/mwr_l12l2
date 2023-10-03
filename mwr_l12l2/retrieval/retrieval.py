@@ -267,6 +267,12 @@ class Retrieval(object):
                 sfc_wv_type = 1  # TODO: verify this is the correct type for external obs in ARM format
             else:
                 sfc_wv_type = 0
+        # TODO check what happens with surface pressure i.e. sfc_p_obs_exists and implement analogously to above
+        if self.conf['vip']['cbh_type'] is None:
+            if self.alc_exists:
+                cbh_type = 7  # E-PROFILE ALC L1 file of co-located instrument
+            else:
+                cbh_type = 0
 
         # update and complete vip entries with info from conf and data availability
         vip_edits = dict(mwr_n_tb_fields=len(self.mwr.frequency[ch_zenith]),
@@ -283,15 +289,14 @@ class Retrieval(object):
                          station_psfc_min=800.,
                          ext_sfc_wv_type=sfc_wv_type,
                          ext_sfc_temp_type=sfc_temp_type,
-                         # TODO set above type according to observation availability,
-                         #  i.e. sfc_p_obs_exists, sfc_sh_obs_exists, sfc_temp_obs_exists
+                         cbh_type=cbh_type,
                          mwr_path=self.tropoe_dir_mountpoint,
                          mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mwrscan_path=self.tropoe_dir_mountpoint,
                          mwrscan_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mod_temp_prof_path=self.tropoe_dir_mountpoint,
                          mod_wv_prof_path=self.tropoe_dir_mountpoint,
-                         cbh_path=self.tropoe_dir_mountpoint,  # TODO: check what happens if no ALC is available
+                         cbh_path=self.tropoe_dir_mountpoint,
                          ext_sfc_path=self.tropoe_dir_mountpoint,
                          output_path=self.tropoe_dir_mountpoint,
                          output_rootname=self.conf['data']['result_basefilename_tropoe'],
@@ -299,7 +304,6 @@ class Retrieval(object):
         self.conf['vip'].update(vip_edits)
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header,
                      remove_brackets=True, remove_parentheses=True, remove_braces=True)
-        pass
 
     def do_retrieval(self):
         """run the retrieval using the TROPoe container"""

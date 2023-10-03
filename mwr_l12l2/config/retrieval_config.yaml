@@ -79,9 +79,9 @@ vip:
   mod_wv_noise_mult_val: [8, 4, 4]
   mod_wv_noise_mult_hts: [0, 5, 20]
 
-  # The ceilometer input
-  cbh_type: 7
-  cbh_default_ht: 2.
+  # The ceilometer input and cloudbase height
+  cbh_type: null  # null means selecting from data availability, i.e. from co-located ALc if available, else default
+  cbh_default_ht: 2.  # cloud base height a-priori if no ceilometer data was found
 
   # The output information
   output_clobber: 1
