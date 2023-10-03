@@ -41,7 +41,7 @@ def model_to_tropoe(model):
                                                 attrs={'units': 'g/kg'}),
                        }
 
-    prof_data_attrs = {'source': 'reference profile and uncertainties extracted from ECMWF operational forecast'}
+    prof_data_attrs = {'model': 'reference profile and uncertainties extracted from ECMWF operational forecast'}
 
     sfc_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
                       'time_offset': dict(dims='time', data=model.time_ref),
@@ -62,7 +62,7 @@ def model_to_tropoe(model):
                       }
     # TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
     # instead. use log for pressure
-    sfc_data_attrs = {'source': 'surface quantities and uncertainties extracted from ECMWF operational forecast'}
+    sfc_data_attrs = {'model': 'surface quantities and uncertainties extracted from ECMWF operational forecast'}
     # TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
     # (info cannot be found inside grib file). Might also want to add lat/lon area used.
 
