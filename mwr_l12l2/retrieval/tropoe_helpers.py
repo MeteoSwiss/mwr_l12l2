@@ -49,6 +49,8 @@ def model_to_tropoe(model):
                                   attrs={'units': 'degrees_north'}),
                       'lon': dict(dims=(), data=central_lon,
                                   attrs={'units': 'degrees_east'}),
+                      'p_surf': dict(dims=('time'), data=model.p_ref[-1:] / 1e2,
+                                  attrs={'units': 'hPa'}),
                       'height': dict(dims='height', data=model.z_ref[-1:] / 1e3,
                                      attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
                       'temperature': dict(dims=('time', 'height'), data=model.t_ref[np.newaxis, -1:] - 273.15,
