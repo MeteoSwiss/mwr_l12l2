@@ -23,24 +23,31 @@ def model_to_tropoe(model, station_altitude):
     central_lon = model.fc.longitude.values[int(len(model.fc.latitude) / 2)]
 
     height_agl = model.z_ref-station_altitude
+    id_station_alt = height_agl[0,:]>0
         
     time_encoding = {'units': 'seconds since 1970-01-01', 'calendar': 'standard'}
 
+    # prof_data_specs = xr.Dataset(
+    #     data_vars = dict(
+    #         time_offset=(['time'], model.time_ref),
+    #         height=([])
+    #     )
+    # )
     prof_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
                        'time_offset': dict(dims='time', data=model.time_ref),
                        'lat': dict(dims=(), data=central_lat,
                                    attrs={'units': 'degrees_north'}),
                        'lon': dict(dims=(), data=central_lon,
                                    attrs={'units': 'degrees_east'}),
-                       'height': dict(dims='height', data=height_agl[height_agl>0] / 1e3,
+                       'height': dict(dims='height', data=np.mean(height_agl[:,id_station_alt], axis=0) / 1e3,
                                       attrs={'long_name': 'Height above ground level', 'units': 'km'}),
-                       'temperature': dict(dims=('time', 'height'), data=model.t_ref[height_agl>0][np.newaxis, :] - 273.15,
+                       'temperature': dict(dims=('time', 'height'), data=model.t_ref[:,id_station_alt] - 273.15,
                                            attrs={'units': 'Celsius'}),
-                       'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[height_agl>0][np.newaxis, :],
+                       'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[:,id_station_alt],
                                                  attrs={'units': 'Celsius'}),
-                       'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[height_agl>0][np.newaxis, :] * 1e3,
+                       'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[:,id_station_alt] * 1e3,
                                           attrs={'units': 'g/kg'}),
-                       'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[height_agl>0][np.newaxis, :] * 1e3,
+                       'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[:,id_station_alt] * 1e3,
                                                 attrs={'units': 'g/kg'}),
                        }
 
@@ -52,13 +59,13 @@ def model_to_tropoe(model, station_altitude):
                                   attrs={'units': 'degrees_north'}),
                       'lon': dict(dims=(), data=central_lon,
                                   attrs={'units': 'degrees_east'}),
-                      'pres': dict(dims=('time'), data=model.p_ref[height_agl>0][-1:]/ 1e2,
+                      'pres': dict(dims=('time'), data=model.p_ref[:,id_station_alt][:,-1]/ 1e2,
                                   attrs={'units': 'hPa'}),
-                      'height': dict(dims='time', data=height_agl[height_agl>0][-1:] / 1e3,
+                      'height': dict(dims='time', data=height_agl[:,id_station_alt][:,-1] / 1e3,
                                      attrs={'long_name': 'Height above ground level', 'units': 'km'}),
-                      'temp': dict(dims=('time'), data=model.t_ref[height_agl>0][-1:] - 273.15,
+                      'temp': dict(dims=('time'), data=model.t_ref[:,id_station_alt][:,-1] - 273.15,
                                           attrs={'units': 'Celsius'}),
-                      'rh': dict(dims=('time'), data=model.rh[height_agl>0][-1:]*1e2,
+                      'rh': dict(dims=('time'), data=model.rh[:,id_station_alt][:,-1]*1e2,
                                          attrs={'units': '%'}),
                       }
     # TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
