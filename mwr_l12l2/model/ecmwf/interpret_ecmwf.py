@@ -127,6 +127,9 @@ class ModelInterpreter(object):
         self.p_ref = get_ref_profile(self.p)
         self.time_ref = self.fc.time.values
 
+        # Compute reference profile of RH
+        self.rh = self.relative_humidity()
+        
         # take std over lat/lon (at last time selected) as error
         self.q_err = get_std_profile(self.fc.q)
         self.t_err = get_std_profile(self.fc.t)
@@ -134,7 +137,24 @@ class ModelInterpreter(object):
     def virt_temp(self):
         """return virtual temperature from temperature and specific humidity in self.fc"""
         return self.fc.t * (1 + 0.609133*self.fc.q)
+    
+    def relative_humidity(self):
+        """return relative humidity from pressure, specific humitiy and temperature in self.rh according to https://codes.ecmwf.int/grib/param-db/?id=157"""        
+        # Mixed phased parameter (depends on T):
+        alpha = ((self.t_ref - 250.16)/(273.16-250.16))**2
+        alpha[self.t_ref<250.16] = 0
+        alpha[self.t_ref>273.16] = 1
 
+        # Saturation vapor pressure
+        esat_w = 611.21*np.exp(17.502*((self.t_ref - 273.16) / (self.t_ref -32.19)))
+        esat_i = 611.21*np.exp(22.587*((self.t_ref - 273.16) / (self.t_ref +0.7)))
+        esat = alpha*esat_w + (1-alpha)*esat_i
+
+        # Ratio between molar masses of water and dry air
+        epsilon = 0.621981
+
+        # relative humity
+        return self.p_ref*self.q_ref*(1/epsilon)/(esat*(1 + self.q_ref*(1/epsilon - 1)))
 
 def get_ref_profile(x):
     """extract ref profile (last time, centre lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
