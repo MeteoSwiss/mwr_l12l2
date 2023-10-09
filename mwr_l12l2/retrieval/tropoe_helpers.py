@@ -8,7 +8,7 @@ from mwr_l12l2.utils.data_utils import set_encoding
 from mwr_l12l2.utils.file_utils import abs_file_path, replace_path
 
 
-def model_to_tropoe(model):
+def model_to_tropoe(model, station_altitude):
     """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe
 
     Args:
@@ -21,6 +21,9 @@ def model_to_tropoe(model):
 
     central_lat = model.fc.latitude.values[int(len(model.fc.latitude) / 2)]
     central_lon = model.fc.longitude.values[int(len(model.fc.latitude) / 2)]
+
+    height_agl = model.z_ref-station_altitude
+        
     time_encoding = {'units': 'seconds since 1970-01-01', 'calendar': 'standard'}
 
     prof_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
@@ -29,15 +32,15 @@ def model_to_tropoe(model):
                                    attrs={'units': 'degrees_north'}),
                        'lon': dict(dims=(), data=central_lon,
                                    attrs={'units': 'degrees_east'}),
-                       'height': dict(dims='height', data=model.z_ref / 1e3,
-                                      attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
-                       'temperature': dict(dims=('time', 'height'), data=model.t_ref[np.newaxis, :] - 273.15,
+                       'height': dict(dims='height', data=height_agl[height_agl>0] / 1e3,
+                                      attrs={'long_name': 'Height above ground level', 'units': 'km'}),
+                       'temperature': dict(dims=('time', 'height'), data=model.t_ref[height_agl>0][np.newaxis, :] - 273.15,
                                            attrs={'units': 'Celsius'}),
-                       'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[np.newaxis, :],
+                       'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[height_agl>0][np.newaxis, :],
                                                  attrs={'units': 'Celsius'}),
-                       'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[np.newaxis, :] * 1e3,
+                       'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[height_agl>0][np.newaxis, :] * 1e3,
                                           attrs={'units': 'g/kg'}),
-                       'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[np.newaxis, :] * 1e3,
+                       'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[height_agl>0][np.newaxis, :] * 1e3,
                                                 attrs={'units': 'g/kg'}),
                        }
 
@@ -49,18 +52,14 @@ def model_to_tropoe(model):
                                   attrs={'units': 'degrees_north'}),
                       'lon': dict(dims=(), data=central_lon,
                                   attrs={'units': 'degrees_east'}),
-                      'p_surf': dict(dims=('time'), data=model.p_ref[-1:] / 1e2,
+                      'pres': dict(dims=('time'), data=model.p_ref[height_agl>0][-1:]/ 1e2,
                                   attrs={'units': 'hPa'}),
-                      'height': dict(dims='height', data=model.z_ref[-1:] / 1e3,
-                                     attrs={'long_name': 'Height above mean sea level', 'units': 'km'}),
-                      'temperature': dict(dims=('time', 'height'), data=model.t_ref[np.newaxis, -1:] - 273.15,
+                      'height': dict(dims='time', data=height_agl[height_agl>0][-1:] / 1e3,
+                                     attrs={'long_name': 'Height above ground level', 'units': 'km'}),
+                      'temp': dict(dims=('time'), data=model.t_ref[height_agl>0][-1:] - 273.15,
                                           attrs={'units': 'Celsius'}),
-                      'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[np.newaxis, -1:],
-                                                attrs={'units': 'Celsius'}),
-                      'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[np.newaxis, -1:] * 1e3,
-                                         attrs={'units': 'g/kg'}),
-                      'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[np.newaxis, -1:] * 1e3,
-                                               attrs={'units': 'g/kg'}),
+                      'rh': dict(dims=('time'), data=model.rh[height_agl>0][-1:]*1e2,
+                                         attrs={'units': '%'}),
                       }
     # TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
     # instead. use log for pressure
