@@ -87,7 +87,7 @@ class Retrieval(object):
         self.prepare_obs(start_time=start_time, end_time=end_time,
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.choose_model_files()
-        self.prepare_model(self.time_mean)
+        self.prepare_model()
         self.prepare_vip()
         self.do_retrieval()
         self.postprocess_tropoe()
@@ -229,13 +229,15 @@ class Retrieval(object):
         else:
             raise MissingDataError('found no model file containing model altitude grid points')
 
-    def prepare_model(self, time):
+    def prepare_model(self):
         """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe"""
         model = ModelInterpreter(self.model_fc_file, self.model_zg_file)
-        model.run(time)
-        prof_data, sfc_data = model_to_tropoe(model)
+        model.run(self.time_min, self.time_max)
+        prof_data, sfc_data = model_to_tropoe(model, station_altitude=np.median(self.mwr.station_altitude.values))
         prof_data.to_netcdf(self.model_prof_file_tropoe)
-        sfc_data.to_netcdf(self.model_sfc_file_tropoe)
+        if not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+            sfc_data.to_netcdf(self.model_sfc_file_tropoe)
+            self.met_sfc_offset = int(sfc_data.height.mean(dim='time').data)
 
     def prepare_vip(self):
         """prepare the vip configuration file for running the TROPoe container"""
@@ -252,6 +254,16 @@ class Retrieval(object):
             err_msg_2 = 'This is not the case for {}_{}'.format(self.wigos, self.inst_id)
             raise MWRConfigError(' '.join([err_msg_1, err_msg_2]))
 
+        # Check for met data in the mwr level 1:
+        if (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+            print('Surface data measured by the MWR')
+            ext_sfc_data_type = 4
+            sfc_data_offset = 0
+        else: 
+            print('No surface data measured by the MWR, using the forecast data instead')
+            ext_sfc_data_type = 1
+            sfc_data_offset = self.met_sfc_offset
+
         vip_edits = dict(mwr_n_tb_fields=len(self.mwr.frequency[ch_zenith]),
                          mwr_tb_freqs=self.mwr.frequency[ch_zenith].values,
                          mwr_tb_noise=self.inst_conf['retrieval']['tb_noise'][ch_zenith],
@@ -264,10 +276,11 @@ class Retrieval(object):
                          mwrscan_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_scan],
                          station_psfc_max=1030.,  # TODO: calc from station altitude
                          station_psfc_min=800.,
-                         ext_sfc_wv_type=4,  # 4 for mwr file, 0? for model file
-                         ext_sfc_temp_type=4,  # 4 for mwr file, 0? for model file
+                         ext_sfc_wv_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
+                         ext_sfc_temp_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
+                         ext_sfc_relative_height=sfc_data_offset,
                          # TODO set above type according to observation availability,
-                         #  i.e. sfc_p_obs_exists, sfc_sh_obs_exists, sfc_temp_obs_exists
+                         #  i.e. sfc_p_obs_exists, sfc_rh_obs_exists, sfc_temp_obs_exists
                          # TODO check what happens with surface pressure
                          mwr_path=self.tropoe_dir_mountpoint,
                          mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
@@ -292,7 +305,7 @@ class Retrieval(object):
         apriori_file = 'prior.MIDLAT.nc'  # located outside TROPoe container unless starting with prior.*
         date = datetime64_to_str(self.time_mean, '%Y%m%d')
         run_tropoe(self.tropoe_dir, date, datetime64_to_hour(self.time_min), datetime64_to_hour(self.time_max),
-                   self.vip_file_tropoe, apriori_file)
+                   self.vip_file_tropoe, apriori_file, verbosity=2)
 
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
