@@ -268,12 +268,6 @@ class Retrieval(object):
                          mwr_tb_freqs=self.mwr.frequency[ch_zenith].values,
                          mwr_tb_noise=self.inst_conf['retrieval']['tb_noise'][ch_zenith],
                          mwr_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_zenith],
-                         mwrscan_elevations=self.inst_conf['retrieval']['scan_ele'],
-                         mwrscan_n_elevations=len(self.inst_conf['retrieval']['scan_ele']),
-                         mwrscan_n_tb_fields=len(self.mwr.frequency[ch_scan]),
-                         mwrscan_tb_freqs=self.mwr.frequency[ch_scan].values,
-                         mwrscan_tb_noise=self.inst_conf['retrieval']['tb_noise'][ch_scan],
-                         mwrscan_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_scan],
                          station_psfc_max=1030.,  # TODO: calc from station altitude
                          station_psfc_min=800.,
                          ext_sfc_wv_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
@@ -291,8 +285,23 @@ class Retrieval(object):
                          cbh_path=self.tropoe_dir_mountpoint,  # TODO: check what happens if no ALC is available
                          ext_sfc_path=self.tropoe_dir_mountpoint,
                          output_path=self.tropoe_dir_mountpoint,
-                         output_rootname=self.conf['data']['result_basefilename_tropoe'],
+                         output_rootname=self.conf['data']['result_basefilename_tropoe']+'_'+self.wigos,
                          )
+        
+        if any(ch_scan):
+            vip_edits['mwrscan_type']=4
+            vip_edits['mwrscan_elev_field']='ele'
+            vip_edits['mwrscan_freq_field']='frequency'
+            vip_edits['mwrscan_tb_field_names']='tb'
+            vip_edits['mwrscan_tb_field1_tbmax']=330.
+            vip_edits['mwrscan_time_delta']=0.25
+            vip_edits['mwrscan_elevations']=self.inst_conf['retrieval']['scan_ele']
+            vip_edits['mwrscan_n_elevations']=len(self.inst_conf['retrieval']['scan_ele'])
+            vip_edits['mwrscan_n_tb_fields']=len(self.mwr.frequency[ch_scan])
+            vip_edits['mwrscan_tb_freqs']=self.mwr.frequency[ch_scan].values
+            vip_edits['mwrscan_tb_noise']=self.inst_conf['retrieval']['tb_noise'][ch_scan]
+            vip_edits['mwrscan_tb_bias']=self.inst_conf['retrieval']['tb_bias'][ch_scan]
+
         self.conf['vip'].update(vip_edits)
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header,
                      remove_brackets=True, remove_parentheses=True, remove_braces=True)
