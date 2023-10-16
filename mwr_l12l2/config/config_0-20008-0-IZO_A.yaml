@@ -1,17 +1,17 @@
-# config file example for a Radiometrics MP3000 in Lindenberg, Germany #
+# config file example for a RPG LHATPRO in Izana, Spain #
 ########################################################################
 
 input_directory: tbd  # use absolute path (or relative to mwr_l12l1 project dir)
 output_directory: tbd  # use absolute path (or relative to mwr_l12l1 project dir)
-base_filename_in: MWR_1C01_0-20000-0-10393_A
-base_filename_out: MWR_tbd_0-20000-0-10393_A
+base_filename_in: MWR_1C01_0-20008-0-IZO_A
+base_filename_out: MWR_tbd_0-20008-0-IZO_A
 
 # the following keys are most possibly duplicates of the input file's attributes. If both exist, should be used to check
-wigos_station_id: 0-20000-0-10393
+wigos_station_id: 0-20008-0-IZO
 instrument_id: A
-station_latitude: 52.21
-station_longitude: 14.12
-station_altitude: 98.
+station_latitude: 28.31
+station_longitude: -16.50
+station_altitude: 2400.
 
 # the following can be used to deviate from the standard defined in mars_config_fc.yaml for requesting model data.
 model_request:
@@ -26,13 +26,8 @@ model_request:
 #     extension:
 
 retrieval:
-  tb_noise: [0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30, 0.30,
-             0.70, 0.70, 0.70, 0.70, 0.70, 0.40, 0.40, 0.40, 0.40, 0.40, 0.40, 0.25, 0.25, 0.25]
-  tb_bias: [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.,]
-  # tb_bias: [5.20, -1.35, -0.17, 0.47, 1.75, 0.29, 0.60, -3.75,
-  #           2.12, 1.57, 3.50, 3.99, 3.38, 1.44, -0.14, 0.16, -0.15, -0.08, 0.39, 0.96, -0.42, 0.34]
-  zenith_channels: [True, True, True, True, True, True, True, True,
-                    True, True, True, True, True, True, True, True, True, True, True, True, True, True]
-  scan_channels: [False, False, False, False, False, False, False, False,
-                  False, False, False, False, False, False, False, False, False, False, False, True, True, True]
-  scan_ele: [19.8, 160.2]
+  tb_noise: [0.8, 0.8, 0.6, 0.4, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, ]
+  tb_bias: [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+  zenith_channels: [True, True, True, True, True, True, True, True, True, True, True, True, True]
+  scan_channels: [False, False, False, False, False, False, False, False, False, False, False, False, False]
+  scan_ele: []
