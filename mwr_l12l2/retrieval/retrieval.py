@@ -121,8 +121,31 @@ class Retrieval(object):
         # TODO: Need to lock lookup for station selection for other nodes until prepare_eprofile_main with delete_mwr_in
         #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work.
         #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
-        self.wigos = '0-20000-0-10393'
-        self.inst_id = 'A'
+        # find oldest file in the folder and get station id from filename (or from file content)
+        # list files in input dir
+        list_of_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
+                                               '{}*.nc'.format(self.conf['data']['mwr_file_prefix'])))
+        
+        if not list_of_files:
+            raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
+        
+        # extract filename and dates of all files
+        list_of_file_date = [os.path.basename(x).split('/')[-1].split('_')[3] for x in list_of_files]
+        list_of_dates = [dt.datetime.strptime(x[1:-3], '%Y%m%d%H%M%S') for x in list_of_file_date]
+
+        # get oldest file (based on creation time)
+        # oldest_file_by_date = min(list_of_files, key=os.path.getctime)
+
+        # get oldest file based on the date in the filename:
+        id_oldest = list_of_dates.index(min(list_of_dates))
+        oldest_file = list_of_files[id_oldest]
+        
+        # get station id from filename
+        self.wigos = oldest_file.split('/')[-1].split('_')[2]
+        #self.wigos = '0-20000-0-06620'
+        
+        self.inst_id = oldest_file.split('/')[-1].split('_')[3][0]
+        #self.inst_id = 'A'
         inst_conf_file = '{}{}_{}.yaml'.format(self.conf['data']['inst_config_file_prefix'],
                                                self.wigos, self.inst_id)
         self.inst_conf = get_inst_config(os.path.join(self.conf['data']['inst_config_dir'], inst_conf_file))
@@ -157,11 +180,20 @@ class Retrieval(object):
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
 
+        print('#############################################################################################')
+        print('Data read from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+        print('#############################################################################################')
+
         self.time_min = max(mwr.time.min().values, start_time)
         self.time_max = min(mwr.time.max().values, end_time)
         self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
+
+        # Check if the wigos id is the correct one:
+        if mwr.wigos_station_id != self.wigos:
+            raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                   .format(mwr.wigos_station_id, self.wigos))
 
         if delete_mwr_in:
             for file in self.mwr_files:
