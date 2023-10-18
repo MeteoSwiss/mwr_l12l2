@@ -21,10 +21,14 @@ class ModelInterpreter(object):
             If not specified the file named 'ecmwf_model_levels_137.csv' in same dir as interpret_ecmwf.py will be used.
     """
 
-    def __init__(self, file_fc_nc, file_zg_grb, station_altitude=None, file_ml=None):
+    def __init__(self, file_fc_nc, file_zg_grb=None, station_altitude=None, file_ml=None):
 
         self.file_fc_nc = abs_file_path(file_fc_nc)
-        self.file_zg_grb = abs_file_path(file_zg_grb)
+        if file_zg_grb is not None:
+            self.use_zg_from_fc = False
+            self.file_zg_grb = abs_file_path(file_zg_grb)
+        else:
+            self.use_zg_from_fc = True
         self.station_altitude = station_altitude
         self.file_ml = file_ml
         if self.file_ml is None:
@@ -54,7 +58,8 @@ class ModelInterpreter(object):
         fc_all = xr.open_dataset(self.file_fc_nc)
         self.fc = fc_all.sel(time=slice(time_min, time_max)) # conserve dimension using slicing
         # Now keeping all models runs between time_min and time_max of the mwr observations, TROPoe does the interpolation
-        self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
+        if not self.use_zg_from_fc:
+            self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
 
     def hybrid_to_p(self):
         """compute pressure (in Pa) of half and full levels from hybrid levels and fill to self.p and self.p_half"""
@@ -109,7 +114,11 @@ class ModelInterpreter(object):
 
         # transformation to geopotential height zg
         dzg_half = self.virt_temp() * gas_const * dlogp  # diff between geopotential height half levels
-        zg_surf_all = np.tile(self.zg_surf.z.values,(self.p_half.shape[0], 1, 1, 1)) #self.zg_surf.z.values[np.newaxis, np.newaxis, :, :]
+        if not self.use_zg_from_fc:
+            zg_surf_all = np.tile(self.zg_surf.z.values,(self.p_half.shape[0], 1, 1, 1)) #self.zg_surf.z.values[np.newaxis, np.newaxis, :, :]
+        else:
+            # New version to work with geopotential from the fc directly:
+            zg_surf_all = np.expand_dims(self.fc.z.isel(level=0).data,1)
         dzg_half_with_sfc = np.concatenate((dzg_half, zg_surf_all), axis=1)
         zg_half = np.flip(np.cumsum(np.flip(dzg_half_with_sfc, axis=1), axis=1), axis=1)  # integrate from surface
         zg = zg_half[:, 1:, :, :] - alpha*gas_const*self.virt_temp()
