@@ -10,7 +10,7 @@ request:  # configurations of mars keywords common to all requests
   type: fc
   stream: oper
   levtype: ml
-  param: 130/133/152  # temperature [K] / specific humidity [kg/kg] / logarithm of surface pressure [-]
+  param: 129/130/133/152  # temperature [K] / specific humidity [kg/kg] / logarithm of surface pressure [-]
   levelist: 1/70/75/80/85/88/91/94/96/98/100/101/102/103/104/105/106/107/108/109/110/111/112/113/114/115/116/117/118/119/120/121/122/123/124/125/126/127/128/129/130/131/132/133/134/135/136/137
   date: null  # if set to 'null', get the most recent forecast
   time: null  # if set to 'null', get the most recent forecast
@@ -23,7 +23,7 @@ grid:  # lat/lon grid for the region around the station where to request data fr
   lon_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
 
 outfile:
-  path: mwr_raw2l1/data/output/ecmwf/
+  path: mwr_l12l2/data/output/ecmwf/
   basename: ecmwf_fc_
   extension: .grb
 
