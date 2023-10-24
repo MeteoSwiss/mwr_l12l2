@@ -28,8 +28,11 @@ model_request:
 retrieval:
   tb_noise: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5,
              0.8, 0.8, 0.6, 0.4, 0.25, 0.25, 0.25]
-  tb_bias: [0., 0., 0., 0., 0., 0., 0.,
-            0., 0., 0., 0., 0., 0., 0.]
+  # tb_bias: [0., 0., 0., 0., 0., 0., 0.,
+  #           0., 0., 0., 0., 0., 0., 0.]
+  
+
+  tb_bias: [2.23 , 2.65,  3.85 , 3.65,  4.01,  3.34,  3.01,  9.3,  11.07,  4.43 ,-0.2 , -0.25,-0.12 ,-0.06]
   zenith_channels: [True, True, True, True, True, True, True,
                     True, True, True, True, True, True, True]
   scan_channels: [False, False, False, False, False, False, False,
