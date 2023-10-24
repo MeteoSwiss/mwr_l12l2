@@ -24,11 +24,14 @@ class ModelInterpreter(object):
     def __init__(self, file_fc_nc, file_zg_grb=None, station_altitude=None, file_ml=None):
 
         self.file_fc_nc = abs_file_path(file_fc_nc)
-        if file_zg_grb is not None:
-            self.use_zg_from_fc = False
-            self.file_zg_grb = abs_file_path(file_zg_grb)
-        else:
-            self.use_zg_from_fc = True
+        # TODO: check if geopotential from forecast is really equivalent to geopotential from analysis and if is does not crash MARS request
+        # if file_zg_grb is not None:
+        #     self.use_zg_from_fc = False
+        #     self.file_zg_grb = abs_file_path(file_zg_grb)
+        # else:
+        #     self.use_zg_from_fc = True
+        self.use_zg_from_fc = False
+        self.file_zg_grb = abs_file_path(file_zg_grb)
         self.station_altitude = station_altitude
         self.file_ml = file_ml
         if self.file_ml is None:
