@@ -92,12 +92,15 @@ class Retrieval(object):
 
         self.prepare_paths(datestamp)
         self.prepare_tropoe_dir()
+
+        # Now only new instrument selection if not provided by a retrieval manager
         if self.wigos is None:
-            self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
+            self.select_instrument()
             self.list_obs_files()
 
         self.prepare_obs(start_time=start_time, end_time=end_time,
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
+        # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
         self.choose_model_files()
         self.prepare_model()
         self.prepare_vip()
@@ -193,6 +196,12 @@ class Retrieval(object):
         self.time_min = max(mwr.time.min().values, start_time)
         self.time_max = min(mwr.time.max().values, end_time)
         self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta
+
+        # Add here a check on the time_min and time_max to make sure that we have at least 10 minutes of data
+        # if (self.time_max - self.time_min) < np.timedelta64(10, 'm'):
+        #     #raise Warning('Not enough data to run the retrieval. Skipping this instrument.')
+        #     pass
+
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
 
