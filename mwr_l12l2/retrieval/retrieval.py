@@ -133,9 +133,6 @@ class Retrieval(object):
         list_of_file_date = [os.path.basename(x).split('/')[-1].split('_')[3] for x in list_of_files]
         list_of_dates = [dt.datetime.strptime(x[1:-3], '%Y%m%d%H%M%S') for x in list_of_file_date]
 
-        # get oldest file (based on creation time)
-        # oldest_file_by_date = min(list_of_files, key=os.path.getctime)
-
         # get oldest file based on the date in the filename:
         id_oldest = list_of_dates.index(min(list_of_dates))
         oldest_file = list_of_files[id_oldest]
@@ -191,13 +188,6 @@ class Retrieval(object):
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
 
-        # Check if the wigos id is the correct one:
-        if mwr.wigos_station_id != self.wigos:
-            raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
-                                   .format(mwr.wigos_station_id, self.wigos))
-
-        # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
-
         if delete_mwr_in:
             for file in self.mwr_files:
                 os.remove(file)
@@ -211,6 +201,21 @@ class Retrieval(object):
         #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
         #                            'Nothing to retrieve!'.format(start_time, end_time))
 
+        # Check if the wigos id is the correct one:
+        if mwr.wigos_station_id != self.wigos:
+            raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                   .format(mwr.wigos_station_id, self.wigos))
+
+        # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
+        # with tolerance of 0.5 degree for lat and lon and 50 m for alt:
+        tolerance_lat_lon = 0.2
+        tolerance_alt = 50
+
+        if (abs(np.nanmedian(mwr.station_latitude.values) - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
+                (abs(np.nanmedian(mwr.station_longitude.values) - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
+                (abs(np.nanmedian(mwr.station_altitude.values) - self.inst_conf['station_altitude']) > tolerance_alt):
+            raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
+        
         mwr.to_netcdf(self.mwr_file_tropoe)
 
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
@@ -289,7 +294,8 @@ class Retrieval(object):
             err_msg_2 = 'This is not the case for {}_{}'.format(self.wigos, self.inst_id)
             raise MWRConfigError(' '.join([err_msg_1, err_msg_2]))
 
-        # Check for met data in the mwr level 1:
+        # Check for met data in the mwr level 1, if exist setup VIP file accordingly to read mwr level 1 file for 
+        # surface data and if not taking lowest model level as surface data (with altitude offset)
         if (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
             print('Surface data measured by the MWR')
             ext_sfc_data_type = 4
@@ -311,8 +317,6 @@ class Retrieval(object):
                          ext_sfc_temp_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
                          ext_sfc_relative_height=sfc_data_offset,
                          ext_sfc_rootname = sfc_rootname,
-                         # TODO set above type according to observation availability,
-                         #  i.e. sfc_p_obs_exists, sfc_rh_obs_exists, sfc_temp_obs_exists
                          # TODO check what happens with surface pressure
                          mwr_path=self.tropoe_dir_mountpoint,
                          mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
@@ -326,6 +330,7 @@ class Retrieval(object):
                          output_rootname=self.conf['data']['result_basefilename_tropoe']+'_'+self.wigos,
                          )
         
+        # Add scan variables to the VIP file only if they exist
         if any(ch_scan):
             vip_edits['mwrscan_type']=4
             vip_edits['mwrscan_elev_field']='ele'
@@ -365,5 +370,5 @@ class Retrieval(object):
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
     #ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
-    ret.run(start_time=dt.datetime(2023, 9, 29, 0, 0, 0))
+    ret.run(start_time=dt.datetime(2023, 9, 29, 0, 0, 0), end_time=dt.datetime(2023, 9, 29, 23, 59, 59))
     pass
