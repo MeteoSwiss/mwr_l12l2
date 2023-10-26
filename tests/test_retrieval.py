@@ -2,6 +2,7 @@ import os.path
 import shutil
 import unittest
 
+import datetime as dt
 import numpy as np
 
 from mwr_l12l2.errors import MWRTestError
@@ -63,6 +64,7 @@ class TestRetrieval(unittest.TestCase):
 
         with self.subTest(operation='run main'):
             """run prepare_obs method"""
+            self.ret.select_instrument()
             self.ret.prepare_obs()
         with self.subTest(operation='check data times'):
             """check that data times inferred by prepare_obs correspond to what is expected from input files"""
@@ -93,6 +95,7 @@ class TestRetrieval(unittest.TestCase):
 
         with self.subTest(operation='run main'):
             """run prepare_obs method"""
+            self.ret.select_instrument()
             self.ret.prepare_obs()
         with self.subTest(operation='check data times'):
             """check that data times inferred by prepare_obs correspond to what is expected from input files"""
@@ -123,6 +126,7 @@ class TestRetrieval(unittest.TestCase):
 
         with self.subTest(operation='run main'):
             """run prepare_obs method"""
+            self.ret.select_instrument()
             self.ret.prepare_obs()
         with self.subTest(operation='check vars/files existence status'):
             """check that data data existence inferred by prepare_obs correspond to what is expected from input files"""
@@ -135,6 +139,11 @@ class TestRetrieval(unittest.TestCase):
 
     def test_prepare_model(self):
         """test the preparation of model data for TROPoe"""
+        # self.time_min = dt.datetime(2023, 4, 25, 0, 0, 0)
+        # self.time_max = dt.datetime(2023, 4, 25, 23, 0, 0)
+        self.ret.sfc_temp_obs_exists = False
+        self.ret.sfc_rh_obs_exists = False
+        self.ret.sfc_p_obs_exists = False
         self.ret.model_fc_file = model_fc_file
         self.ret.model_zg_file = model_zg_file
         self.ret.model_prof_file_tropoe = model_prof_file_out
@@ -142,7 +151,8 @@ class TestRetrieval(unittest.TestCase):
 
         with self.subTest(operation='run main'):
             """run prepare_model method"""
-            self.ret.prepare_model(model_get_time)
+            self.ret.select_instrument()
+            self.ret.prepare_model()
         with self.subTest(operation='check output files exist'):
             """check that model profiles and surface files for TROPoe have been generated"""
             self.assertTrue(os.path.exists(model_prof_file_out),

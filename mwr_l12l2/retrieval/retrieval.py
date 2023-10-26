@@ -87,7 +87,7 @@ class Retrieval(object):
         self.prepare_obs(start_time=start_time, end_time=end_time,
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.choose_model_files()
-        self.prepare_model(self.time_mean)
+        self.prepare_model()
         self.prepare_vip()
         self.do_retrieval()
         self.postprocess_tropoe()
@@ -121,8 +121,29 @@ class Retrieval(object):
         # TODO: Need to lock lookup for station selection for other nodes until prepare_eprofile_main with delete_mwr_in
         #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work.
         #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
-        self.wigos = '0-20000-0-10393'
-        self.inst_id = 'A'
+        # find oldest file in the folder and get station id from filename (or from file content)
+        # list files in input dir
+        list_of_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
+                                               '{}*.nc'.format(self.conf['data']['mwr_file_prefix'])))
+        
+        if not list_of_files:
+            raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
+        
+        # extract filename and dates of all files
+        list_of_file_date = [os.path.basename(x).split('/')[-1].split('_')[3] for x in list_of_files]
+        list_of_dates = [dt.datetime.strptime(x[1:-3], '%Y%m%d%H%M%S') for x in list_of_file_date]
+
+        # get oldest file based on the date in the filename:
+        id_oldest = list_of_dates.index(min(list_of_dates))
+        oldest_file = list_of_files[id_oldest]
+        
+        # get station id from filename
+        self.wigos = oldest_file.split('/')[-1].split('_')[2]
+        #self.wigos = '0-20000-0-10505'
+        
+        self.inst_id = oldest_file.split('/')[-1].split('_')[3][0]
+        #self.inst_id = 'A'
+
         inst_conf_file = '{}{}_{}.yaml'.format(self.conf['data']['inst_config_file_prefix'],
                                                self.wigos, self.inst_id)
         self.inst_conf = get_inst_config(os.path.join(self.conf['data']['inst_config_dir'], inst_conf_file))
@@ -157,6 +178,10 @@ class Retrieval(object):
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
 
+        print('#############################################################################################')
+        print('Data read from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+        print('#############################################################################################')
+
         self.time_min = max(mwr.time.min().values, start_time)
         self.time_max = min(mwr.time.max().values, end_time)
         self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta
@@ -176,6 +201,21 @@ class Retrieval(object):
         #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
         #                            'Nothing to retrieve!'.format(start_time, end_time))
 
+        # Check if the wigos id is the correct one:
+        if mwr.wigos_station_id != self.wigos:
+            raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                   .format(mwr.wigos_station_id, self.wigos))
+
+        # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
+        # with tolerance of 0.5 degree for lat and lon and 50 m for alt:
+        tolerance_lat_lon = 0.2
+        tolerance_alt = 50
+
+        if (abs(np.nanmedian(mwr.station_latitude.values) - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
+                (abs(np.nanmedian(mwr.station_longitude.values) - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
+                (abs(np.nanmedian(mwr.station_altitude.values) - self.inst_conf['station_altitude']) > tolerance_alt):
+            raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
+        
         mwr.to_netcdf(self.mwr_file_tropoe)
 
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
@@ -191,9 +231,10 @@ class Retrieval(object):
             alc = get_from_nc_files(self.alc_files)
             alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
                             & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
-            alc.to_netcdf(self.alc_file_tropoe)
             if alc.time.size == 0:
                 self.alc_exists = False
+            else:
+                alc.to_netcdf(self.alc_file_tropoe)
         else:
             self.alc_exists = False
 
@@ -228,14 +269,16 @@ class Retrieval(object):
         else:
             raise MissingDataError('found no model file containing model altitude grid points')
 
-    def prepare_model(self, time):
+    def prepare_model(self):
         """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe"""
         model = ModelInterpreter(self.model_fc_file, self.model_zg_file)
-        model.run(time)
-        prof_data, sfc_data = model_to_tropoe(model)
+        model.run(self.time_min, self.time_max)
+        prof_data, sfc_data = model_to_tropoe(model, station_altitude=self.inst_conf['station_altitude'])
         prof_data.to_netcdf(self.model_prof_file_tropoe)
-        sfc_data.to_netcdf(self.model_sfc_file_tropoe)
-
+        self.met_sfc_offset = int(sfc_data.height.mean(dim='time').data)
+        if not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+            sfc_data.to_netcdf(self.model_sfc_file_tropoe)
+        
     def prepare_vip(self):
         """prepare the vip configuration file for running the TROPoe container"""
         # TODO: would be more readable to transform this to a helper function in tropoe_helpers. does not set anything
@@ -253,56 +296,58 @@ class Retrieval(object):
             err_msg_2 = 'This is not the case for {}_{}'.format(self.wigos, self.inst_id)
             raise MWRConfigError(' '.join([err_msg_1, err_msg_2]))
 
-        # check data availability and obs file type
-        # TODO: avoid the following code duplications by writing a generic function
-        if self.conf['vip']['ext_sfc_temp_type'] is None:
-            if self.sfc_temp_obs_exists:
-                sfc_temp_type = 4  # internal met station of the MWR in E-PROFILE L1 file
-            elif os.path.exists(self.model_sfc_file_tropoe):
-                sfc_temp_type = 1  # TODO: verify this is the correct type for external obs in ARM format
-            else:
-                sfc_temp_type = 0
-        if self.conf['vip']['ext_sfc_wv_type'] is None:
-            if self.sfc_rh_obs_exists:
-                sfc_wv_type = 4  # internal met station of the MWR in E-PROFILE L1 file
-            elif os.path.exists(self.model_sfc_file_tropoe):
-                sfc_wv_type = 1  # TODO: verify this is the correct type for external obs in ARM format
-            else:
-                sfc_wv_type = 0
-        # TODO check what happens with surface pressure i.e. sfc_p_obs_exists and implement analogously to above
-        if self.conf['vip']['cbh_type'] is None:
-            if self.alc_exists:
-                cbh_type = 7  # E-PROFILE ALC L1 file of co-located instrument
-            else:
-                cbh_type = 0
+        # Check for met data in the mwr level 1, if exist setup VIP file accordingly to read mwr level 1 file for 
+        # surface data and if not taking lowest model level as surface data (with altitude offset)
+        if (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+            print('Surface data measured by the MWR')
+            ext_sfc_data_type = 4
+            sfc_data_offset = 0
+            sfc_rootname = "mwr"
+        else: 
+            print('No surface data measured by the MWR, using the forecast data instead')
+            ext_sfc_data_type = 1
+            sfc_data_offset = self.met_sfc_offset
+            sfc_rootname = "met" # this should be the default value but better specify
 
         # update and complete vip entries with info from conf and data availability
         vip_edits = dict(mwr_n_tb_fields=len(self.mwr.frequency[ch_zenith]),
                          mwr_tb_freqs=self.mwr.frequency[ch_zenith].values,
                          mwr_tb_noise=self.inst_conf['retrieval']['tb_noise'][ch_zenith],
                          mwr_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_zenith],
-                         mwrscan_elevations=self.inst_conf['retrieval']['scan_ele'],
-                         mwrscan_n_elevations=len(self.inst_conf['retrieval']['scan_ele']),
-                         mwrscan_n_tb_fields=len(self.mwr.frequency[ch_scan]),
-                         mwrscan_tb_freqs=self.mwr.frequency[ch_scan].values,
-                         mwrscan_tb_noise=self.inst_conf['retrieval']['tb_noise'][ch_scan],
-                         mwrscan_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_scan],
                          station_psfc_max=1030.,  # TODO: calc from station altitude
                          station_psfc_min=800.,
-                         ext_sfc_wv_type=sfc_wv_type,
-                         ext_sfc_temp_type=sfc_temp_type,
-                         cbh_type=cbh_type,
+                         ext_sfc_wv_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
+                         ext_sfc_temp_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
+                         ext_sfc_relative_height=sfc_data_offset,
+                         ext_sfc_rootname = sfc_rootname,
+                         # TODO check what happens with surface pressure
                          mwr_path=self.tropoe_dir_mountpoint,
                          mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mwrscan_path=self.tropoe_dir_mountpoint,
                          mwrscan_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mod_temp_prof_path=self.tropoe_dir_mountpoint,
                          mod_wv_prof_path=self.tropoe_dir_mountpoint,
-                         cbh_path=self.tropoe_dir_mountpoint,
+                         cbh_path=self.tropoe_dir_mountpoint,  # if no ALC is available, TROPoe uses default cbh of 2 km
                          ext_sfc_path=self.tropoe_dir_mountpoint,
                          output_path=self.tropoe_dir_mountpoint,
-                         output_rootname=self.conf['data']['result_basefilename_tropoe'],
+                         output_rootname=self.conf['data']['result_basefilename_tropoe']+'_'+self.wigos,
                          )
+        
+        # Add scan variables to the VIP file only if they exist
+        if any(ch_scan):
+            vip_edits['mwrscan_type']=4
+            vip_edits['mwrscan_elev_field']='ele'
+            vip_edits['mwrscan_freq_field']='frequency'
+            vip_edits['mwrscan_tb_field_names']='tb'
+            vip_edits['mwrscan_tb_field1_tbmax']=330.
+            vip_edits['mwrscan_time_delta']=0.25
+            vip_edits['mwrscan_elevations']=self.inst_conf['retrieval']['scan_ele']
+            vip_edits['mwrscan_n_elevations']=len(self.inst_conf['retrieval']['scan_ele'])
+            vip_edits['mwrscan_n_tb_fields']=len(self.mwr.frequency[ch_scan])
+            vip_edits['mwrscan_tb_freqs']=self.mwr.frequency[ch_scan].values
+            vip_edits['mwrscan_tb_noise']=self.inst_conf['retrieval']['tb_noise'][ch_scan]
+            vip_edits['mwrscan_tb_bias']=self.inst_conf['retrieval']['tb_bias'][ch_scan]
+
         self.conf['vip'].update(vip_edits)
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header,
                      remove_brackets=True, remove_parentheses=True, remove_braces=True)
@@ -314,7 +359,7 @@ class Retrieval(object):
         apriori_file = 'prior.MIDLAT.nc'  # located outside TROPoe container unless starting with prior.*
         date = datetime64_to_str(self.time_mean, '%Y%m%d')
         run_tropoe(self.tropoe_dir, date, datetime64_to_hour(self.time_min), datetime64_to_hour(self.time_max),
-                   self.vip_file_tropoe, apriori_file)
+                   self.vip_file_tropoe, apriori_file, verbosity=2)
 
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
@@ -327,4 +372,5 @@ class Retrieval(object):
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
     ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
+
     pass

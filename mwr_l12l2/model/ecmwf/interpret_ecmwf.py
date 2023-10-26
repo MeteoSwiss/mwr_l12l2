@@ -21,9 +21,16 @@ class ModelInterpreter(object):
             If not specified the file named 'ecmwf_model_levels_137.csv' in same dir as interpret_ecmwf.py will be used.
     """
 
-    def __init__(self, file_fc_nc, file_zg_grb, station_altitude=None, file_ml=None):
+    def __init__(self, file_fc_nc, file_zg_grb=None, station_altitude=None, file_ml=None):
 
         self.file_fc_nc = abs_file_path(file_fc_nc)
+        # TODO: check if geopotential from forecast is really equivalent to geopotential from analysis and if is does not crash MARS request
+        # if file_zg_grb is not None:
+        #     self.use_zg_from_fc = False
+        #     self.file_zg_grb = abs_file_path(file_zg_grb)
+        # else:
+        #     self.use_zg_from_fc = True
+        self.use_zg_from_fc = False
         self.file_zg_grb = abs_file_path(file_zg_grb)
         self.station_altitude = station_altitude
         self.file_ml = file_ml
@@ -42,19 +49,20 @@ class ModelInterpreter(object):
         self.q_err = None  # standard deviation of humidity profile within lat/lon area (1d)
         self.t_err = None  # standard deviation of humidity profile within lat/lon area (1d)
 
-    def run(self, time):
+    def run(self, time_min, time_max):
         """run for data closest to selected time in :class:`numpy.datetime64` or :class:`datetime.datetime`"""
-        self.load_data(time)
+        self.load_data(time_min, time_max)
         self.hybrid_to_p()
         self.p_to_z()
         self.compute_stats()
 
-    def load_data(self, time):
+    def load_data(self, time_min, time_max):
         """load dataset and reduce to the time of interest (to speed up following computations)"""
         fc_all = xr.open_dataset(self.file_fc_nc)
-        self.fc = fc_all.sel(time=[np.datetime64(time)], method='nearest')  # conserve dimension using slicing
-        # TODO: instead of just picking nearest time, we would better interpolate (care on potential flags)
-        self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
+        self.fc = fc_all.sel(time=slice(time_min, time_max)) # conserve dimension using slicing
+        # Now keeping all models runs between time_min and time_max of the mwr observations, TROPoe does the interpolation
+        if not self.use_zg_from_fc:
+            self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
 
     def hybrid_to_p(self):
         """compute pressure (in Pa) of half and full levels from hybrid levels and fill to self.p and self.p_half"""
@@ -105,11 +113,15 @@ class ModelInterpreter(object):
 
         # correct for uppermost level
         dlogp[:, 0, :, :] = np.log(self.p_half[:, 1, :, :] / 0.1)
-        alpha[:, 0, :, :] = np.tile(-np.log(2), (self.p_half.shape[0], 1, self.p_half.shape[2], self.p_half.shape[3]))
+        alpha[:, 0, :, :] = np.tile(-np.log(2), (self.p_half.shape[0], self.p_half.shape[2], self.p_half.shape[3]))
 
         # transformation to geopotential height zg
         dzg_half = self.virt_temp() * gas_const * dlogp  # diff between geopotential height half levels
-        zg_surf_all = self.zg_surf.z.values[np.newaxis, np.newaxis, :, :]
+        if not self.use_zg_from_fc:
+            zg_surf_all = np.tile(self.zg_surf.z.values,(self.p_half.shape[0], 1, 1, 1)) #self.zg_surf.z.values[np.newaxis, np.newaxis, :, :]
+        else:
+            # New version to work with geopotential from the fc directly:
+            zg_surf_all = np.expand_dims(self.fc.z.isel(level=0).data,1)
         dzg_half_with_sfc = np.concatenate((dzg_half, zg_surf_all), axis=1)
         zg_half = np.flip(np.cumsum(np.flip(dzg_half_with_sfc, axis=1), axis=1), axis=1)  # integrate from surface
         zg = zg_half[:, 1:, :, :] - alpha*gas_const*self.virt_temp()
@@ -127,6 +139,9 @@ class ModelInterpreter(object):
         self.p_ref = get_ref_profile(self.p)
         self.time_ref = self.fc.time.values
 
+        # Compute reference profile of RH
+        self.rh = self.relative_humidity()
+        
         # take std over lat/lon (at last time selected) as error
         self.q_err = get_std_profile(self.fc.q)
         self.t_err = get_std_profile(self.fc.t)
@@ -134,20 +149,39 @@ class ModelInterpreter(object):
     def virt_temp(self):
         """return virtual temperature from temperature and specific humidity in self.fc"""
         return self.fc.t * (1 + 0.609133*self.fc.q)
+    
+    def relative_humidity(self):
+        """return relative humidity from pressure, specific humitiy and temperature in self.rh according to https://codes.ecmwf.int/grib/param-db/?id=157"""        
+        # Mixed phased parameter (depends on T):
+        alpha = ((self.t_ref - 250.16)/(273.16-250.16))**2
+        alpha[self.t_ref<250.16] = 0
+        alpha[self.t_ref>273.16] = 1
 
+        # Saturation vapor pressure
+        esat_w = 611.21*np.exp(17.502*((self.t_ref - 273.16) / (self.t_ref -32.19)))
+        esat_i = 611.21*np.exp(22.587*((self.t_ref - 273.16) / (self.t_ref +0.7)))
+        esat = alpha*esat_w + (1-alpha)*esat_i
+
+        # Ratio between molar masses of water and dry air
+        epsilon = 0.621981
+
+        # relative humity
+        return self.p_ref*self.q_ref*(1/epsilon)/(esat*(1 + self.q_ref*(1/epsilon - 1)))
 
 def get_ref_profile(x):
     """extract ref profile (last time, centre lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
     if type(x) is not np.ndarray:
         x = x.values
-    return x[-1, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]  # CARE: if you edit, also edit central_lat/lon in writer
+    return x[:, :, int(x.shape[-2]/2), int(x.shape[-1]/2)]  # CARE: if you edit, also edit central_lat/lon in writer
 
 
 def get_std_profile(x):
     """extract std profile (last time, std in lat/lon) from a :class:`xarray.DataArray` with dim (time,level,lat,lon)"""
     # flatten lat and lon so that we can take std over all profiles in lat/lon box
-    x_flat = x.values[-1, :, :, :, ].reshape((-1, x.shape[-2] * x.shape[-1]))
-    return np.std(x_flat, axis=1)
+    #x_flat = x.values[-1, :, :, :, ].reshape((-1, x.shape[-2] * x.shape[-1]))
+    #return np.std(x_flat, axis=1)
+    # TODO: Check if we should include the time dimension to get more realistic std dev ?
+    return x.std(dim=['latitude','longitude']).data
 
     # the following trying to interpolate q and t to same altitude grid using scipy's failed with all NaN
     # from scipy.interpolate import griddata (possibly only because z-grid was not monotonic at this time)

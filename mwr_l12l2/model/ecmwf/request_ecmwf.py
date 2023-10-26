@@ -96,10 +96,10 @@ def write_mars_request(request_file, mars_conf_fc, mars_conf_z, inst_conf_path, 
                 cont.append('retrieve,')
             cont.append('  grid={},'.format(grid_str))
             cont.append('  area={},'.format(area_str))
-        contents_fc.append('  target={}{}{}'.format(os.path.join(outfile_path, conf['outfile']['basename']),
+        contents_fc.append('  target="{}{}{}"'.format(os.path.join(outfile_path, conf['outfile']['basename']),
                                                     outfile_stamp_fc, conf['outfile']['extension']))
         contents_fc.append('')
-        contents_z.append('  target={}{}{}'.format(os.path.join(outfile_path_z, conf_z['outfile']['basename']),
+        contents_z.append('  target="{}{}{}"'.format(os.path.join(outfile_path_z, conf_z['outfile']['basename']),
                                                    outfile_stamp_z, conf_z['outfile']['extension']))
         contents_z.append('')
 
