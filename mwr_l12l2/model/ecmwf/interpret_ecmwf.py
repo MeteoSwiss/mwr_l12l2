@@ -6,6 +6,7 @@ import xarray as xr
 
 from mwr_l12l2.errors import MWRInputError
 from mwr_l12l2.utils.file_utils import abs_file_path
+from mwr_l12l2.utils.data_utils import datetime64_to_str
 
 
 class ModelInterpreter(object):
@@ -59,7 +60,15 @@ class ModelInterpreter(object):
     def load_data(self, time_min, time_max):
         """load dataset and reduce to the time of interest (to speed up following computations)"""
         fc_all = xr.open_dataset(self.file_fc_nc)
-        self.fc = fc_all.sel(time=slice(time_min, time_max)) # conserve dimension using slicing
+        if time_max - time_min > np.timedelta64(1, 'h'):
+            self.fc = fc_all.sel(time=slice(time_min, time_max))
+        else:
+            self.fc = fc_all.sel(time=slice(time_min, time_min+np.timedelta64(1,'h')))
+
+        print('#############################################################################################')
+        print('Using forecast data between '+datetime64_to_str(self.fc.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(self.fc.time.max().values, '%Y-%m-%d %H:%M:%S'))
+        print('#############################################################################################')
+
         # Now keeping all models runs between time_min and time_max of the mwr observations, TROPoe does the interpolation
         if not self.use_zg_from_fc:
             self.zg_surf = xr.open_dataset(self.file_zg_grb, engine='cfgrib')
