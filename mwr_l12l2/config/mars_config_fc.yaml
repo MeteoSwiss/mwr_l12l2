@@ -8,9 +8,9 @@ request:  # configurations of mars keywords common to all requests
   class: od
   expver: 1
   type: fc
-  stream: scda
+  stream: oper
   levtype: ml
-  param: 130/133/152  # geopotential [m2/s2] / temperature [K] / specific humidity [kg/kg] / logarithm of surface pressure [-]
+  param: 130/133/152  # temperature [K] / specific humidity [kg/kg] / logarithm of surface pressure [-]
   levelist: 1/70/75/80/85/88/91/94/96/98/100/101/102/103/104/105/106/107/108/109/110/111/112/113/114/115/116/117/118/119/120/121/122/123/124/125/126/127/128/129/130/131/132/133/134/135/136/137
   date: null  # if set to 'null', get the most recent forecast
   time: null  # if set to 'null', get the most recent forecast
