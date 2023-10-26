@@ -324,7 +324,7 @@ class Retrieval(object):
                          mwrscan_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mod_temp_prof_path=self.tropoe_dir_mountpoint,
                          mod_wv_prof_path=self.tropoe_dir_mountpoint,
-                         cbh_path=self.tropoe_dir_mountpoint,  # TODO: check what happens if no ALC is available
+                         cbh_path=self.tropoe_dir_mountpoint,  # if no ALC is available, TROPoe uses default cbh of 2 km
                          ext_sfc_path=self.tropoe_dir_mountpoint,
                          output_path=self.tropoe_dir_mountpoint,
                          output_rootname=self.conf['data']['result_basefilename_tropoe']+'_'+self.wigos,
@@ -369,6 +369,6 @@ class Retrieval(object):
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    #ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
-    ret.run(start_time=dt.datetime(2023, 9, 29, 0, 0, 0), end_time=dt.datetime(2023, 9, 29, 23, 59, 59))
+    ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
+
     pass

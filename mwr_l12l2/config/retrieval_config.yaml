@@ -36,10 +36,10 @@ data:
   tropoe_dir_mountpoint: /data  # where the tropoe subfolder shall be mounted inside the TROPoe container
   vip_filename_tropoe: vip.txt
   result_basefilename_tropoe: tropoe_out
-  mwr_basefilename_tropoe: mwr
-  alc_basefilename_tropoe: alc
-  model_prof_basefilename_tropoe: model_prof
-  model_sfc_basefilename_tropoe: model_sfc
+  mwr_basefilename_tropoe: mwr.
+  alc_basefilename_tropoe: alc.
+  model_prof_basefilename_tropoe: model_prof.
+  model_sfc_basefilename_tropoe: met.
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
@@ -59,23 +59,30 @@ vip:
   mwr_tb_field1_tbmax: 100.
 
   # The parameters for an elevation scanning radiometer
-  mwrscan_type: 4
-  mwrscan_elev_field: ele
-  mwrscan_freq_field: frequency
-  mwrscan_tb_field_names: tb
-  mwrscan_tb_field1_tbmax: 330.
-  mwrscan_time_delta: 0.25  # The maximum amount of time [hours] that the elevation scan must be to the
+  #mwrscan_type: 4
+  #mwrscan_elev_field: ele
+  #mwrscan_freq_field: frequency
+  #mwrscan_tb_field_names: tb
+  #mwrscan_tb_field1_tbmax: 330.
+  #mwrscan_time_delta: 0.25  # The maximum amount of time [hours] that the elevation scan must be to the
 
   # Surface met parameters (where we read from the MWR's fields)
   ext_sfc_relative_height: 0
+  ext_sfc_pres_type: 0
 
   # The model input
-  mod_temp_prof_type: 0
+  mod_temp_prof_type: 4
   mod_temp_noise_adder_val: [10, 4, 4]
   mod_temp_noise_adder_hts: [0,  5, 20]
-  mod_wv_prof_type: 0
-  mod_wv_noise_mult_val: [8, 4, 4]
+  mod_temp_prof_maxht: 18.
+  # mod_temp_time_delta: 4.
+  mod_wv_prof_type: 4
+  mod_wv_noise_mult_val: [32, 16, 16]
   mod_wv_noise_mult_hts: [0, 5, 20]
+  mod_wv_prof_maxht: 18.
+  # mod_wv_time_delta: 4.
+  
+  output_akernal: 2
 
   # The ceilometer input
   cbh_type: 7
