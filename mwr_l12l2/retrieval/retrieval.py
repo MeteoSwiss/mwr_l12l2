@@ -273,7 +273,7 @@ class Retrieval(object):
         """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe"""
         model = ModelInterpreter(self.model_fc_file, self.model_zg_file)
         model.run(self.time_min, self.time_max)
-        prof_data, sfc_data = model_to_tropoe(model, station_altitude=np.median(self.mwr.station_altitude.values))
+        prof_data, sfc_data = model_to_tropoe(model, station_altitude=self.inst_conf['station_altitude'])
         prof_data.to_netcdf(self.model_prof_file_tropoe)
         self.met_sfc_offset = int(sfc_data.height.mean(dim='time').data)
         if not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
