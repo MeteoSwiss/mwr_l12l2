@@ -21,7 +21,7 @@ class Retrieval(object):
         node: identifier for different parallel TROPoe runs. Defaults to 0.
     """
 
-    def __init__(self, conf, node=0):
+    def __init__(self, conf, selected_instrument=None, node=0):
         if isinstance(conf, dict):
             self.conf = conf
         elif os.path.isfile(conf):
@@ -29,6 +29,23 @@ class Retrieval(object):
         else:
             raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
 
+        # If provided, we read here the instrument configuation
+        if selected_instrument is not None:
+            self.wigos = selected_instrument['wigos']
+            self.inst_id = selected_instrument['inst_id']
+            self.inst_conf = selected_instrument['inst_conf']    
+            self.mwr_files = selected_instrument['mwr_files']
+            self.alc_files = selected_instrument['alc_files']
+        else:
+            # set by select_instrument():
+            self.wigos = None
+            self.inst_id = None
+            self.inst_conf = None
+
+            # set by list_obs():
+            self.mwr_files = None
+            self.alc_files = None
+        
         self.node = node
 
         # set by prepare_pahts():
@@ -40,14 +57,7 @@ class Retrieval(object):
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
         self.tropoe_dir_mountpoint = None  # mountpoint for tropoe_dir inside the TROPoe container
 
-        # set by select_instrument():
-        self.wigos = None
-        self.inst_id = None
-        self.inst_conf = None
 
-        # set by list_obs():
-        self.mwr_files = None
-        self.alc_files = None
 
         # set by prepare_obs():
         self.mwr = None  # Level1 contents of MWR instrument for considered time period
@@ -82,8 +92,10 @@ class Retrieval(object):
 
         self.prepare_paths(datestamp)
         self.prepare_tropoe_dir()
-        self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
-        self.list_obs_files()
+        if self.wigos is None:
+            self.select_instrument()  # TODO: select_instrument and list_obs_files would better be externalised
+            self.list_obs_files()
+
         self.prepare_obs(start_time=start_time, end_time=end_time,
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         self.choose_model_files()
@@ -178,15 +190,15 @@ class Retrieval(object):
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
 
-        print('#############################################################################################')
-        print('Data read from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
-        print('#############################################################################################')
-
         self.time_min = max(mwr.time.min().values, start_time)
         self.time_max = min(mwr.time.max().values, end_time)
         self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
+
+        print('#############################################################################################')
+        print('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+        print('#############################################################################################')
 
         if delete_mwr_in:
             for file in self.mwr_files:
@@ -371,6 +383,6 @@ class Retrieval(object):
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    ret.run(start_time=dt.datetime(2023, 4, 25, 0, 0, 0))
+    ret.run(start_time=dt.datetime(2023, 4, 25, 13, 0, 0), end_time=dt.datetime(2023, 4, 25, 16, 0, 0))
 
     pass
