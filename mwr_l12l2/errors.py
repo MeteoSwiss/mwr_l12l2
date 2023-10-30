@@ -23,6 +23,10 @@ class MWRTestError(MWRError):
     """Raised if something goes wrong during set up or clean up of testing"""
 
 
+class MWRRetrievalError(MWRError):
+    """Raised if something with the TROPoe retrieval failed"""
+
+
 ###############################
 class MissingConfig(MWRConfigError):
     """Raised if a mandatory entry of the config file is missing"""
