@@ -101,8 +101,10 @@ class Retrieval(object):
         self.prepare_obs(start_time=start_time, end_time=end_time,
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
-        self.choose_model_files()
-        self.prepare_model()
+        # only read model data if it's actually required
+        if self.conf['vip']['mod_temp_prof_type'] != 0 or self.conf['vip']['mod_wv_prof_type'] != 0:
+            self.choose_model_files()
+            self.prepare_model()
         self.prepare_vip()
         self.do_retrieval()
         self.postprocess_tropoe()
@@ -205,10 +207,6 @@ class Retrieval(object):
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
 
-        print('#############################################################################################')
-        print('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
-        print('#############################################################################################')
-
         if delete_mwr_in:
             for file in self.mwr_files:
                 os.remove(file)
@@ -221,6 +219,10 @@ class Retrieval(object):
         # if mwr.tb.isnull().all():
         #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
         #                            'Nothing to retrieve!'.format(start_time, end_time))
+
+        print('#############################################################################################')
+        print('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+        print('#############################################################################################')
 
         # Check if the wigos id is the correct one:
         if mwr.wigos_station_id != self.wigos:
