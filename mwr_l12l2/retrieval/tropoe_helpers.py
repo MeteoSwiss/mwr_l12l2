@@ -73,14 +73,14 @@ def model_to_tropoe(model, station_altitude):
                                          attrs={'units': '%'}),
                       }
     # TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
-    # instead. use log for pressure
+    #  instead. use log for pressure
     sfc_data_attrs = {
         'model': 'surface quantities and uncertainties extracted from ECMWF operational forecast',
         'gridpoint_lat': central_lat,
         'gridpoint_lon': central_lon,                       
     }
     # TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
-    # (info cannot be found inside grib file). Might also want to add lat/lon area used.
+    #  (info cannot be found inside grib file). Might also want to add lat/lon area used.
 
     # construct datasets
     prof_data = xr.Dataset.from_dict(prof_data_specs)
