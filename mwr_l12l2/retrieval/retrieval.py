@@ -9,7 +9,7 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file
@@ -382,6 +382,10 @@ class Retrieval(object):
             raise MWRRetrievalError("Found several files matching {}. Don't know which TROPoe output to use.".format(
                 outfiles_pattern))
         pass
+        data = transform_units(data)
+        data = height_to_altitude(data, self.mwr.station_altitude)
+        # TODO: check if writer can handle case of lat/lon needing to be expanded to time dimension
+        # TODO write output file with writer
 
 
 if __name__ == '__main__':

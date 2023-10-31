@@ -144,7 +144,6 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
 
 def transform_units(data):
     """Transform all units of TROPoe output file to match units in E-PROFILE output files"""
-    nc_unit_attribute = 'units'
 
     # unit_match contents. key: orig unit; value: (new unit, multiplier, adder)
     unit_match = {'C': ('K', 1, 273.15),
@@ -152,13 +151,25 @@ def transform_units(data):
                   'g/m2': ('mm', 1e-3, 0),  # for liquid water path
                   'cm': ('mm', 10, 0),  # for integrated water vapour
                   }
+    unit_attribute = 'units'
 
     for var in data.variables:
-        if hasattr(data[var], nc_unit_attribute) and data[var].attrs[nc_unit_attribute] in unit_match:
-            transformer = unit_match[data[var].attrs[nc_unit_attribute]]
+        if hasattr(data[var], unit_attribute) and data[var].attrs[unit_attribute] in unit_match:
+            transformer = unit_match[data[var].attrs[unit_attribute]]
             data[var] = data[var]*transformer[1] + transformer[2]
-            data[var].attrs[nc_unit_attribute] = transformer[0]
+            data[var].attrs[unit_attribute] = transformer[0]
 
+    return data
+
+
+def height_to_altitude(data, station_altitude):
+    """transform height above ground level to altitude above mean sea level"""
+
+    height_var = 'height'
+    altitude_var = 'altitude'
+    stn_altitude_var = 'station_altitude'
+
+    # TODO: add transformer and renamer to altitude plus new var station altitude
     return data
 
 
