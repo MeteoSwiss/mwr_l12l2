@@ -21,14 +21,15 @@ class Writer(object):
             provided if data_in is a dictionary, but this option is deprecated.
         filename: name and path of output NetCDF file
         conf_nc: configuration dict of yaml file defining the format and contents of the output NetCDF file
-        conf_inst: configuration dict of yaml file with instrument specifications (contains global attrs for NetCDF)
+        conf_inst: configuration dict of yaml file with instrument specifications which can contain global attrs
+            for NetCDF in the nc_attributes section. If None is passed, no attrs are added. Defaults to None.
         nc_format: NetCDF format type of the output file. Default is NETCDF4
         copy_data (bool): In case of False, the dataset might experience in-place modifications which is suitable when
             the dataset is not used in its original form after calling the write function, for True a copy is modified.
             Defaults to False.
     """
 
-    def __init__(self, data_in, filename, conf_nc, conf_inst, nc_format='NETCDF4', copy_data=False):
+    def __init__(self, data_in, filename, conf_nc, conf_inst=None, nc_format='NETCDF4', copy_data=False):
         self.filename = filename
         self.nc_format = nc_format
         if copy_data:
@@ -41,7 +42,7 @@ class Writer(object):
         if not isinstance(self.conf_nc, dict):
             self.conf_nc = get_nc_format_config(self.conf_nc)
         self.conf_inst = conf_inst
-        if not isinstance(self.conf_inst, dict):
+        if conf_inst is not None and not isinstance(self.conf_inst, dict):
             self.conf_inst = get_inst_config(self.conf_inst)
         self.config_dims = self.conf_nc['dimensions']['unlimited'] + self.conf_nc['dimensions']['fixed']
 
@@ -51,7 +52,8 @@ class Writer(object):
         logger.info('Starting to write to ' + self.filename)
         self.prepare_datavars()
         self.global_attrs_from_conf(self.conf_nc, attr_key='attributes')
-        self.global_attrs_from_conf(self.conf_inst, attr_key='nc_attributes')
+        if self.conf_inst is not None:
+            self.global_attrs_from_conf(self.conf_inst, attr_key='nc_attributes')
         self.add_title_attr()  # compose title
         self.add_history_attr()
         self.data.to_netcdf(self.filename, format=self.nc_format)  # write to output NetCDF file
@@ -95,8 +97,11 @@ class Writer(object):
             attr_key: string specifying the key under which attributes are stored in conf dict. Usually 'attributes' or
                 'nc_attributes'
         """
-        for attname, attval in conf[attr_key].items():
-            self.data.attrs[attname] = attval
+        try:
+            for attname, attval in conf[attr_key].items():
+                self.data.attrs[attname] = attval
+        except KeyError:
+            logger.warning('No entry {} in conf file or dictionary'.format(attr_key))
 
     def add_title_attr(self):
         """add global attribute 'title' recombining info from other previously set global attributes"""
