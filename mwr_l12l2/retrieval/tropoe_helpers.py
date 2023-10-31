@@ -142,5 +142,28 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
     run(cmd)
 
 
+def transform_units(data):
+    """Transform all units of TROPoe output file to match units in E-PROFILE output files"""
+    nc_unit_attribute = 'units'
+
+    # unit_match contents. key: orig unit; value: (new unit, multiplier, adder)
+    unit_match = {'C': ('K', 1, 273.15),
+                  'km': ('m', 1e3, 0),
+                  'g/m2': ('mm', 1e-3, 0),  # for liquid water path
+                  'cm': ('mm', 10, 0),  # for integrated water vapour
+                  }
+
+    for var in data.variables:
+        if hasattr(data[var], nc_unit_attribute) and data[var].attrs[nc_unit_attribute] in unit_match:
+            transformer = unit_match[data[var].attrs[nc_unit_attribute]]
+            data[var] = data[var]*transformer[1] + transformer[2]
+            data[var].attrs[nc_unit_attribute] = transformer[0]
+
+    return data
+
+
 if __name__ == '__main__':
-    run_tropoe('mwr_l12l2/data', 0, 'dummy/vip.txt', 'dummy/Xa_Sa.Lindenberg.55level.08.cdf')
+    # run_tropoe('mwr_l12l2/data', 0, 'dummy/vip.txt', 'dummy/Xa_Sa.Lindenberg.55level.08.cdf')
+    x = xr.open_dataset('~/Desktop/tropoe_out_0-20000-0-10393A.20230425.131005.nc')
+    out = transform_units(x)
+    pass
