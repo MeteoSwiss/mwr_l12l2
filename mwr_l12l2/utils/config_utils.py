@@ -156,6 +156,31 @@ def merge_mars_inst_config(mars_conf, inst_conf):
     return merged_conf
 
 
+def get_nc_format_config(file):
+    """get configuration for output NetCDF format and check for completeness of config file"""
+
+    mandatory_keys = ['dimensions', 'variables', 'attributes']
+    mandatory_variable_keys = ['name', 'dim', 'type', '_FillValue', 'optional', 'attributes']
+    mandatory_dimension_keys = ['unlimited', 'fixed']
+
+    conf = get_conf(file)
+
+    # verify conf dictionary structure
+    check_conf(conf, mandatory_keys,
+               'of config files defining output NetCDF format but is missing in {}'.format(file))
+    check_conf(conf['dimensions'], mandatory_dimension_keys,
+               "of 'dimensions' config files defining output NetCDF format but is missing in {}".format(file))
+    for varname, varval in conf['variables'].items():
+        check_conf(varval, mandatory_variable_keys,
+                   "of each variable in config files defining output NetCDF format but is missing for '{}' in {}"
+                   .format(varname, file))
+        if not isinstance(varval['dim'], list):
+            raise MWRConfigError("The value attributed to 'dim' in variable '{}' is not a list in {}"
+                                 .format(varname, file))
+
+    return conf
+
+
 def get_log_config(file):
     """get configuration for logger and check for completeness of config file"""
 
