@@ -1,7 +1,7 @@
 # config file for setting logs destination and level #
 #####################################################
 
-logger_name: 'mwr_raw2l1'
+logger_name: 'mwr_l12l2'
 
 
 # configure logging to console (stdout). Logging to stdout is enabled in any case
