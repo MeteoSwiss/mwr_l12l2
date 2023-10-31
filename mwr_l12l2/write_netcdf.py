@@ -85,7 +85,8 @@ class Writer(object):
                     self.data[var].attrs[att] = np.array(self.data[var].attrs[att], dtype=specs['type'])
 
         self.prepare_time()
-        self.append_qc_thresholds()
+        # TODO: removed append_qc_thresholds (present in mwr_raw2l1). Verify if method could be re-usable to propagate
+        #  tropoe attrs to output file
         self.remove_vars()
         self.rename_vars()  # must be last step
 
@@ -171,25 +172,6 @@ class Writer(object):
                 if att in self.data[var].attrs:
                     encs[att] = self.data[var].attrs.pop(att)
             self.data[var].encoding.update(encs)
-
-    def append_qc_thresholds(self):
-        """append quality control thresholds to comment attribute of quality_flag if not refused by 'conf_nc'"""
-
-        var = 'quality_flag'
-
-        # cases that need no action by this method
-        if var not in self.conf_nc['variables']:
-            return
-        if ('append_thresholds' in self.conf_nc['variables'][var] and not
-                self.conf_nc['variables'][var]['append_thresholds']):
-            return
-
-        # append thresholds to comment (or set new comment if absent)
-        if 'comment' in self.data[var].attrs:
-            new_comment = ' '.join([self.data[var].attrs['comment'], str(self.data.qc_thresholds.values)])
-        else:
-            new_comment = self.data.qc_thresholds.values
-        self.data[var].attrs.update({'comment': new_comment})
 
     def rename_vars(self):
         """set variable and dimension names to the ones set in conf_nc (CARE: must be last operation before save!)"""
