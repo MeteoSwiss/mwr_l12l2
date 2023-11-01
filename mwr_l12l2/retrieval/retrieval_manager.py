@@ -11,7 +11,7 @@ import datetime as dt
 import numpy as np
 
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
-from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
+from mwr_l12l2.utils.config_utils import abs_file_path, get_retrieval_config, get_inst_config
 from retrieval import Retrieval
 
 # from watchdog.observers import Observer
@@ -124,7 +124,7 @@ class RetrievalManager(object):
         self.select_all_instruments()
         self.prepare_retrieval_dicts()
 
-        for (node_number, wigos_and_id) in enumerate(self.retrieval_dict.keys()):
+        for (node_number, wigos_and_id) in enumerate(self.retrieval_dict):
             try:
                 self.run_retrieval(start_time, end_time, self.retrieval_dict[wigos_and_id], node=node_number)
             except Exception as e:
@@ -139,14 +139,13 @@ class RetrievalManager(object):
         # Create a pool of workers equal using 2 cores
         pool = mp.Pool(processes=cores)
         
-        # Perform the retrieval in parallel
-        results = [pool.apply_async(self.run_retrieval, args=(start_time, end_time, self.retrieval_dict[wigos_and_id],10*(1+node_number))) for (node_number, wigos_and_id) in enumerate(self.wigos_and_inst_id_unique)]
+        # Perform the retrieval in parallel, warning we need to loop into the dictionary itself and NOT on the self.wigos_and_inst_id_unique (to avoid including instrument without config file) 
+        results = [pool.apply_async(self.run_retrieval, args=(start_time, end_time, self.retrieval_dict[wigos_and_id],10*(1+node_number))) for (node_number, wigos_and_id) in enumerate(self.retrieval_dict)]
 
         output = []
         for p in results:
             try:
                 output.append(p.get())
-                print(p.get())
             except Exception as e:
                 print(f"A process failed with error: {e}")
         # handle the error as appropriate for your program
@@ -161,17 +160,17 @@ class RetrievalManager(object):
         pass
 
 if __name__ == '__main__':
-    # instrument = InstrumentSelector('/home/sae/Documents/MWR/retrieval_config_VM_ES.yaml')
-    # instrument.retrieve_single(start_time=dt.datetime(2023, 9, 29, 0, 0, 0),  end_time=dt.datetime(2023, 9, 29, 2, 0, 0))
     start = time.time()
-
-    manager = RetrievalManager('/home/sae/Documents/MWR/retrieval_config_VM_ES.yaml')
-
-    manager.retrieve_all(start_time=dt.datetime(2023, 9, 29, 0, 0, 0),  end_time=dt.datetime(2023, 9, 29, 1, 0, 0))
-    #manager.retrieve_all_in_parallel(start_time=dt.datetime(2023, 9, 29, 0, 0, 0),  end_time=dt.datetime(2023, 9, 29, 1, 0, 0), cores=4)
+    run_parallel = True
+    manager = RetrievalManager(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
+    
+    if run_parallel:
+        manager.retrieve_all_in_parallel(start_time=dt.datetime(2023, 4, 25, 13, 0, 0), end_time=dt.datetime(2023, 4, 25, 16, 0, 0), cores=4)
+    else:
+        manager.retrieve_all(start_time=dt.datetime(2023, 4, 25, 13, 0, 0), end_time=dt.datetime(2023, 4, 25, 16, 0, 0))
 
     end = time.time()
-    print('Time taken to run the retrieval: {} seconds'.format(end-start))
+    print('Time taken to run the retrievals: {} seconds'.format(end-start))
 
     pass
 

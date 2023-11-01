@@ -41,11 +41,13 @@ class Retrieval(object):
             self.inst_conf = selected_instrument['inst_conf']    
             self.mwr_files = selected_instrument['mwr_files']
             self.alc_files = selected_instrument['alc_files']
+            self.tropoe_output_basename = self.conf['data']['result_basefilename_tropoe'] + '_' + self.wigos + self.inst_id
         else:
             # set by select_instrument():
             self.wigos = None
             self.inst_id = None
             self.inst_conf = None
+            self.tropoe_output_basename = None
 
             # set by list_obs():
             self.mwr_files = None
