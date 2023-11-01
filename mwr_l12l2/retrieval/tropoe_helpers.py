@@ -163,14 +163,23 @@ def transform_units(data):
 
 
 def height_to_altitude(data, station_altitude):
-    """transform height above ground level to altitude above mean sea level"""
+    """transform height above ground level to altitude above mean sea level and add as dataarray and coordinate
 
-    height_var = 'height'
-    altitude_var = 'altitude'
-    stn_altitude_var = 'station_altitude'
+    Args:
+        data: `xarray.Dataset` in which to change height to altitude
+        station_altitude: single value or array defining station altitude (in an array the first entry is considered)
 
-    # TODO: add transformer and renamer to altitude plus new var station altitude
-    return data
+    Returns:
+        updated dataset with altitude variable added (height also kept) and coordinate swapped from height to altitude
+    """
+
+    try:
+        station_altitude = station_altitude[0]
+    except TypeError:
+        pass
+    data.update({'station_altitude': station_altitude})
+    data['altitude'] = data['height'] + data['station_altitude']
+    return data.swap_dims({'height': 'altitude'})
 
 
 if __name__ == '__main__':
