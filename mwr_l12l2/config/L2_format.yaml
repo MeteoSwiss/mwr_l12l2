@@ -6,7 +6,6 @@ dimensions:
     - time  # refers to variable name in data dictionary
   fixed:
     - altitude
-    - bnds
 
 variables:
   time:  # variable name in Measurement.data Dataset
@@ -23,17 +22,6 @@ variables:
       calendar: standard
       bounds: time_bnds
       comment: Time indication of samples is at the end of integration time
-
-  time_bnds:
-    name: time_bnds
-    dim:
-      - time
-      - bnds
-    type: f8
-    _FillValue: null
-    optional: False
-    attributes:
-      long_name: Time interval endpoints
 
   altitude:
     name: altitude
