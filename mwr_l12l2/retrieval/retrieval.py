@@ -10,9 +10,12 @@ from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MW
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
 from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude
-from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
-from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour
-from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file
+from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config
+from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
+    scalars_to_time
+from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file, \
+    generate_output_filename
+from mwr_l12l2.write_netcdf import Writer
 
 
 class Retrieval(object):
@@ -381,11 +384,20 @@ class Retrieval(object):
         elif len(outfiles) > 1:
             raise MWRRetrievalError("Found several files matching {}. Don't know which TROPoe output to use.".format(
                 outfiles_pattern))
-        pass
+
         data = transform_units(data)
         data = height_to_altitude(data, self.mwr.station_altitude)
-        # TODO: check if writer can handle case of lat/lon needing to be expanded to time dimension
-        # TODO write output file with writer
+        data = scalars_to_time(data, ['lat', 'lon', 'station_altitude'])  # to be executed after height_to_altitude
+        # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
+
+        # write output  # TODO probably better split into seperate method
+        nc_format_config_file = abs_file_path('mwr_l12l2/config/L2_format.yaml')
+        conf_nc = get_nc_format_config(nc_format_config_file)
+        basename = os.path.join(self.conf['data']['output_dir'], self.conf['data']['output_file_prefix']
+                                + self.wigos + '_' + self.inst_id)
+        filename = generate_output_filename(basename, 'instamp_min', self.mwr_files)
+        nc_writer = Writer(data, filename, conf_nc)
+        nc_writer.run()
 
 
 if __name__ == '__main__':
