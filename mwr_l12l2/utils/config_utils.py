@@ -1,3 +1,4 @@
+import logging
 import yaml
 
 from mwr_l12l2.errors import MissingConfig, MWRConfigError
@@ -84,7 +85,8 @@ def get_retrieval_config(file):
                            'vip_filename_tropoe', 'result_basefilename_tropoe',
                            'mwr_basefilename_tropoe', 'alc_basefilename_tropoe',
                            'model_prof_basefilename_tropoe', 'model_sfc_basefilename_tropoe']
-    paths_data = ['inst_config_dir', 'mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']  # paths that shall be transformed to abs paths
+    # define paths which shall be transformed to abs paths:
+    paths_data = ['output_dir', 'inst_config_dir', 'mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']
     mandatory_keys_vip = []
     paths_vip = []  # paths that shall be transformed to abs paths
 
@@ -153,6 +155,65 @@ def merge_mars_inst_config(mars_conf, inst_conf):
                 merged_conf[block_key][key] = val
 
     return merged_conf
+
+
+def get_nc_format_config(file):
+    """get configuration for output NetCDF format and check for completeness of config file"""
+
+    mandatory_keys = ['dimensions', 'variables', 'attributes']
+    mandatory_variable_keys = ['name', 'dim', 'type', '_FillValue', 'optional', 'attributes']
+    mandatory_dimension_keys = ['unlimited', 'fixed']
+
+    conf = get_conf(file)
+
+    # verify conf dictionary structure
+    check_conf(conf, mandatory_keys,
+               'of config files defining output NetCDF format but is missing in {}'.format(file))
+    check_conf(conf['dimensions'], mandatory_dimension_keys,
+               "of 'dimensions' config files defining output NetCDF format but is missing in {}".format(file))
+    for varname, varval in conf['variables'].items():
+        check_conf(varval, mandatory_variable_keys,
+                   "of each variable in config files defining output NetCDF format but is missing for '{}' in {}"
+                   .format(varname, file))
+        if not isinstance(varval['dim'], list):
+            raise MWRConfigError("The value attributed to 'dim' in variable '{}' is not a list in {}"
+                                 .format(varname, file))
+
+    return conf
+
+
+def get_log_config(file):
+    """get configuration for logger and check for completeness of config file"""
+
+    mandatory_keys = ['logger_name', 'loglevel_stdout', 'write_logfile']
+    mandatory_keys_file = ['logfile_path', 'logfile_basename', 'logfile_ext', 'logfile_timestamp_format',
+                           'loglevel_file']
+
+    conf = get_conf(file)
+    check_conf(conf, mandatory_keys,
+               'of logs config files but is missing in {}'.format(file))
+    if conf['write_logfile']:
+        check_conf(conf, mandatory_keys_file,
+                   "of logs config files if 'write_logfile' is True, but is missing in {}".format(file))
+
+    conf = interpret_loglevel(conf)
+
+    return conf
+
+
+def interpret_loglevel(conf):
+    """helper function to replace logs level strings in logs level of logging library"""
+
+    pattern = 'loglevel'
+
+    level_keys = [s for s in conf.keys() if pattern in s]
+    for level_key in level_keys:
+        conf[level_key] = getattr(logging, conf[level_key].upper(), None)
+        if not isinstance(conf[level_key], int):
+            raise MWRConfigError("value of '{}' in logs config does not correspond to any known logs level of logging"
+                                 .format(level_key))
+
+    return conf
 
 
 if __name__ == '__main__':

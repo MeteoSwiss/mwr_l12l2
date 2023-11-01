@@ -15,7 +15,11 @@ data:
   inst_config_dir: mwr_l12l2/config/
   inst_config_file_prefix: config_
 
-  # location and filenames of E-PROFILE data
+  # location and filenames of output data
+  output_dir: mwr_l12l2/data/output/  # directory for microwave radiometer input data
+  output_file_prefix: MWR_2C01_
+
+  # location and filenames of input E-PROFILE data
   mwr_dir: mwr_l12l2/data/mwr/  # directory for microwave radiometer input data
   mwr_file_prefix: MWR_1C01_
   alc_dir: mwr_l12l2/data/alc/  # directory for automatic lidar's or ceilometer's cloud base input data

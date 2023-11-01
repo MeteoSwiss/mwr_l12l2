@@ -73,14 +73,14 @@ def model_to_tropoe(model, station_altitude):
                                          attrs={'units': '%'}),
                       }
     # TODO: important! and easy... instead of just taking lowest altitude interp/extrapolate to station_altitude
-    # instead. use log for pressure
+    #  instead. use log for pressure
     sfc_data_attrs = {
         'model': 'surface quantities and uncertainties extracted from ECMWF operational forecast',
         'gridpoint_lat': central_lat,
         'gridpoint_lon': central_lon,                       
     }
     # TODO: add more detail on which ECMWF forecast is used to output file directly in main retrieval routine
-    # (info cannot be found inside grib file). Might also want to add lat/lon area used.
+    #  (info cannot be found inside grib file). Might also want to add lat/lon area used.
 
     # construct datasets
     prof_data = xr.Dataset.from_dict(prof_data_specs)
@@ -142,5 +142,48 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
     run(cmd)
 
 
+def transform_units(data):
+    """Transform all units of TROPoe output file to match units in E-PROFILE output files"""
+
+    # unit_match contents. key: orig unit; value: (new unit, multiplier, adder)
+    unit_match = {'C': ('K', 1, 273.15),
+                  'km': ('m', 1e3, 0),
+                  'g/m2': ('mm', 1e-3, 0),  # for liquid water path
+                  'cm': ('mm', 10, 0),  # for integrated water vapour
+                  }
+    unit_attribute = 'units'
+
+    for var in data.variables:
+        if hasattr(data[var], unit_attribute) and data[var].attrs[unit_attribute] in unit_match:
+            transformer = unit_match[data[var].attrs[unit_attribute]]
+            data[var] = data[var]*transformer[1] + transformer[2]
+            data[var].attrs[unit_attribute] = transformer[0]
+
+    return data
+
+
+def height_to_altitude(data, station_altitude):
+    """transform height above ground level to altitude above mean sea level and add as dataarray and coordinate
+
+    Args:
+        data: `xarray.Dataset` in which to change height to altitude
+        station_altitude: single value or array defining station altitude (in an array the first entry is considered)
+
+    Returns:
+        updated dataset with altitude variable added (height also kept) and coordinate swapped from height to altitude
+    """
+
+    try:
+        station_altitude = station_altitude[0]
+    except TypeError:
+        pass
+    data.update({'station_altitude': station_altitude})
+    data['altitude'] = data['height'] + data['station_altitude']
+    return data.swap_dims({'height': 'altitude'})
+
+
 if __name__ == '__main__':
-    run_tropoe('mwr_l12l2/data', 0, 'dummy/vip.txt', 'dummy/Xa_Sa.Lindenberg.55level.08.cdf')
+    # run_tropoe('mwr_l12l2/data', 0, 'dummy/vip.txt', 'dummy/Xa_Sa.Lindenberg.55level.08.cdf')
+    x = xr.open_dataset('~/Desktop/tropoe_out_0-20000-0-10393A.20230425.131005.nc')
+    out = transform_units(x)
+    pass
