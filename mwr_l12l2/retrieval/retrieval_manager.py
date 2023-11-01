@@ -55,6 +55,8 @@ class RetrievalManager(object):
         self.wigos_and_inst_id_unique = list(set(self.wigos_and_inst_id_list))
 
         # split filenames per wigos and put in a dictionary:
+        # TODO: add a filter to only list filenames between start and end time of retrieval 
+        # Otherwise these files will get deleted and not retrieved
         mwr_files_dict = {}
         for wigos_and_id in self.wigos_and_inst_id_unique:
             mwr_files_dict[wigos_and_id] = []
@@ -79,7 +81,6 @@ class RetrievalManager(object):
 
         For now, it only create a dictionary for the instrument where a config file exist.
 
-        TODO: Check that enough files are present for the retrieval (min 10 minutes) -> probably to do when reading the mwr files.
         """
         # prepare the dictionaries for the retrieval
         self.retrieval_dict = {}
@@ -124,7 +125,10 @@ class RetrievalManager(object):
         self.prepare_retrieval_dicts()
 
         for (node_number, wigos_and_id) in enumerate(self.retrieval_dict.keys()):
-            self.run_retrieval(start_time, end_time, self.retrieval_dict[wigos_and_id], node=node_number)
+            try:
+                self.run_retrieval(start_time, end_time, self.retrieval_dict[wigos_and_id], node=node_number)
+            except Exception as e:
+                print(f"Retrieval for {wigos_and_id} failed with error: {e}")
 
     def retrieve_all_in_parallel(self, start_time, end_time, cores=2):
         """Use multiprocessing to run the retrieval in parallel. 
@@ -134,13 +138,27 @@ class RetrievalManager(object):
 
         # Create a pool of workers equal using 2 cores
         pool = mp.Pool(processes=cores)
-
+        
         # Perform the retrieval in parallel
         results = [pool.apply_async(self.run_retrieval, args=(start_time, end_time, self.retrieval_dict[wigos_and_id],10*(1+node_number))) for (node_number, wigos_and_id) in enumerate(self.wigos_and_inst_id_unique)]
-        output = [p.get() for p in results]
+
+        output = []
+        for p in results:
+            try:
+                output.append(p.get())
+                print(p.get())
+            except Exception as e:
+                print(f"A process failed with error: {e}")
+        # handle the error as appropriate for your program
 
         # Close the pool
         pool.close()
+
+    def move_to_bucket(self):
+        """Move the files to the bucket
+        Execute this function when retrieval is successfull (as argument of apply_async)
+        """
+        pass
 
 if __name__ == '__main__':
     # instrument = InstrumentSelector('/home/sae/Documents/MWR/retrieval_config_VM_ES.yaml')
@@ -149,8 +167,8 @@ if __name__ == '__main__':
 
     manager = RetrievalManager('/home/sae/Documents/MWR/retrieval_config_VM_ES.yaml')
 
-    #manager.retrieve_all(start_time=dt.datetime(2023, 9, 29, 0, 0, 0),  end_time=dt.datetime(2023, 9, 29, 2, 0, 0))
-    manager.retrieve_all_in_parallel(start_time=dt.datetime(2023, 9, 29, 0, 0, 0),  end_time=dt.datetime(2023, 9, 29, 2, 0, 0), cores=1)
+    manager.retrieve_all(start_time=dt.datetime(2023, 9, 29, 0, 0, 0),  end_time=dt.datetime(2023, 9, 29, 1, 0, 0))
+    #manager.retrieve_all_in_parallel(start_time=dt.datetime(2023, 9, 29, 0, 0, 0),  end_time=dt.datetime(2023, 9, 29, 1, 0, 0), cores=4)
 
     end = time.time()
     print('Time taken to run the retrieval: {} seconds'.format(end-start))
