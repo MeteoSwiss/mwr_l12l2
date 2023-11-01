@@ -54,7 +54,7 @@ class Writer(object):
         self.global_attrs_from_conf(self.conf_nc, attr_key='attributes')
         if self.conf_inst is not None:
             self.global_attrs_from_conf(self.conf_inst, attr_key='nc_attributes')
-        self.add_title_attr()  # compose title
+        # self.add_title_attr()  # compose title #TODO: add an adequate title here
         self.add_history_attr()
         self.data.to_netcdf(self.filename, format=self.nc_format)  # write to output NetCDF file
         logger.info('Data written to ' + self.filename)
@@ -104,7 +104,7 @@ class Writer(object):
         except KeyError:
             logger.warning('No entry {} in conf file or dictionary'.format(attr_key))
 
-    def add_title_attr(self):
+    def add_title_attr(self):  # TODO: method is currently switched off. Adapt to something proper for L2 and switch on
         """add global attribute 'title' recombining info from other previously set global attributes"""
         if 'title' in self.data.attrs:
             return  # do not overwrite a title deliberately set by config
