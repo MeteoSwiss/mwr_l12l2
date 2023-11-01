@@ -4,13 +4,18 @@ import shutil
 
 import datetime as dt
 import numpy as np
+import xarray as xr
 
-from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
+from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
+from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe
-from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
-from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour
-from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude
+from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config
+from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
+    scalars_to_time
+from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file, \
+    generate_output_filename
+from mwr_l12l2.write_netcdf import Writer
 
 
 class Retrieval(object):
@@ -44,6 +49,7 @@ class Retrieval(object):
         self.wigos = None
         self.inst_id = None
         self.inst_conf = None
+        self.tropoe_output_basename = None  # basename for output file by TROPoe (in tropoe_dir_mountpoint)
 
         # set by list_obs():
         self.mwr_files = None
@@ -147,6 +153,8 @@ class Retrieval(object):
         inst_conf_file = '{}{}_{}.yaml'.format(self.conf['data']['inst_config_file_prefix'],
                                                self.wigos, self.inst_id)
         self.inst_conf = get_inst_config(os.path.join(self.conf['data']['inst_config_dir'], inst_conf_file))
+
+        self.tropoe_output_basename = self.conf['data']['result_basefilename_tropoe'] + '_' + self.wigos + self.inst_id
 
     def list_obs_files(self):
         """get file lists for the selected station
@@ -298,16 +306,16 @@ class Retrieval(object):
 
         # Check for met data in the mwr level 1, if exist setup VIP file accordingly to read mwr level 1 file for 
         # surface data and if not taking lowest model level as surface data (with altitude offset)
-        if (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
-            print('Surface data measured by the MWR')
+        if self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists:
+            logger.info('Surface data measured by the MWR')
             ext_sfc_data_type = 4
             sfc_data_offset = 0
             sfc_rootname = "mwr"
         else: 
-            print('No surface data measured by the MWR, using the forecast data instead')
+            logger.info('No surface data measured by the MWR, using the forecast data instead')
             ext_sfc_data_type = 1
             sfc_data_offset = self.met_sfc_offset
-            sfc_rootname = "met" # this should be the default value but better specify
+            sfc_rootname = "met"  # this should be the default value but better specify
 
         # update and complete vip entries with info from conf and data availability
         vip_edits = dict(mwr_n_tb_fields=len(self.mwr.frequency[ch_zenith]),
@@ -319,7 +327,7 @@ class Retrieval(object):
                          ext_sfc_wv_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
                          ext_sfc_temp_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
                          ext_sfc_relative_height=sfc_data_offset,
-                         ext_sfc_rootname = sfc_rootname,
+                         ext_sfc_rootname=sfc_rootname,
                          # TODO check what happens with surface pressure
                          mwr_path=self.tropoe_dir_mountpoint,
                          mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
@@ -330,7 +338,7 @@ class Retrieval(object):
                          cbh_path=self.tropoe_dir_mountpoint,  # if no ALC is available, TROPoe uses default cbh of 2 km
                          ext_sfc_path=self.tropoe_dir_mountpoint,
                          output_path=self.tropoe_dir_mountpoint,
-                         output_rootname=self.conf['data']['result_basefilename_tropoe']+'_'+self.wigos,
+                         output_rootname=self.tropoe_output_basename,
                          )
         
         # Add scan variables to the VIP file only if they exist
@@ -364,9 +372,32 @@ class Retrieval(object):
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
         # TODO: set up a writer producing the E-PROFILE format. 90% of mwr_raw2l1.write_netcdf() and
-        #  mwr_raw2l1.config.L1_format.yaml will be re-usable by just modifying the .yaml to match TROPoe output vars to
+        #  mwr_raw2l1.config.L2_format.yaml will be re-usable by just modifying the .yaml to match TROPoe output vars to
         #  the output format varnames and attributes
-        pass
+        outfiles_pattern = os.path.join(self.tropoe_dir, self.tropoe_output_basename + '*.nc')
+        outfiles = glob.glob(outfiles_pattern)
+        if len(outfiles) == 1:
+            data = xr.open_dataset(outfiles[0])
+        elif len(outfiles) == 0:
+            raise MWRRetrievalError('Found no file matching {}. Possibly the TROPoe did not run through.'.format(
+                outfiles_pattern))
+        elif len(outfiles) > 1:
+            raise MWRRetrievalError("Found several files matching {}. Don't know which TROPoe output to use.".format(
+                outfiles_pattern))
+
+        data = transform_units(data)
+        data = height_to_altitude(data, self.mwr.station_altitude)
+        data = scalars_to_time(data, ['lat', 'lon', 'station_altitude'])  # to be executed after height_to_altitude
+        # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
+
+        # write output  # TODO probably better split into seperate method
+        nc_format_config_file = abs_file_path('mwr_l12l2/config/L2_format.yaml')
+        conf_nc = get_nc_format_config(nc_format_config_file)
+        basename = os.path.join(self.conf['data']['output_dir'], self.conf['data']['output_file_prefix']
+                                + self.wigos + '_' + self.inst_id)
+        filename = generate_output_filename(basename, 'instamp_min', self.mwr_files)
+        nc_writer = Writer(data, filename, conf_nc)
+        nc_writer.run()
 
 
 if __name__ == '__main__':

@@ -81,6 +81,19 @@ def datetime64_to_hour(x):
     return np.sum(hms / hour_frac)
 
 
+def scalars_to_time(ds, variables, time_dim='time'):
+    """expand scalar variables onto time dimension to form an array of len(time) containing identical values
+
+    Args:
+        ds: :class:`xarray.Dataset` containing all requested scalar variables and the time dimension to transform to
+        variables: list of variables to expand onto the time dimension. These will be replaced in-place
+        time_dim (optional): name of the time dimension. Defaults to 'time'.
+    """
+    for var in variables:
+        ds.update({var: (time_dim, ds[var].values * np.ones(ds[time_dim].shape))})
+    return ds
+
+
 def lists_to_np(indict):
     """transform all values of a dict with type list to a :class:`numpy.ndarray`"""
     for key, val in indict.items():

@@ -15,6 +15,14 @@ class MWRDataError(MWRError):
     """Raised if something with the input data goes wrong"""
 
 
+class MWRRetrievalError(MWRError):
+    """Raised if something with the TROPoe retrieval failed"""
+
+
+class MWROutputError(MWRError):
+    """Raised when something with the output file goes wrong"""
+
+
 class MWRConfigError(MWRError):
     """Raised if something with the configuration file is wrong"""
 
@@ -36,3 +44,9 @@ class MissingDataError(MWRDataError):
 ###############################
 class FilenameError(MWRFileError):
     """Raised if the filename does not correspond to the expected pattern"""
+
+
+##############################
+class OutputDimensionError(MWROutputError):
+    """Raised if requested output dimensions do not match data"""
+
