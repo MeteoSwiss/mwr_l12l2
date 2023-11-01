@@ -107,7 +107,7 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
-      long_name: Calculated column-integrated liquid water path
+      long_name: Calculated column-integrated water vapour
       comment: calculated from retrieved profile in water_vapor_vmr
       units: mm
 
