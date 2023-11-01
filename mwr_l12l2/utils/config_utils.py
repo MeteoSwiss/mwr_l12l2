@@ -85,7 +85,8 @@ def get_retrieval_config(file):
                            'vip_filename_tropoe', 'result_basefilename_tropoe',
                            'mwr_basefilename_tropoe', 'alc_basefilename_tropoe',
                            'model_prof_basefilename_tropoe', 'model_sfc_basefilename_tropoe']
-    paths_data = ['inst_config_dir', 'mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']  # paths that shall be transformed to abs paths
+    # define paths which shall be transformed to abs paths:
+    paths_data = ['output_dir', 'inst_config_dir', 'mwr_dir', 'alc_dir', 'model_dir', 'tropoe_basedir']
     mandatory_keys_vip = []
     paths_vip = []  # paths that shall be transformed to abs paths
 
