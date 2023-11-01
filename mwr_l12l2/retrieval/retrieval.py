@@ -93,7 +93,7 @@ class Retrieval(object):
         self.prepare_paths(datestamp)
         self.prepare_tropoe_dir()
 
-        # Now only new instrument selection if not provided by a retrieval manager
+        # Now only new instrument selection if not provided by a RetrievalManager or an InstrumentSelector
         if self.wigos is None:
             self.select_instrument()
             self.list_obs_files()
@@ -105,6 +105,7 @@ class Retrieval(object):
         if self.conf['vip']['mod_temp_prof_type'] != 0 or self.conf['vip']['mod_wv_prof_type'] != 0:
             self.choose_model_files()
             self.prepare_model()
+
         self.prepare_vip()
         self.do_retrieval()
         self.postprocess_tropoe()
@@ -195,34 +196,47 @@ class Retrieval(object):
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
 
-        self.time_min = max(mwr.time.min().values, start_time)
+        self.time_min = max(mwr.time.min().values, start_time) 
         self.time_max = min(mwr.time.max().values, end_time)
-        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta
-
-        # Add here a check on the time_min and time_max to make sure that we have at least 10 minutes of data
-        # if (self.time_max - self.time_min) < np.timedelta64(10, 'm'):
-        #     #raise Warning('Not enough data to run the retrieval. Skipping this instrument.')
-        #     pass
+        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
+        
+        # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
+        if end_time < mwr.time.max().values:
+            Warning('The provided end_time is smaller than the time present in the mwr files. ')
 
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
-
-        if delete_mwr_in:
-            for file in self.mwr_files:
-                os.remove(file)
-
+        
+        # Add here a check on the time_min and time_max to make sure that we have at least 10 minutes of data
+        # Before file deletion so that the files are kept for the next retrievals
+        #TODO: Different bugs can still happen with this way of doing:
+        # 1. Problem when multiple days ?
+        # 2. Problem if end_time is before the mwr.time -> files from future retrievals will be deleted
         if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
+            if delete_mwr_in:
+                for file in self.mwr_files:
+                    os.remove(file)
             raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
                                    'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
+        elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
+            raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
+        else:
+            print('#############################################################################################')
+            print('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+            print('#############################################################################################')
+            if delete_mwr_in:
+                for file in self.mwr_files:
+                    os.remove(file)
+
+        # if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
+        #     raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
+        #                            'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
+
         # TODO: uncomment the following block once getting good test files with ok quality flags
         # mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
         # if mwr.tb.isnull().all():
         #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
         #                            'Nothing to retrieve!'.format(start_time, end_time))
-
-        print('#############################################################################################')
-        print('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
-        print('#############################################################################################')
 
         # Check if the wigos id is the correct one:
         if mwr.wigos_station_id != self.wigos:
@@ -382,7 +396,7 @@ class Retrieval(object):
         apriori_file = 'prior.MIDLAT.nc'  # located outside TROPoe container unless starting with prior.*
         date = datetime64_to_str(self.time_mean, '%Y%m%d')
         run_tropoe(self.tropoe_dir, date, datetime64_to_hour(self.time_min), datetime64_to_hour(self.time_max),
-                   self.vip_file_tropoe, apriori_file, verbosity=2)
+                   self.vip_file_tropoe, apriori_file, verbosity=1)
 
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
