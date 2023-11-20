@@ -109,6 +109,7 @@ class Retrieval(object):
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
         # only read model data if it's actually required
+        # TODO: we also need to read the model if there are no mwr met station !
         if self.conf['vip']['mod_temp_prof_type'] != 0 or self.conf['vip']['mod_wv_prof_type'] != 0:
             self.choose_model_files()
             self.prepare_model()
@@ -230,9 +231,9 @@ class Retrieval(object):
         elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
             raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
         else:
-            print('#############################################################################################')
-            print('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
-            print('#############################################################################################')
+            logger.info('#############################################################################################')
+            logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+            logger.info('#############################################################################################')
             if delete_mwr_in:
                 for file in self.mwr_files:
                     os.remove(file)
@@ -381,6 +382,7 @@ class Retrieval(object):
         
         # Add scan variables to the VIP file only if they exist
         if any(ch_scan):
+            logger.info('Reading scan data measured by the MWR')
             vip_edits['mwrscan_type']=4
             vip_edits['mwrscan_elev_field']='ele'
             vip_edits['mwrscan_freq_field']='frequency'
@@ -393,7 +395,8 @@ class Retrieval(object):
             vip_edits['mwrscan_tb_freqs']=self.mwr.frequency[ch_scan].values
             vip_edits['mwrscan_tb_noise']=self.inst_conf['retrieval']['tb_noise'][ch_scan]
             vip_edits['mwrscan_tb_bias']=self.inst_conf['retrieval']['tb_bias'][ch_scan]
-
+        else: 
+            logger.info('No scan available for this retrieval')
         self.conf['vip'].update(vip_edits)
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header,
                      remove_brackets=True, remove_parentheses=True, remove_braces=True)
@@ -433,7 +436,8 @@ class Retrieval(object):
         conf_nc = get_nc_format_config(nc_format_config_file)
         basename = os.path.join(self.conf['data']['output_dir'], self.conf['data']['output_file_prefix']
                                 + self.wigos + '_' + self.inst_id)
-        filename = generate_output_filename(basename, 'instamp_min', self.mwr_files)
+        #TODO: at the moment use mwr_files for filename and not the actual retrieved period: TO CHANGE !
+        filename = generate_output_filename(basename, 'instamp_max', self.mwr_files)
         nc_writer = Writer(data, filename, conf_nc)
         nc_writer.run()
 
