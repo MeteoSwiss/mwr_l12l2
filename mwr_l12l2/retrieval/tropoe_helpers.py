@@ -148,8 +148,9 @@ def transform_units(data):
     # unit_match contents. key: orig unit; value: (new unit, multiplier, adder)
     unit_match = {'C': ('K', 1, 273.15),
                   'km': ('m', 1e3, 0),
-                  'g/m2': ('mm', 1e-3, 0),  # for liquid water path
-                  'cm': ('mm', 10, 0),  # for integrated water vapour
+                  'g/kg': ('kg kg-1', 1e-3, 0),
+                  'g/m2': ('kg m-2', 1e-3, 0),  # for liquid water path
+                  'cm': ('kg m-2', 10, 0),  # for integrated water vapour
                   }
     unit_attribute = 'units'
 
@@ -180,6 +181,60 @@ def height_to_altitude(data, station_altitude):
     data.update({'station_altitude': station_altitude})
     data['altitude'] = data['height'] + data['station_altitude']
     return data.swap_dims({'height': 'altitude'})
+
+def extract_prior(data, tropoe_out_config):
+    """
+    Extracts prior information from the given data based on the TROPoe output configuration.
+    #TODO: this function could be done more generic, e.g. by inputing a list of variables to extract prior information from.
+
+    Args:
+        data (xr.Dataset): The input data containing the variables to extract prior information from.
+        tropoe_out_config (dict): The TROPoe output configuration dictionary.
+
+    Returns:
+        xr.Dataset: The input data with the prior information variables added.
+
+    Raises:
+        FileExistsError: If the tropoe_out_config argument is not a dictionary.
+    """
+
+    # read config file for TROPoe output
+    if isinstance(tropoe_out_config, dict):
+        tropoe_conf = tropoe_out_config
+    else:
+        raise FileExistsError("The argument 'conf' must be a conf dictionary")
+
+
+    # Temperature
+    data = data.assign(
+        temperature_prior = xr.DataArray(
+        data.Xa.where(data.arb1==tropoe_conf['temperature'], drop=True).values,
+        coords= {'height':data.height},
+        dims='height',
+        attrs={'units':data.temperature.units},
+        ),
+    )
+    
+
+    # Water vapor
+    data = data.assign(
+        waterVapor_prior = xr.DataArray(
+        data.Xa.where(data.arb1==tropoe_conf['waterVapor'], drop=True).data,
+        coords= {'height':data.height},
+        dims='height',
+        attrs={'units':data.waterVapor.units},
+        ),
+    )
+        
+    # Liquid water path
+    data = data.assign(
+        lwp_prior = xr.DataArray(
+        data.Xa.where(data.arb1==tropoe_conf['lwp'], drop=True).data,
+        coords= {},
+        attrs={'units':data.lwp.units},
+        ),
+    )
+    return data
 
 
 if __name__ == '__main__':
