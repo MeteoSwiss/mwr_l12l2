@@ -61,6 +61,27 @@ variables:
 
   # TODO: add quality_flag and quality_flag_status, possibly also freq-dependent vars
 
+##########################################################################################################
+# QC fields
+##########################################################################################################
+  
+  qc_flag:
+    name: qc_flag
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Quality flag
+      comment: ''
+      units: 1
+
+
+##########################################################################################################
+# Temperature fields 
+##########################################################################################################
+
   temperature:
     name: temperature
     dim:
@@ -68,14 +89,14 @@ variables:
       - altitude
     type: f4
     _FillValue: -999.
-    optional: True  #n none of the retrieved fields can be mandatory as T/q-only MWR's exist
+    optional: True  # none of the retrieved fields can be mandatory as T/q-only MWR's exist
     attributes:
       long_name: Retrieved temperature profile
       standard_name: air_temperature
       units: K
 
-  water_vapor_vmr:
-    name: water_vapor_vmr
+  temperature_prior:
+    name: temperature_apriori
     dim:
       - time
       - altitude
@@ -83,10 +104,98 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
+      long_name: A priori temperature profile of retrieval
+      units: K
+
+  sigma_temperature:
+    name: temperature_random_error
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True  # none of the retrieved fields can be mandatory as T/q-only MWR's exist
+    attributes:
+      long_name: Random uncertainty of retrieved temperature profile
+      standard_name: temperature_random_error
+      units: K
+
+  # temperature_systematic_error:
+  #   name: temperature
+  #   dim:
+  #     - time
+  #     - altitude
+  #   type: f4
+  #   _FillValue: -999.
+  #   optional: True  # none of the retrieved fields can be mandatory as T/q-only MWR's exist
+  #   attributes:
+  #     long_name: Systematic uncertainty of retrieved temperature profile
+  #     standard_name: temperature_systematic_error
+  #     units: K
+
+##########################################################################################################
+# Water Vapor fields
+##########################################################################################################
+
+  waterVapor:
+    name: humidity_mixing_ratio
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      standard_name: humidity_mixing_ratio
       long_name: Retrieved water vapour profile
-      units: g/kg
+      units: kg kg-1
       # TODO should probably transform this to ppm to comply with the format definition doc. Synchronise with this document
       # TODO: check for standard name and adequate units: https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
+
+  waterVapor_prior:
+    name: humidity_mixing_ratio_apriori
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: A priori water vapour profile of retrieval
+      units: kg kg-1
+
+  sigma_waterVapor:
+    name: humidity_mixing_ratio_random_error
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Random uncertainty of retrieved water vapour profile
+      units: kg kg-1
+      # TODO should probably transform this to ppm to comply with the format definition doc. Synchronise with this document
+      # TODO: check for standard name and adequate units: https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
+
+
+  rh:
+    name: relative_humidity
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Relative Humidity
+      standard_name: relative_humidity
+      units: 1
+      comment: derived from retrieved fields
+
+##########################################################################################################
+# Integrated fields
+##########################################################################################################
 
   lwp:
     name: lwp
@@ -96,8 +205,34 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
+      standard_name: atmosphere_cloud_liquid_water_content 
       long_name: Retrieved column-integrated liquid water path
-      units: mm
+      comment: Derived from zenith observations
+      # TODO: indicate source
+      units: kg m-2
+
+  lwp_prior:
+    name: lwp_apriori
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: A priori value for column-integrated liquid water path
+      # TODO: indicate source
+      units: kg m-2
+
+  sigma_lwp:
+    name: lwp_random_error
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Random uncertainty of retrieved column-integrated liquid water path
+      units: kg m-2
 
   pwv:
     name: iwv
@@ -107,9 +242,25 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
-      long_name: Calculated column-integrated water vapour
+      standard_name: atmosphere_mass_content_of_water_vapor
+      long_name: Column-integrated water vapour
       comment: calculated from retrieved profile in water_vapor_vmr
-      units: mm
+      units: kg m-2
+
+  sigma_pwv:
+    name: iwv_random_error
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Random uncertainty of column-integrated water vapour
+      units: kg m-2
+
+##########################################################################################################
+# Forecast indices
+##########################################################################################################
 
   mlCAPE:
     name: cape
@@ -119,9 +270,22 @@ variables:
     _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
     optional: True
     attributes:
-      long_name: Convective available potential energy
-      comment: calculated from retrieved profiles
-      units: 1
+      standard_name: atmosphere_convective_available_potential_energy
+      long_name: Convective available potential energy for a mixed-layer parcel
+      #comment: calculated from retrieved profiles
+      units: J kg-1
+
+  sigma_mlCAPE:
+    name: cape_random_error
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
+    optional: True
+    attributes:
+      long_name: 1-sigma uncertainties in mixed-layer CAPE
+      #comment: calculated from retrieved profiles
+      units: J kg-1
 
   mlCIN:
     name: cin
@@ -131,9 +295,23 @@ variables:
     _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
     optional: True
     attributes:
-      long_name: Convective inhibition
-      comment: calculated from retrieved profiles
-      units: 1
+      standard_name: atmosphere_convective_inhibition
+      long_name: Convective inhibition for a mixed-layer parcel
+      #comment: calculated from retrieved profiles
+      units: J kg-1
+
+  sigma_mlCIN:
+    name: cin_random_error
+    dim:
+      - time
+    type: f4
+    _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
+    optional: True
+    attributes:
+      standard_name: atmosphere_convective_inhibition
+      long_name: 1-sigma uncertainties in mixed-layer CIN
+      #comment: calculated from retrieved profiles
+      units: J kg-1
 
   mlLCL:
     name: lcl
@@ -143,8 +321,21 @@ variables:
     _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
     optional: True
     attributes:
-      long_name: Convective inhibition
-      comment: calculated from retrieved profiles
+      standard_name: atmosphere_level_of_free_convection
+      long_name: Lifted condensation level
+      #comment: calculated from retrieved profiles
+      units: m
+
+  sigma_mlLCL:
+    name: lcl_random_error
+    dim:
+      - time
+    type: f4
+    _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
+    optional: True
+    attributes:
+      long_name: 1-sigma uncertainties in the LCL for a mixed-layer parcel
+      #comment: calculated from retrieved profiles
       units: m
 
   # TODO: add errors to quantities and decide whether to report as random error or systematic error
