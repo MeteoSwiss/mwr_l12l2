@@ -59,7 +59,35 @@ variables:
       standard_name: longitude
       units: degree_east
 
+  # in this case, the variable has already been created 
+  station_altitude:
+    name: station_altitude
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Altitude above mean sea level of measurement station
+      standard_name: station_altitude
+      units: m
+
+  # azi: to propagate from L1 !
+  #   name: azimuth_angle
+  #   dim:
+  #     - time
+  #   type: f4
+  #   _FillValue: -999.
+  #   optional: False
+  #   attributes:
+  #     long_name: Sensor azimuth angle
+  #     standard_name: sensor_azimuth_angle 
+  #     units: degree
+  #     comment: “0=North, 90=East, 180=South, 270=West”
+  
   # TODO: add quality_flag and quality_flag_status, possibly also freq-dependent vars
+
+  # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
 
 ##########################################################################################################
 # QC fields
@@ -351,4 +379,5 @@ attributes:
   comment: ''
   source: Ground Based Remote Sensing
   dependencies: None
+  # retrieval_type: optimal estimation -> to be set at each retrieval
   # history is directly set in NetCDF writer
