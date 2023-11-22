@@ -255,8 +255,8 @@ class Retrieval(object):
 
         # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
         # with tolerance of 0.5 degree for lat and lon and 50 m for alt:
-        tolerance_lat_lon = 0.2
-        tolerance_alt = 50
+        tolerance_lat_lon = self.conf['data']['tolerance_lat_lon'] 
+        tolerance_alt = self.conf['data']['tolerance_alt'] 
 
         if (abs(np.nanmedian(mwr.station_latitude.values) - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
                 (abs(np.nanmedian(mwr.station_longitude.values) - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
@@ -430,6 +430,9 @@ class Retrieval(object):
 
         # Some variables needs to be extracted from TROPoe output (e.g. prior for each quantity)
         data = extract_prior(data, tropoe_out_config) 
+
+        # Some variables needs to be propagated from L1
+        # e.g azi
         
         data = transform_units(data)
 
@@ -438,10 +441,18 @@ class Retrieval(object):
         data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior']) 
         # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
 
-        # propagate some metadata from L1 to L2 TODO: check history variables !
+        # propagate some metadata from L1 to L2
         for attr in self.mwr.attrs:
             data.attrs[attr] = self.mwr.attrs[attr]
 
+        # Some extra attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
+        data.attrs['retrieval_elevation_angle'] = data.attrs['VIP_mwrscan_elevations']
+
+        # Remove uncesseray attrs from data (all containinins "VIP")
+        for attr in list(data.attrs):
+            if 'VIP' in attr:
+                del data.attrs[attr]
+        
         # write output  # TODO probably better split into seperate method
         nc_format_config_file = abs_file_path('mwr_l12l2/config/L2_format.yaml')
         conf_nc = get_nc_format_config(nc_format_config_file)
