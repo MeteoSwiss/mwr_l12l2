@@ -1,0 +1,22 @@
+# config file example for reading TROPoe output
+################################################################
+
+# Manual description of the retrieved quantities and corresponding indices in arbitrary dimension variables
+temperature: 1
+waterVapor: 2
+lwp: 3
+lReff: 4
+iTau: 5
+iReff: 6
+co2: 7
+ch4: 8
+n2o: 9
+
+# Obsevation vector
+radianceWN: 1
+zenithTb: 2
+scanTb: 10
+surfaceT: 5
+modelT: 7
+modelWV: 8
+

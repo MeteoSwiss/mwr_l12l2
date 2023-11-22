@@ -9,10 +9,10 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude
-from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior
+from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
-    scalars_to_time
+    scalars_to_time, vectors_to_time
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file, \
     generate_output_filename
 from mwr_l12l2.write_netcdf import Writer
@@ -426,10 +426,21 @@ class Retrieval(object):
             raise MWRRetrievalError("Found several files matching {}. Don't know which TROPoe output to use.".format(
                 outfiles_pattern))
 
+        tropoe_out_config = get_conf(abs_file_path('mwr_l12l2/config/tropoe_output_config.yaml'))
+
+        # Some variables needs to be extracted from TROPoe output (e.g. prior for each quantity)
+        data = extract_prior(data, tropoe_out_config) 
+        
         data = transform_units(data)
+
         data = height_to_altitude(data, self.mwr.station_altitude)
-        data = scalars_to_time(data, ['lat', 'lon', 'station_altitude'])  # to be executed after height_to_altitude
+        data = scalars_to_time(data, ['lat', 'lon', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude
+        data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior']) 
         # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
+
+        # propagate some metadata from L1 to L2 TODO: check history variables !
+        for attr in self.mwr.attrs:
+            data.attrs[attr] = self.mwr.attrs[attr]
 
         # write output  # TODO probably better split into seperate method
         nc_format_config_file = abs_file_path('mwr_l12l2/config/L2_format.yaml')
