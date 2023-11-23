@@ -11,6 +11,10 @@ data:
   # maximum age of MWR data to be considered for retrieval in minutes. Set to null for unlimited
   max_age: 90
 
+  # maximum difference between the lat, lon and alt variables defined in the MWR L1 and the config file
+  tolerance_lat_lon: 0.2
+  tolerance_alt: 50
+
   # info on instrument configuration files
   inst_config_dir: mwr_l12l2/config/
   inst_config_file_prefix: config_
@@ -75,13 +79,13 @@ vip:
   ext_sfc_pres_type: 0
 
   # The model input
-  mod_temp_prof_type: 4
-  mod_temp_noise_adder_val: [10, 4, 4]
+  mod_temp_prof_type: 0
+  mod_temp_noise_adder_val: [5, 2, 2]
   mod_temp_noise_adder_hts: [0,  5, 20]
   mod_temp_prof_maxht: 18.
   # mod_temp_time_delta: 4.
-  mod_wv_prof_type: 4
-  mod_wv_noise_mult_val: [32, 16, 16]
+  mod_wv_prof_type: 0
+  mod_wv_noise_mult_val: [16, 8, 8]
   mod_wv_noise_mult_hts: [0, 5, 20]
   mod_wv_prof_maxht: 18.
   # mod_wv_time_delta: 4.
