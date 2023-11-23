@@ -30,4 +30,4 @@ retrieval:
   tb_bias: [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
   zenith_channels: [True, True, True, True, True, True, True, True, True, True, True, True, True, True]
   scan_channels: [False, False, False, False, False, False, False, False, False, False, True, True, True, True]
-  scan_ele: [19.2, 11.4, 5.4]
+  scan_ele: [30, 19.2, 14.4, 11.4, 8.4, 5.4, 4.2]
