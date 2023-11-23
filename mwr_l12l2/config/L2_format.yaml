@@ -61,7 +61,7 @@ variables:
 
   # in this case, the variable has already been created 
   station_altitude:
-    name: station_altitude
+    name: surface_altitude
     dim:
       - time
     type: f4
@@ -69,7 +69,7 @@ variables:
     optional: False
     attributes:
       long_name: Altitude above mean sea level of measurement station
-      standard_name: station_altitude
+      standard_name: surface_altitude
       units: m
 
   # azi: to propagate from L1 !
@@ -103,7 +103,7 @@ variables:
     attributes:
       long_name: Quality flag
       comment: ''
-      units: 1
+      units: "1"
 
 
 ##########################################################################################################
@@ -145,7 +145,6 @@ variables:
     optional: True  # none of the retrieved fields can be mandatory as T/q-only MWR's exist
     attributes:
       long_name: Random uncertainty of retrieved temperature profile
-      standard_name: temperature_random_error
       units: K
 
   # temperature_systematic_error:
@@ -218,8 +217,64 @@ variables:
     attributes:
       long_name: Relative Humidity
       standard_name: relative_humidity
-      units: 1
+      units: "1"
       comment: derived from retrieved fields
+
+  theta:
+    name: potential_temperature
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Potential Temperature
+      standard_name: air_potential_temperature
+      units: K
+      comment: derived from retrieved fields
+
+  thetae:
+    name: equivalent_potential_temperature
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Equivalent potential temperature
+      standard_name: air_equivalent_potential_temperature
+      units: K
+      comment: derived from retrieved fields
+
+  dewpt:
+    name: dew_point_temperature
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Dew point temperature
+      standard_name: dew_point_temperature
+      units: K
+      comment: derived from retrieved fields
+
+##########################################################################################################
+# Measurement related fields
+##########################################################################################################
+  rmsr:
+    name: rmsr
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Root mean square error between IRS and MWR obs in the observation vector and the forward calculation
+      units: "1"
 
 ##########################################################################################################
 # Integrated fields
@@ -372,7 +427,7 @@ variables:
 # If the same fields are present in the instrument-specific config, the general ones from below will be overwritten
 attributes:
   Conventions: CF-1.8
-  references: E-PROFILE data format description document
+  references: E-PROFILE data format description document (v01.9)
   license: Closed-Use Non-Commercial General Licence 1.0 (CUNCGL)
   network_name: E-PROFILE
   campaign_name: ''
