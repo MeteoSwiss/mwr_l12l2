@@ -109,11 +109,24 @@ class Retrieval(object):
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
         # only read model data if it's actually required
-        # TODO: we also need to read the model if there are no mwr met station !
+        
+        # New flag for the use of the model data as pseudo observation
         if self.conf['vip']['mod_temp_prof_type'] != 0 or self.conf['vip']['mod_wv_prof_type'] != 0:
-            self.choose_model_files()
-            self.prepare_model()
+            self.use_model_data = True
+        else:
+            self.use_model_data = False
 
+        # We also read the model if there are no mwr met station 
+        if  self.use_model_data or \
+                not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+            try:
+                self.choose_model_files()
+                self.prepare_model()
+            except Exception as e:
+                logger.warning(e)
+                self.use_model_data = False
+                logger.warning('No model data will be used for the retrieval')
+            
         self.prepare_vip()
         self.do_retrieval()
         self.postprocess_tropoe()
@@ -347,12 +360,12 @@ class Retrieval(object):
         # surface data and if not taking lowest model level as surface data (with altitude offset)
         if self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists:
             logger.info('Surface data measured by the MWR')
-            ext_sfc_data_type = 4
+            self.ext_sfc_data_type = 4
             sfc_data_offset = 0
             sfc_rootname = "mwr"
         else: 
             logger.info('No surface data measured by the MWR, using the forecast data instead')
-            ext_sfc_data_type = 1
+            self.ext_sfc_data_type = 1
             sfc_data_offset = self.met_sfc_offset
             sfc_rootname = "met"  # this should be the default value but better specify
 
@@ -363,8 +376,8 @@ class Retrieval(object):
                          mwr_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_zenith],
                          station_psfc_max=1030.,  # TODO: calc from station altitude
                          station_psfc_min=800.,
-                         ext_sfc_wv_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
-                         ext_sfc_temp_type=ext_sfc_data_type,  # 4 for mwr file, 1 for model file
+                         ext_sfc_wv_type=self.ext_sfc_data_type,  # 4 for mwr file, 1 for model file
+                         ext_sfc_temp_type=self.ext_sfc_data_type,  # 4 for mwr file, 1 for model file
                          ext_sfc_relative_height=sfc_data_offset,
                          ext_sfc_rootname=sfc_rootname,
                          # TODO check what happens with surface pressure
@@ -433,6 +446,7 @@ class Retrieval(object):
 
         # Some variables needs to be propagated from L1
         # e.g azi
+        #data['azi'] = self.mwr.azi
         
         data = transform_units(data)
 
@@ -446,7 +460,36 @@ class Retrieval(object):
             data.attrs[attr] = self.mwr.attrs[attr]
 
         # Some extra attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
-        data.attrs['retrieval_elevation_angle'] = data.attrs['VIP_mwrscan_elevations']
+        
+        # zenith infos
+        data.attrs['mwr_tb_freqs'] = data.attrs['VIP_mwr_tb_freqs']
+        data.attrs['mwr_tb_bias'] = data.attrs['VIP_mwr_tb_bias']
+        data.attrs['mwr_tb_noise'] = data.attrs['VIP_mwr_tb_noise']
+
+        # scan infos
+        data.attrs['mwrscan_elevations'] = data.attrs['VIP_mwrscan_elevations']
+        data.attrs['mwrscan_tb_bias'] = data.attrs['VIP_mwrscan_tb_bias']
+        data.attrs['mwrscan_tb_freqs'] = data.attrs['VIP_mwrscan_tb_freqs']
+        data.attrs['mwrscan_tb_noise'] = data.attrs['VIP_mwrscan_tb_noise']
+
+        # model infos
+        data.attrs['mod_temp_prof_type'] = data.attrs['VIP_mod_temp_prof_type']
+        data.attrs['mod_wv_prof_type'] = data.attrs['VIP_mod_wv_prof_type']
+
+        if self.use_model_data:
+            data.attrs['retrieval_type'] = '1DVAR'
+        else:
+            data.attrs['retrieval_type'] = 'optimal estimation'
+
+        if self.ext_sfc_data_type == 1:
+            data.attrs['ext_sfc_temp_type'] = 'model'
+            data.attrs['ext_sfc_wv_type'] = 'model'
+        elif self.ext_sfc_data_type == 4:
+            data.attrs['ext_sfc_temp_type'] = 'mwr'
+            data.attrs['ext_sfc_wv_type'] = 'mwr'
+        else:
+            data.attrs['ext_sfc_temp_type'] = 'unknown'
+            data.attrs['ext_sfc_wv_type'] = 'unknown'
 
         # Remove uncesseray attrs from data (all containinins "VIP")
         for attr in list(data.attrs):
