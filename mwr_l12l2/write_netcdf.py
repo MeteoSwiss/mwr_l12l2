@@ -127,7 +127,11 @@ class Writer(object):
             hist_str = '{}: mwr_l12l2'.format(current_time_str)
             logger.warning('Received error {} while trying to set history global attribute. Therefore, will be using '
                            'hardcoded project name without version number'.format(err))
-        self.data.attrs['history'] = hist_str
+        
+        if self.data.attrs['history']:
+            self.data.attrs['history'] = self.data.attrs['history'] + '; ' + hist_str
+        else:
+            self.data.attrs['history'] = hist_str
 
     def check_dims(self, var, specs):
         """check dims of var (retain order of config specs, but order of dims returned by xarray Dataset is arbitrary)
