@@ -9,7 +9,7 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior, extract_attrs
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
     scalars_to_time, vectors_to_time
@@ -64,8 +64,6 @@ class Retrieval(object):
         self.model_sfc_file_tropoe = None  # output file for inter/extrapolation of model data to station altitude
         self.tropoe_dir_mountpoint = None  # mountpoint for tropoe_dir inside the TROPoe container
 
-
-
         # set by prepare_obs():
         self.mwr = None  # Level1 contents of MWR instrument for considered time period
         self.time_min = None  # min time of MWR observations available and considered
@@ -92,6 +90,7 @@ class Retrieval(object):
         if start_time is not None and not isinstance(start_time, dt.datetime):
             raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
         if start_time is None and self.conf['data']['max_age'] is not None:
+            logger.info('No start time provided. Using data from the last {} minutes.'.format(self.conf['data']['max_age']))
             start_time = dt.datetime.utcnow() - dt.timedelta(minutes=self.conf['data']['max_age'])
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
 
@@ -102,6 +101,7 @@ class Retrieval(object):
 
         # Now only new instrument selection if not provided by a RetrievalManager or an InstrumentSelector
         if self.wigos is None:
+            logger.info('No instrument specified. Selecting the oldest one.')
             self.select_instrument()
             self.list_obs_files()
 
@@ -119,6 +119,7 @@ class Retrieval(object):
         # We also read the model if there are no mwr met station 
         if  self.use_model_data or \
                 not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+            logger.info('Reading model data for this retrieval (as pseudo observations or because no met data exist)')
             try:
                 self.choose_model_files()
                 self.prepare_model()
@@ -246,7 +247,6 @@ class Retrieval(object):
         else:
             logger.info('#############################################################################################')
             logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
-            logger.info('#############################################################################################')
             if delete_mwr_in:
                 for file in self.mwr_files:
                     os.remove(file)
@@ -395,7 +395,7 @@ class Retrieval(object):
         
         # Add scan variables to the VIP file only if they exist
         if any(ch_scan):
-            logger.info('Reading scan data measured by the MWR')
+            logger.info('Found scan data measured by the MWR')
             vip_edits['mwrscan_type']=4
             vip_edits['mwrscan_elev_field']='ele'
             vip_edits['mwrscan_freq_field']='frequency'
@@ -428,6 +428,7 @@ class Retrieval(object):
         # TODO: set up a writer producing the E-PROFILE format. 90% of mwr_raw2l1.write_netcdf() and
         #  mwr_raw2l1.config.L2_format.yaml will be re-usable by just modifying the .yaml to match TROPoe output vars to
         #  the output format varnames and attributes
+        logger.info('Post-processing TROPoe output')
         outfiles_pattern = os.path.join(self.tropoe_dir, self.tropoe_output_basename + '*.nc')
         outfiles = glob.glob(outfiles_pattern)
         if len(outfiles) == 1:
@@ -455,26 +456,12 @@ class Retrieval(object):
         data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior']) 
         # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
 
-        # propagate some metadata from L1 to L2
+        # propagate some (all ?) metadata from L1 to L2
         for attr in self.mwr.attrs:
             data.attrs[attr] = self.mwr.attrs[attr]
 
         # Some extra attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
-        
-        # zenith infos
-        data.attrs['mwr_tb_freqs'] = data.attrs['VIP_mwr_tb_freqs']
-        data.attrs['mwr_tb_bias'] = data.attrs['VIP_mwr_tb_bias']
-        data.attrs['mwr_tb_noise'] = data.attrs['VIP_mwr_tb_noise']
-
-        # scan infos
-        data.attrs['mwrscan_elevations'] = data.attrs['VIP_mwrscan_elevations']
-        data.attrs['mwrscan_tb_bias'] = data.attrs['VIP_mwrscan_tb_bias']
-        data.attrs['mwrscan_tb_freqs'] = data.attrs['VIP_mwrscan_tb_freqs']
-        data.attrs['mwrscan_tb_noise'] = data.attrs['VIP_mwrscan_tb_noise']
-
-        # model infos
-        data.attrs['mod_temp_prof_type'] = data.attrs['VIP_mod_temp_prof_type']
-        data.attrs['mod_wv_prof_type'] = data.attrs['VIP_mod_wv_prof_type']
+        data = extract_attrs(data)
 
         if self.use_model_data:
             data.attrs['retrieval_type'] = '1DVAR'
