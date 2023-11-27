@@ -250,6 +250,8 @@ def extract_attrs(data):
         data (xr.Dataset): The input data with the added attributes
 
     """
+    data.attrs['avg_instant'] = data.attrs['VIP_avg_instant']
+
     # zenith infos
     data.attrs['mwr_tb_freqs'] = data.attrs['VIP_mwr_tb_freqs']
     data.attrs['mwr_tb_bias'] = data.attrs['VIP_mwr_tb_bias']
