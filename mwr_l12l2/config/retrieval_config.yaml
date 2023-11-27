@@ -52,7 +52,7 @@ data:
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
   # Set the temporal resolution and vertical grid of the retrieval
-  avg_instant: 1
+  avg_instant: 0
   tres: 10
   zgrid: [0, 0.060, 0.120, 0.240, 0.480, 0.720, 0.960, 1.2, 1.44, 1.68, 1.98, 2.28, 2.58, 2.88, 3.25, 3.6, 4.014, 4.426, 4.879, 5.376, 5.924, 6.526, 7.189, 7.918, 8.72, 9.602, 10.572, 11.639, 12.813, 14.104, 15.525, 17.087]
 
