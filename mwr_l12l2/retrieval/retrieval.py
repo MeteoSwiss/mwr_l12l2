@@ -32,6 +32,7 @@ class Retrieval(object):
         elif os.path.isfile(conf):
             self.conf = get_retrieval_config(conf)
         else:
+            logger.error("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
             raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
 
         # If provided, we read here the instrument configuation
@@ -88,6 +89,7 @@ class Retrieval(object):
                 processed.
         """
         if start_time is not None and not isinstance(start_time, dt.datetime):
+            logger.error("input argument 'start_time' is expected to be of type datetime.datetime or None")
             raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
         if start_time is None and self.conf['data']['max_age'] is not None:
             logger.info('No start time provided. Using data from the last {} minutes.'.format(self.conf['data']['max_age']))
@@ -167,6 +169,7 @@ class Retrieval(object):
                                                '{}*.nc'.format(self.conf['data']['mwr_file_prefix'])))
         
         if not list_of_files:
+            logger.error('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
             raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
         
         # extract filename and dates of all files
@@ -207,6 +210,7 @@ class Retrieval(object):
                        ' and file listing. This should not happen!'.format(self.wigos, self.inst_id,
                                                                            self.conf['data']['mwr_dir']))
             # TODO: also add a CRITICAL entry with err_msg to logger before raising the exception
+            logger.error(err_msg)
             raise MissingDataError(err_msg)
 
     def prepare_obs(self, start_time=None, end_time=None, delete_mwr_in=False):
@@ -240,9 +244,12 @@ class Retrieval(object):
             if delete_mwr_in:
                 for file in self.mwr_files:
                     os.remove(file)
+            logger.error('None of the MWR files found for {} {} contains data between the required time '
+                                      'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
             raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
                                    'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
         elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
+            logger.error('Not enough data to run the retrieval. Skipping this instrument.')
             raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
         else:
             logger.info('#############################################################################################')
@@ -263,6 +270,8 @@ class Retrieval(object):
 
         # Check if the wigos id is the correct one:
         if mwr.wigos_station_id != self.wigos:
+            logger.error('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                      .format(mwr.wigos_station_id, self.wigos))
             raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
                                    .format(mwr.wigos_station_id, self.wigos))
 
@@ -335,7 +344,7 @@ class Retrieval(object):
         model.run(self.time_min, self.time_max)
         prof_data, sfc_data = model_to_tropoe(model, station_altitude=self.inst_conf['station_altitude'])
         prof_data.to_netcdf(self.model_prof_file_tropoe)
-        self.met_sfc_offset = int(sfc_data.height.mean(dim='time').data)
+        self.met_sfc_offset = int(1e3*sfc_data.height.mean(dim='time').data)
         if not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
             sfc_data.to_netcdf(self.model_sfc_file_tropoe)
         
@@ -357,17 +366,22 @@ class Retrieval(object):
             raise MWRConfigError(' '.join([err_msg_1, err_msg_2]))
 
         # Check for met data in the mwr level 1, if exist setup VIP file accordingly to read mwr level 1 file for 
-        # surface data and if not taking lowest model level as surface data (with altitude offset)
+        # surface data and if not taking lowest model level as surface data (with altitude offset in m !)
         if self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists:
             logger.info('Surface data measured by the MWR')
             self.ext_sfc_data_type = 4
             sfc_data_offset = 0
-            sfc_rootname = "mwr"
+            sfc_rootname = "mwr"       
+            # the default values:     
+            sfc_temp_random_error = 0.5
+            sfc_rh_random_error = 3
         else: 
             logger.info('No surface data measured by the MWR, using the forecast data instead')
             self.ext_sfc_data_type = 1
             sfc_data_offset = self.met_sfc_offset
             sfc_rootname = "met"  # this should be the default value but better specify
+            sfc_temp_random_error = 1
+            sfc_rh_random_error = 6
 
         # update and complete vip entries with info from conf and data availability
         vip_edits = dict(mwr_n_tb_fields=len(self.mwr.frequency[ch_zenith]),
@@ -381,6 +395,8 @@ class Retrieval(object):
                          ext_sfc_relative_height=sfc_data_offset,
                          ext_sfc_rootname=sfc_rootname,
                          # TODO check what happens with surface pressure
+                         ext_sfc_temp_random_error=sfc_temp_random_error,
+                         ext_sfc_rh_random_error=sfc_rh_random_error,
                          mwr_path=self.tropoe_dir_mountpoint,
                          mwr_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                          mwrscan_path=self.tropoe_dir_mountpoint,
@@ -401,7 +417,7 @@ class Retrieval(object):
             vip_edits['mwrscan_freq_field']='frequency'
             vip_edits['mwrscan_tb_field_names']='tb'
             vip_edits['mwrscan_tb_field1_tbmax']=330.
-            vip_edits['mwrscan_time_delta']=0.25
+            vip_edits['mwrscan_time_delta']=5/60 # the time delta (in hours) in which TROPoe will search for a scan around the main time
             vip_edits['mwrscan_elevations']=self.inst_conf['retrieval']['scan_ele']
             vip_edits['mwrscan_n_elevations']=len(self.inst_conf['retrieval']['scan_ele'])
             vip_edits['mwrscan_n_tb_fields']=len(self.mwr.frequency[ch_scan])
@@ -410,6 +426,8 @@ class Retrieval(object):
             vip_edits['mwrscan_tb_bias']=self.inst_conf['retrieval']['tb_bias'][ch_scan]
         else: 
             logger.info('No scan available for this retrieval')
+        
+        
         self.conf['vip'].update(vip_edits)
         dict_to_file(self.conf['vip'], self.vip_file_tropoe, sep=' = ', header=header,
                      remove_brackets=True, remove_parentheses=True, remove_braces=True)
@@ -447,12 +465,12 @@ class Retrieval(object):
 
         # Some variables needs to be propagated from L1
         # e.g azi
-        #data['azi'] = self.mwr.azi
+        data['azi'] = np.median(self.mwr.azi.values)
         
         data = transform_units(data)
 
         data = height_to_altitude(data, self.mwr.station_altitude)
-        data = scalars_to_time(data, ['lat', 'lon', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude
+        data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude
         data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior']) 
         # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
 
@@ -489,7 +507,7 @@ class Retrieval(object):
         basename = os.path.join(self.conf['data']['output_dir'], self.conf['data']['output_file_prefix']
                                 + self.wigos + '_' + self.inst_id)
         #TODO: at the moment use mwr_files for filename and not the actual retrieved period: TO CHANGE !
-        filename = generate_output_filename(basename, 'instamp_max', self.mwr_files)
+        filename = generate_output_filename(basename, 'time_mean', files_in=self.mwr_files, time=data.time)
         nc_writer = Writer(data, filename, conf_nc)
         nc_writer.run()
 

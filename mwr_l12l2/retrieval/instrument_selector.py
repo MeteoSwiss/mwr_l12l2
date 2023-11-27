@@ -11,6 +11,7 @@ import datetime as dt
 import numpy as np
 
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
+from mwr_l12l2.log import logger
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
 from retrieval import Retrieval
 
@@ -34,6 +35,7 @@ class InstrumentSelector(object):
         elif os.path.isfile(conf):
             self.conf = get_retrieval_config(conf)
         else:
+            logger.error("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
             raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
 
         # set by select_instrument():
@@ -57,6 +59,7 @@ class InstrumentSelector(object):
                                                '{}*.nc'.format(self.conf['data']['mwr_file_prefix'])))
         
         if not list_of_files:
+            logger.error('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
             raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
         
         # extract filename and dates of all files
@@ -95,9 +98,8 @@ class InstrumentSelector(object):
                                                                       self.wigos, self.inst_id)))
         
         if not list_of_files:
+            logger.error('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
             raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
-                
-
 
         inst_conf_file = '{}{}_{}.yaml'.format(self.conf['data']['inst_config_file_prefix'],
                                                self.wigos, self.inst_id)
