@@ -1,12 +1,12 @@
 import os.path
-from subprocess import run
+import subprocess
 
 import numpy as np
 import xarray as xr
 
 from mwr_l12l2.utils.data_utils import set_encoding
 from mwr_l12l2.utils.file_utils import abs_file_path, replace_path
-
+from mwr_l12l2.log import logger
 
 def model_to_tropoe(model, station_altitude):
     """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe
@@ -139,7 +139,10 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
            '-e', 'pfile=' + apriori_fullpath,  # path inside container, e.g. relative to dir mapped to /data
            '-e', 'verbose={}'.format(verbosity),
            tropoe_img]
-    run(cmd)
+    tropoe_run = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    logger.info('TROPoe run output:')
+    logger.info(tropoe_run.stdout.decode('utf-8'))
+    logger.info('TROPoe run completed')
 
 
 def transform_units(data):
@@ -236,6 +239,35 @@ def extract_prior(data, tropoe_out_config):
     )
     return data
 
+def extract_attrs(data):
+    """
+    Extracts some attributes from the TROPoe outputs and rename them.
+
+    Args:
+        data (xr.Dataset): The input data containing the variables to extract the attributes from.
+
+    Returns:
+        data (xr.Dataset): The input data with the added attributes
+
+    """
+    data.attrs['avg_instant'] = data.attrs['VIP_avg_instant']
+
+    # zenith infos
+    data.attrs['mwr_tb_freqs'] = data.attrs['VIP_mwr_tb_freqs']
+    data.attrs['mwr_tb_bias'] = data.attrs['VIP_mwr_tb_bias']
+    data.attrs['mwr_tb_noise'] = data.attrs['VIP_mwr_tb_noise']
+
+    # scan infos
+    data.attrs['mwrscan_elevations'] = data.attrs['VIP_mwrscan_elevations']
+    data.attrs['mwrscan_tb_bias'] = data.attrs['VIP_mwrscan_tb_bias']
+    data.attrs['mwrscan_tb_freqs'] = data.attrs['VIP_mwrscan_tb_freqs']
+    data.attrs['mwrscan_tb_noise'] = data.attrs['VIP_mwrscan_tb_noise']
+
+    # model infos
+    data.attrs['mod_temp_prof_type'] = data.attrs['VIP_mod_temp_prof_type']
+    data.attrs['mod_wv_prof_type'] = data.attrs['VIP_mod_wv_prof_type']
+
+    return data
 
 if __name__ == '__main__':
     # run_tropoe('mwr_l12l2/data', 0, 'dummy/vip.txt', 'dummy/Xa_Sa.Lindenberg.55level.08.cdf')

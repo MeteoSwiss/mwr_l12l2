@@ -72,18 +72,20 @@ variables:
       standard_name: surface_altitude
       units: m
 
-  # azi: to propagate from L1 !
-  #   name: azimuth_angle
-  #   dim:
-  #     - time
-  #   type: f4
-  #   _FillValue: -999.
-  #   optional: False
-  #   attributes:
-  #     long_name: Sensor azimuth angle
-  #     standard_name: sensor_azimuth_angle 
-  #     units: degree
-  #     comment: “0=North, 90=East, 180=South, 270=West”
+####################################
+# Propagated from L1
+  azi: 
+    name: azimuth_angle
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Sensor azimuth angle
+      standard_name: sensor_azimuth_angle 
+      units: degree
+      comment: “0=North, 90=East, 180=South, 270=West”
   
   # TODO: add quality_flag and quality_flag_status, possibly also freq-dependent vars
 

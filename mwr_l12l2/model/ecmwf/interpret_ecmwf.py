@@ -65,9 +65,7 @@ class ModelInterpreter(object):
         else:
             self.fc = fc_all.sel(time=slice(time_min, time_min+np.timedelta64(1,'h')))
 
-        logger.info('#############################################################################################')
         logger.info('Using forecast data between '+datetime64_to_str(self.fc.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(self.fc.time.max().values, '%Y-%m-%d %H:%M:%S'))
-        logger.info('#############################################################################################')
 
         # Now keeping all models runs between time_min and time_max of the mwr observations, TROPoe does the interpolation
         if not self.use_zg_from_fc:
