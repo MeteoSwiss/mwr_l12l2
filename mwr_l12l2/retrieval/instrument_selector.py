@@ -12,6 +12,7 @@ import numpy as np
 
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
+from mwr_l12l2.utils.file_utils import abs_file_path
 from retrieval import Retrieval
 
 # from watchdog.observers import Observer
@@ -151,8 +152,8 @@ class InstrumentSelector(object):
 
 if __name__ == '__main__':
     start = time.time()
-    instrument = InstrumentSelector('/home/sae/Documents/MWR/retrieval_config_VM_ES.yaml')
-    instrument.retrieve_single(start_time=dt.datetime(2023, 10, 23, 0, 0, 0),  end_time=dt.datetime(2023, 10, 23, 23, 59, 0), wigos='0-20000-0-06610', inst_id = 'A')
+    instrument = InstrumentSelector(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
+    instrument.retrieve_single(start_time=None,  end_time=None, wigos='0-20000-0-06620', inst_id = 'A')
     end = time.time()
     print('Time taken to run the retrieval: {} seconds'.format(end-start))
 
