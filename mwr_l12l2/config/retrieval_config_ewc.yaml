@@ -1,0 +1,101 @@
+# config file for general retrieval settings #
+##############################################
+#
+# the data section contains paths of data files and age of data to consider
+# the vip section contains configurations for the TROPoe retrieval
+# this file defines the settings common to all stations.
+
+# definitions of which data to use for retrieval. Paths are absolute or relative to mwr_l12l2 project dir
+data:
+
+  # maximum age of MWR data to be considered for retrieval in minutes. Set to null for unlimited
+  max_age: 90
+
+  # maximum difference between the lat, lon and alt variables defined in the MWR L1 and the config file
+  tolerance_lat_lon: 0.2
+  tolerance_alt: 50
+
+  # info on instrument configuration files
+  inst_config_dir: mwr_l12l2/config/
+  inst_config_file_prefix: config_
+
+  # location and filenames of output data
+  output_dir: /data/eprofile-mwr-l2/  # directory for microwave radiometer input data
+  output_dir_copy: /home/eric/retrieval/level2/
+  output_file_prefix: MWR_2C01_
+  
+  # location and filenames of input E-PROFILE data
+  mwr_dir: /data/eprofile-mwr-l1/  # directory for microwave radiometer input data
+  mwr_file_prefix: MWR_1C01_
+  alc_dir: /data/eprofile-alc-l2/  # directory for automatic lidar's or ceilometer's cloud base input data
+  alc_file_prefix: L2_
+
+  # location and filename of model data (does not have to match outfile of mars config, will be put here by sort_model)
+  # TODO: write sort_model (put mars output to right location and run grb_to_nc) and sort_eprofile (get from FTP)
+  model_dir: /data/eprofile-ecmwf-data/  # directory for NWP model input data
+  model_fc_file_prefix: ecmwf_fc_
+  model_fc_file_suffix: _converted_to  # for file converted from grib to NetCDF
+  model_fc_file_ext: .nc
+  model_z_file_prefix: ecmwf_z_
+  model_z_file_ext: .grb
+
+  # location and filenames of temporary TROPoe files
+  tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
+  tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
+  tropoe_dir_mountpoint: /data  # where the tropoe subfolder shall be mounted inside the TROPoe container
+  vip_filename_tropoe: vip.txt
+  result_basefilename_tropoe: tropoe_out
+  mwr_basefilename_tropoe: mwr.
+  alc_basefilename_tropoe: alc.
+  model_prof_basefilename_tropoe: model_prof.
+  model_sfc_basefilename_tropoe: met.
+
+# general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
+vip:
+  # Set the temporal resolution and vertical grid of the retrieval
+  avg_instant: 0
+  tres: 10
+  zgrid: [0, 0.060, 0.120, 0.240, 0.480, 0.720, 0.960, 1.2, 1.44, 1.68, 1.98, 2.28, 2.58, 2.88, 3.25, 3.6, 4.014, 4.426, 4.879, 5.376, 5.924, 6.526, 7.189, 7.918, 8.72, 9.602, 10.572, 11.639, 12.813, 14.104, 15.525, 17.087]
+
+  # Indicate that this is a MWR-based retrieval
+  irs_type: -1
+
+  # The parameters for a zenith-pointing radiometer
+  mwr_type: 4
+  mwr_elev_field: ele
+  mwr_freq_field: frequency
+  mwr_tb_field_names: tb
+  mwr_tb_field1_tbmax: 100.
+
+  # The parameters for an elevation scanning radiometer
+  #mwrscan_type: 4
+  #mwrscan_elev_field: ele
+  #mwrscan_freq_field: frequency
+  #mwrscan_tb_field_names: tb
+  #mwrscan_tb_field1_tbmax: 330.
+  #mwrscan_time_delta: 0.25  # The maximum amount of time [hours] that the elevation scan must be to the
+
+  # Surface met parameters
+  ext_sfc_relative_height: 0
+  ext_sfc_pres_type: 0
+
+  # The model input
+  mod_temp_prof_type: 0
+  mod_temp_noise_adder_val: [5, 2, 2]
+  mod_temp_noise_adder_hts: [0,  5, 20]
+  mod_temp_prof_maxht: 18.
+  # mod_temp_time_delta: 4.
+  mod_wv_prof_type: 0
+  mod_wv_noise_mult_val: [16, 8, 8]
+  mod_wv_noise_mult_hts: [0, 5, 20]
+  mod_wv_prof_maxht: 18.
+  # mod_wv_time_delta: 4.
+  
+  output_akernal: 2
+
+  # The ceilometer input and cloudbase height
+  # The ceilometer input
+  cbh_type: 7
+  cbh_default_ht: 2.
+  # The output information
+  output_clobber: 1

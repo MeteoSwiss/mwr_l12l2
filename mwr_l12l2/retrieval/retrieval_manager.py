@@ -162,10 +162,10 @@ class RetrievalManager(object):
 if __name__ == '__main__':
     start = time.time()
     run_parallel = True
-    manager = RetrievalManager(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
+    manager = RetrievalManager(abs_file_path('mwr_l12l2/config/retrieval_config_ewc.yaml'))
     
     if run_parallel:
-        manager.retrieve_all_in_parallel(start_time=dt.datetime(2023, 4, 25, 13, 0, 0), end_time=dt.datetime(2023, 4, 25, 16, 0, 0), cores=4)
+        manager.retrieve_all_in_parallel(start_time=None, end_time=None, cores=4)
     else:
         manager.retrieve_all(start_time=dt.datetime(2023, 4, 25, 13, 0, 0), end_time=dt.datetime(2023, 4, 25, 16, 0, 0))
 
