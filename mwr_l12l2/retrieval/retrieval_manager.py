@@ -139,8 +139,12 @@ class RetrievalManager(object):
         # Create a pool of workers equal using 2 cores
         pool = mp.Pool(processes=cores)
         
-        # Perform the retrieval in parallel, warning we need to loop into the dictionary itself and NOT on the self.wigos_and_inst_id_unique (to avoid including instrument without config file) 
-        results = [pool.apply_async(self.run_retrieval, args=(start_time, end_time, self.retrieval_dict[wigos_and_id],10*(1+node_number))) for (node_number, wigos_and_id) in enumerate(self.retrieval_dict)]
+        # Perform the retrieval in parallel.
+        # warning: we need to loop into the dictionary itself and NOT on the self.wigos_and_inst_id_unique to avoid
+        #          including instrument without config file
+        results = [pool.apply_async(self.run_retrieval,
+                                    args=(start_time, end_time, self.retrieval_dict[wigos_and_id], 10*(1+node_number))
+                                    ) for (node_number, wigos_and_id) in enumerate(self.retrieval_dict)]
 
         output = []
         for p in results:
@@ -155,9 +159,10 @@ class RetrievalManager(object):
 
     def move_to_bucket(self):
         """Move the files to the bucket
-        Execute this function when retrieval is successfull (as argument of apply_async)
+        Execute this function when retrieval is successful (as argument of apply_async)
         """
         pass
+
 
 if __name__ == '__main__':
     start = time.time()
