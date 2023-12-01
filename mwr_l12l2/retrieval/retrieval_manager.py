@@ -17,6 +17,9 @@ from retrieval import Retrieval
 # from watchdog.observers import Observer
 # from watchdog.events import LoggingEventHandler
 
+# TODO: remove unused imports, e.g. sys, logging, argparse, numpy, MWRInputError
+
+
 class RetrievalManager(object):
     """Class to manage the operational retrieval of MWR data from E-PROFILE
 
@@ -104,7 +107,7 @@ class RetrievalManager(object):
                     'mwr_files': self.mwr_files_dict[wigos_and_id],
                     'alc_files': self.alc_files_dict[wigos_and_id]
                 }
-            except:
+            except:  # TODO: catch a specific exception here e.g. MWRConfigError
                 print('Instrument config file not found for {}_{}'.format(wigos_and_id.split('_')[0],
                                                                           wigos_and_id.split('_')[1]))
                 continue
@@ -157,7 +160,7 @@ class RetrievalManager(object):
         for p in results:
             try:
                 output.append(p.get())
-            except Exception as e:
+            except Exception as e:  # TODO: possibly catch a specific exception related to async. Not 100% sure
                 print(f"A process failed with error: {e}")
         # handle the error as appropriate for your program
 
