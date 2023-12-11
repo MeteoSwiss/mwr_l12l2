@@ -142,8 +142,6 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
     tropoe_run = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     logger.info('TROPoe run output:')
     logger.info(tropoe_run.stdout.decode('utf-8'))
-    logger.info('TROPoe run completed')
-
 
 def transform_units(data):
     """Transform all units of TROPoe output file to match units in E-PROFILE output files"""
@@ -156,12 +154,17 @@ def transform_units(data):
                   'cm': ('kg m-2', 10, 0),  # for integrated water vapour
                   }
     unit_attribute = 'units'
+    
+    # Some exception where we should NOT apply any corrections:
+    # TODO: check if exceptions can not be based on the "adder" values, essentially if adder is non zero we should not touch the sigma of this value
+    exceptions = ['sigma_temperature']
 
     for var in data.variables:
-        if hasattr(data[var], unit_attribute) and data[var].attrs[unit_attribute] in unit_match:
+        if hasattr(data[var], unit_attribute) and data[var].attrs[unit_attribute] in unit_match and var not in exceptions:
             transformer = unit_match[data[var].attrs[unit_attribute]]
             data[var] = data[var]*transformer[1] + transformer[2]
             data[var].attrs[unit_attribute] = transformer[0]
+        
 
     return data
 
