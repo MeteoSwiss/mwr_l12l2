@@ -1,0 +1,33 @@
+# config file example for an Attex MTP-5 in Feltre, Italy #
+################################################################
+
+input_directory: tbd  # use absolute path (or relative to mwr_l12l1 project dir)
+output_directory: tbd  # use absolute path (or relative to mwr_l12l1 project dir)
+base_filename_in: MWR_1C01_0-20000-0-16999_A
+base_filename_out: MWR_tbd_0-20000-0-16999_A
+
+# the following keys are most possibly duplicates of the input file's attributes. If both exist, should be used to check
+wigos_station_id: 0-20000-0-16999
+instrument_id: A
+station_latitude: 46.02
+station_longitude: 11.91
+station_altitude: 291.
+
+# the following can be used to deviate from the standard defined in mars_config_fc.yaml for requesting model data.
+model_request:
+  grid:
+    lat_res: 0.1  # latitude resolution with which to write values to the output file
+    lon_res: 0.1  # longitude resolution with which to write values to the output file
+    lat_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
+    lon_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
+#  outfile: # do not set unless you have a very good reason to deviate from default defined in mars_config_fc.yaml
+#     path:
+#     basename:
+#     extension:
+
+retrieval:
+  tb_noise: [0.25]
+  tb_bias: [0.]
+  zenith_channels: [True]
+  scan_channels: [True] # must exactly match values in freq_used
+  scan_ele: [59.5, 44.6, 32.7, 23.8, 14.9, 6., 3., 2.]  # TODO: implement a 2-sided ele-search for getting ele around 5, 10, and 20 deg for all instruments (rather configure in retrieval_config)
