@@ -17,6 +17,9 @@ from retrieval import Retrieval
 # from watchdog.observers import Observer
 # from watchdog.events import LoggingEventHandler
 
+# TODO: remove unused imports, e.g. sys, logging, argparse, numpy, MWRInputError
+
+
 class RetrievalManager(object):
     """Class to manage the operational retrieval of MWR data from E-PROFILE
 
@@ -33,10 +36,19 @@ class RetrievalManager(object):
             self.conf = get_retrieval_config(conf)
         else:
             raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
-        
+
+        self.wigos_list = []
+        self.wigos_and_inst_id_list = []
+        self.wigos_and_inst_id_unique = []
+        self.mwr_files_dict = {}
+        self.alc_files_dict = {}
+        self.retrieval_dict = {}
+        self.inst_conf = {}
+
     def select_all_instruments(self):
-        """select all instruments which have mwr files in input dir. It returns a dictionary with all the instruments filenames present in the folder.
-        
+        """select all instruments which have mwr files in input dir.
+
+        Sets dictionaries for MWR and ALC with all the instruments filenames present in the folder.
         """
         list_of_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
                                                '{}*.nc'.format(self.conf['data']['mwr_file_prefix'])))
@@ -45,8 +57,6 @@ class RetrievalManager(object):
             raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
         
         # get station id from filenames
-        self.wigos_list = []
-        self.wigos_and_inst_id_list = []
         for filename in list_of_files:
             self.wigos_list.append(filename.split('/')[-1].split('_')[2])
             self.wigos_and_inst_id_list.append(filename.split('/')[-1].split('_')[2]+'_'+filename.split('/')[-1].split('_')[3][0])
@@ -71,7 +81,8 @@ class RetrievalManager(object):
         for wigos_and_id in self.wigos_and_inst_id_unique:
             alc_files_dict[wigos_and_id] = []
             for filenames in glob.glob(os.path.join(self.conf['data']['alc_dir'],
-                                                    '{}*{}*.nc'.format(self.conf['data']['alc_file_prefix'], wigos_and_id.split('_')[0]))):
+                                                    '{}*{}*.nc'.format(self.conf['data']['alc_file_prefix'],
+                                                                       wigos_and_id.split('_')[0]))):
                 alc_files_dict[wigos_and_id].append(filenames)
 
         self.alc_files_dict = alc_files_dict
@@ -83,7 +94,6 @@ class RetrievalManager(object):
 
         """
         # prepare the dictionaries for the retrieval
-        self.retrieval_dict = {}
         for wigos_and_id in self.wigos_and_inst_id_unique:
             # Try to read the config file first and only add it to the list if config is found
             try:
@@ -97,9 +107,9 @@ class RetrievalManager(object):
                     'mwr_files': self.mwr_files_dict[wigos_and_id],
                     'alc_files': self.alc_files_dict[wigos_and_id]
                 }
-            except:
-                print('Instrument config file not found for {}_{}'.format(wigos_and_id.split('_')[0], wigos_and_id.split('_')[1]))
-
+            except:  # TODO: catch a specific exception here e.g. MWRConfigError
+                print('Instrument config file not found for {}_{}'.format(wigos_and_id.split('_')[0],
+                                                                          wigos_and_id.split('_')[1]))
                 continue
 
     def run_retrieval(self, start_time, end_time, selected, node=None):
@@ -139,14 +149,18 @@ class RetrievalManager(object):
         # Create a pool of workers equal using 2 cores
         pool = mp.Pool(processes=cores)
         
-        # Perform the retrieval in parallel, warning we need to loop into the dictionary itself and NOT on the self.wigos_and_inst_id_unique (to avoid including instrument without config file) 
-        results = [pool.apply_async(self.run_retrieval, args=(start_time, end_time, self.retrieval_dict[wigos_and_id],10*(1+node_number))) for (node_number, wigos_and_id) in enumerate(self.retrieval_dict)]
+        # Perform the retrieval in parallel.
+        # warning: we need to loop into the dictionary itself and NOT on the self.wigos_and_inst_id_unique to avoid
+        #          including instrument without config file
+        results = [pool.apply_async(self.run_retrieval,
+                                    args=(start_time, end_time, self.retrieval_dict[wigos_and_id], 10*(1+node_number))
+                                    ) for (node_number, wigos_and_id) in enumerate(self.retrieval_dict)]
 
         output = []
         for p in results:
             try:
                 output.append(p.get())
-            except Exception as e:
+            except Exception as e:  # TODO: possibly catch a specific exception related to async. Not 100% sure
                 print(f"A process failed with error: {e}")
         # handle the error as appropriate for your program
 
@@ -155,9 +169,10 @@ class RetrievalManager(object):
 
     def move_to_bucket(self):
         """Move the files to the bucket
-        Execute this function when retrieval is successfull (as argument of apply_async)
+        Execute this function when retrieval is successful (as argument of apply_async)
         """
         pass
+
 
 if __name__ == '__main__':
     start = time.time()
