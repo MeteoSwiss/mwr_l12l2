@@ -9,7 +9,7 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior, extract_attrs
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior, extract_avk, extract_attrs, add_variables_attrs
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
     scalars_to_time, vectors_to_time
@@ -462,7 +462,7 @@ class Retrieval(object):
 
         # Some variables needs to be extracted from TROPoe output (e.g. prior for each quantity)
         data = extract_prior(data, tropoe_out_config) 
-
+        
         # Some variables needs to be propagated from L1
         # e.g azi
         data['azi'] = np.median(self.mwr.azi.values)
@@ -470,15 +470,22 @@ class Retrieval(object):
         data = transform_units(data)
 
         data = height_to_altitude(data, self.mwr.station_altitude)
-        data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude
+        data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude 
         data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior']) 
         # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
+
+        # TODO: xarray has problem with duplicate dimensions... for now we use a renamed altitude axis which is the same as the main one.
+        data = extract_avk(data, tropoe_out_config)
+
+        # add some metadata on specific variables:
+        derived_product_list = ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 'mlCAPE', 'mlCIN','mlLCL']
+        data = add_variables_attrs(data, derived_product_list)
 
         # propagate some (all ?) metadata from L1 to L2
         for attr in self.mwr.attrs:
             data.attrs[attr] = self.mwr.attrs[attr]
 
-        # Some extra attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
+        # Some extra global attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
         data = extract_attrs(data)
 
         if self.use_model_data:

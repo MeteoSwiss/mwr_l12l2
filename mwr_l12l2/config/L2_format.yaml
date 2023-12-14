@@ -6,6 +6,8 @@ dimensions:
     - time  # refers to variable name in data dictionary
   fixed:
     - altitude
+    - avk_altitude
+    - bnds
 
 variables:
   time:  # variable name in Measurement.data Dataset
@@ -31,9 +33,26 @@ variables:
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Altitude above mean sea level
+      long_name: Height above mean sea level
       standard_name: altitude
       units: m
+      positive: up
+      axis: Z
+
+  avk_altitude:
+    name: avk_altitude
+    dim:
+      - avk_altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Height above mean sea level
+      standard_name: altitude
+      units: m
+      positive: up
+      axis: Z
+      comment: Used for the AVKs second dimension, same as altitude
 
   lat:
     name: station_latitude
@@ -61,14 +80,14 @@ variables:
 
   # in this case, the variable has already been created 
   station_altitude:
-    name: surface_altitude
+    name: station_altitude
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Altitude above mean sea level of measurement station
+      long_name: Height above mean sea level of measurement station
       standard_name: surface_altitude
       units: m
 
@@ -90,6 +109,37 @@ variables:
   # TODO: add quality_flag and quality_flag_status, possibly also freq-dependent vars
 
   # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
+  # time_bnds:
+  #   name: time_bnds 
+  #   dim:
+  #     - time
+  #     - bnds
+  #   type: f8
+  #   _FillValue: -999. #CF compliance checker says that time_bnds should not have a FillValue...
+  #   optional: True
+  #   attributes:
+  #     long_name: Start and end time (UTC) of the measurements
+  #     standard_name: time
+  #     units: seconds since 1970-01-01 00:00:00
+  #     calendar: standard
+  #     comment: Variable not set at the moment, to be implemented in the future
+
+##########################################################################################################
+# Measurement mode
+##########################################################################################################
+  
+  pointing:
+    name: pointing
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: 'pointing'
+      comment: ''
+      units: "1"
+
 
 ##########################################################################################################
 # QC fields
@@ -119,11 +169,12 @@ variables:
       - altitude
     type: f4
     _FillValue: -999.
-    optional: True  # none of the retrieved fields can be mandatory as T/q-only MWR's exist
+    optional: True
     attributes:
-      long_name: Retrieved temperature profile
+      long_name: Temperature profile
       standard_name: air_temperature
       units: K
+      #units_metadata: "temperature: on_scale" -> for CF1.11
 
   temperature_prior:
     name: temperature_apriori
@@ -144,30 +195,38 @@ variables:
       - altitude
     type: f4
     _FillValue: -999.
-    optional: True  # none of the retrieved fields can be mandatory as T/q-only MWR's exist
+    optional: True 
     attributes:
-      long_name: Random uncertainty of retrieved temperature profile
+      long_name: Random uncertainty of temperature profile
       units: K
 
-  # temperature_systematic_error:
-  #   name: temperature
-  #   dim:
-  #     - time
-  #     - altitude
-  #   type: f4
-  #   _FillValue: -999.
-  #   optional: True  # none of the retrieved fields can be mandatory as T/q-only MWR's exist
-  #   attributes:
-  #     long_name: Systematic uncertainty of retrieved temperature profile
-  #     standard_name: temperature_systematic_error
-  #     units: K
+  temperature_systematic_error:
+    name: temperature_systematic_error
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True  
+    attributes:
+      long_name: Systematic uncertainty of temperature profile
+      units: K
 
-##########################################################################################################
-# Water Vapor fields
-##########################################################################################################
+  temperature_avk:
+    name: temperature_avk
+    dim:
+      - time
+      - altitude
+      - avk_altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Averaging kernels for temperature profile
+      units: "1"
 
-  waterVapor:
-    name: humidity_mixing_ratio
+  vres_temperature_no_model:
+    name: temperature_vertical_resolution
     dim:
       - time
       - altitude
@@ -175,14 +234,31 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
+      long_name: Vertical resolution of temperature profile     
+      #comment: 'Corresponds to the full width at half maximum of the averaging kernel'
+      units: m
+
+##########################################################################################################
+# Water Vapor fields
+##########################################################################################################
+
+  waterVapor:
+    name: water_vapor_vmr
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Water vapor profile
       standard_name: humidity_mixing_ratio
-      long_name: Retrieved water vapour profile
       units: kg kg-1
       # TODO should probably transform this to ppm to comply with the format definition doc. Synchronise with this document
       # TODO: check for standard name and adequate units: https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
 
   waterVapor_prior:
-    name: humidity_mixing_ratio_apriori
+    name: water_vapor_vmr_apriori
     dim:
       - time
       - altitude
@@ -194,7 +270,7 @@ variables:
       units: kg kg-1
 
   sigma_waterVapor:
-    name: humidity_mixing_ratio_random_error
+    name: water_vapor_vmr_random_error
     dim:
       - time
       - altitude
@@ -202,11 +278,46 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
-      long_name: Random uncertainty of retrieved water vapour profile
+      long_name: Random uncertainty of water vapour profile
       units: kg kg-1
-      # TODO should probably transform this to ppm to comply with the format definition doc. Synchronise with this document
-      # TODO: check for standard name and adequate units: https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
 
+  humidity_mixing_ratio_systematic_error:
+    name: water_vapor_vmr_systematic_error
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True  
+    attributes:
+      long_name: Systematic uncertainty of water vapour profile
+      units: kg kg-1
+
+  waterVapor_avk:
+    name: water_vapor_avk
+    dim:
+      - time
+      - altitude
+      - avk_altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Averaging kernels for water vapour profile
+      units: "1"
+
+  vres_waterVapor_no_model:
+    name: water_vapor_vmr_vertical_resolution
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Vertical resolution of water vapour profile
+      #comment: 'Corresponds to the full width at half maximum of the averaging kernel'
+      units: m
 
   rh:
     name: relative_humidity
@@ -220,7 +331,7 @@ variables:
       long_name: Relative Humidity
       standard_name: relative_humidity
       units: "1"
-      comment: derived from retrieved fields
+      comment: ''
 
   theta:
     name: potential_temperature
@@ -234,7 +345,7 @@ variables:
       long_name: Potential Temperature
       standard_name: air_potential_temperature
       units: K
-      comment: derived from retrieved fields
+      comment: ''
 
   thetae:
     name: equivalent_potential_temperature
@@ -248,7 +359,7 @@ variables:
       long_name: Equivalent potential temperature
       standard_name: air_equivalent_potential_temperature
       units: K
-      comment: derived from retrieved fields
+      comment: ''
 
   dewpt:
     name: dew_point_temperature
@@ -262,7 +373,7 @@ variables:
       long_name: Dew point temperature
       standard_name: dew_point_temperature
       units: K
-      comment: derived from retrieved fields
+      comment: ''
 
 ##########################################################################################################
 # Measurement related fields
@@ -290,9 +401,9 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
+      long_name: Column-integrated liquid water path
       standard_name: atmosphere_cloud_liquid_water_content 
-      long_name: Retrieved column-integrated liquid water path
-      comment: Derived from zenith observations
+      comment: ''
       # TODO: indicate source
       units: kg m-2
 
@@ -305,7 +416,7 @@ variables:
     optional: True
     attributes:
       long_name: A priori value for column-integrated liquid water path
-      # TODO: indicate source
+      #standard_name: atmosphere_cloud_liquid_water_content 
       units: kg m-2
 
   sigma_lwp:
@@ -316,8 +427,30 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
-      long_name: Random uncertainty of retrieved column-integrated liquid water path
+      long_name: Random uncertainty of column-integrated liquid water path
       units: kg m-2
+
+  lwp_systematic_error:
+    name: lwp_systematic_error
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Systematic uncertainty of column-integrated liquid water path
+      units: kg m-2
+
+  lwp_avk:
+    name: lwp_avk
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Averaging kernels for column-integrated liquid water path
+      units: "1"
 
   pwv:
     name: iwv
@@ -329,7 +462,7 @@ variables:
     attributes:
       standard_name: atmosphere_mass_content_of_water_vapor
       long_name: Column-integrated water vapour
-      comment: calculated from retrieved profile in water_vapor_vmr
+      comment: ''
       units: kg m-2
 
   sigma_pwv:
@@ -341,6 +474,17 @@ variables:
     optional: True
     attributes:
       long_name: Random uncertainty of column-integrated water vapour
+      units: kg m-2
+
+  iwv_systematic_error:
+    name: iwv_systematic_error
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Systematic uncertainty of column-integrated water vapour
       units: kg m-2
 
 ##########################################################################################################
@@ -357,7 +501,6 @@ variables:
     attributes:
       standard_name: atmosphere_convective_available_potential_energy
       long_name: Convective available potential energy for a mixed-layer parcel
-      #comment: calculated from retrieved profiles
       units: J kg-1
 
   sigma_mlCAPE:
@@ -369,7 +512,6 @@ variables:
     optional: True
     attributes:
       long_name: 1-sigma uncertainties in mixed-layer CAPE
-      #comment: calculated from retrieved profiles
       units: J kg-1
 
   mlCIN:
@@ -382,7 +524,6 @@ variables:
     attributes:
       standard_name: atmosphere_convective_inhibition
       long_name: Convective inhibition for a mixed-layer parcel
-      #comment: calculated from retrieved profiles
       units: J kg-1
 
   sigma_mlCIN:
@@ -395,7 +536,6 @@ variables:
     attributes:
       standard_name: atmosphere_convective_inhibition
       long_name: 1-sigma uncertainties in mixed-layer CIN
-      #comment: calculated from retrieved profiles
       units: J kg-1
 
   mlLCL:
@@ -408,7 +548,6 @@ variables:
     attributes:
       standard_name: atmosphere_level_of_free_convection
       long_name: Lifted condensation level
-      #comment: calculated from retrieved profiles
       units: m
 
   sigma_mlLCL:
@@ -420,7 +559,6 @@ variables:
     optional: True
     attributes:
       long_name: 1-sigma uncertainties in the LCL for a mixed-layer parcel
-      #comment: calculated from retrieved profiles
       units: m
 
   # TODO: add errors to quantities and decide whether to report as random error or systematic error
