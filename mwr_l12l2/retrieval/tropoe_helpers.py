@@ -149,7 +149,7 @@ def transform_units(data):
     # unit_match contents. key: orig unit; value: (new unit, multiplier, adder)
     unit_match = {'C': ('K', 1, 273.15),
                   'km': ('m', 1e3, 0),
-                  'g/kg': ('kg kg-1', 1e-3, 0),
+                  'g/kg': ('ppm', 1e3, 0),
                   'g/m2': ('kg m-2', 1e-3, 0),  # for liquid water path
                   'cm': ('kg m-2', 10, 0),  # for integrated water vapour
                   }
@@ -198,7 +198,7 @@ def add_variables_attrs(data, derived_product_list):
         data['temperature'].attrs['retrieval_auxiliary_input'] = ''
         data['temperature'].attrs['retrieval_description'] = ''
     else:
-        data['temperature'].attrs['retrieval_elevation_angles'] = '90, '+data.attrs['VIP_mwrscan_elevations']
+        data['temperature'].attrs['retrieval_elevation_angles'] = '90, ' + data.attrs['VIP_mwrscan_elevations']
         data['temperature'].attrs['retrieval_frequency'] = data.attrs['VIP_mwr_tb_freqs']+data.attrs['VIP_mwrscan_tb_freqs']
         data['temperature'].attrs['retrieval_auxiliary_input'] = ''
         data['temperature'].attrs['retrieval_description'] = ''
@@ -274,6 +274,28 @@ def extract_prior(data, tropoe_out_config):
         attrs={'units':data.lwp.units},
         ),
     )
+    return data
+
+def add_flags(data):
+    """
+    Add dummy quality flags to the given data.
+    TODO: define the quality flags.
+
+    Parameters:
+    data (xarray.Dataset): The input data.
+
+    Returns:
+    xarray.Dataset: The data with quality flags added.
+    """
+    
+    # Temperature
+    data['temperature_quality_flag'] = data.temperature.copy(data=0*data.temperature.data)
+    # Water vapor
+    data['waterVapor_quality_flag'] = data.waterVapor.copy(data=0*data.waterVapor.data)
+        
+    # Liquid water path
+    data['lwp_quality_flag'] = data.lwp.copy(data=0*data.lwp.data)
+
     return data
 
 def extract_avk(data, tropoe_out_config):
