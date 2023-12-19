@@ -109,6 +109,7 @@ variables:
   # TODO: add quality_flag and quality_flag_status, possibly also freq-dependent vars
 
   # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
+  # Not working at the moment -> change the time vector !
   # time_bnds:
   #   name: time_bnds 
   #   dim:
@@ -238,6 +239,18 @@ variables:
       #comment: 'Corresponds to the full width at half maximum of the averaging kernel'
       units: m
 
+  temperature_quality_flag:
+    name: temperature_quality_flag
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Quality flag for temperature profile
+      units: "1"
+
 ##########################################################################################################
 # Water Vapor fields
 ##########################################################################################################
@@ -253,7 +266,7 @@ variables:
     attributes:
       long_name: Water vapor profile
       standard_name: humidity_mixing_ratio
-      units: kg kg-1
+      units: ppm
       # TODO should probably transform this to ppm to comply with the format definition doc. Synchronise with this document
       # TODO: check for standard name and adequate units: https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
 
@@ -267,7 +280,7 @@ variables:
     optional: True
     attributes:
       long_name: A priori water vapour profile of retrieval
-      units: kg kg-1
+      units: ppm
 
   sigma_waterVapor:
     name: water_vapor_vmr_random_error
@@ -279,7 +292,7 @@ variables:
     optional: True
     attributes:
       long_name: Random uncertainty of water vapour profile
-      units: kg kg-1
+      units: ppm
 
   humidity_mixing_ratio_systematic_error:
     name: water_vapor_vmr_systematic_error
@@ -291,7 +304,7 @@ variables:
     optional: True  
     attributes:
       long_name: Systematic uncertainty of water vapour profile
-      units: kg kg-1
+      units: ppm
 
   waterVapor_avk:
     name: water_vapor_avk
@@ -318,6 +331,18 @@ variables:
       long_name: Vertical resolution of water vapour profile
       #comment: 'Corresponds to the full width at half maximum of the averaging kernel'
       units: m
+
+  waterVapor_quality_flag:
+    name: water_vapor_vmr_quality_flag
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Quality flag for water vapour profile
+      units: "1"
 
   rh:
     name: relative_humidity
@@ -450,6 +475,17 @@ variables:
     optional: True
     attributes:
       long_name: Averaging kernels for column-integrated liquid water path
+      units: "1"
+
+  lwp_quality_flag:
+    name: lwp_quality_flag
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Quality flag for column-integrated liquid water path
       units: "1"
 
   pwv:
