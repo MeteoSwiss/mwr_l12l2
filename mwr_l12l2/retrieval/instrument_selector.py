@@ -1,16 +1,10 @@
 import os
-import sys
 import time
-import logging
-import argparse
 import glob
 
-import multiprocessing as mp
-
 import datetime as dt
-import numpy as np
 
-from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
+from mwr_l12l2.errors import MissingDataError, MWRConfigError
 from mwr_l12l2.log import logger
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
 from mwr_l12l2.utils.file_utils import abs_file_path
@@ -89,6 +83,8 @@ class InstrumentSelector(object):
         #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work.
         #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
 
+        logger.info('Setting instrument to {} {}'.format(wigos, inst_id))
+
         # set wigos and station id
         self.wigos = wigos
         self.inst_id = inst_id
@@ -99,8 +95,9 @@ class InstrumentSelector(object):
                                                                       self.wigos, self.inst_id)))
         
         if not list_of_files:
-            logger.error('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
-            raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
+            err_msg = 'No MWR data found in {}'.format(self.conf['data']['mwr_dir'])
+            logger.error(err_msg)
+            raise MissingDataError(err_msg)
 
         inst_conf_file = '{}{}_{}.yaml'.format(self.conf['data']['inst_config_file_prefix'],
                                                self.wigos, self.inst_id)
@@ -122,7 +119,7 @@ class InstrumentSelector(object):
             err_msg = ('No MWR data for {} {} found in {}. These files must have been removed between station selection'
                        ' and file listing. This should not happen!'.format(self.wigos, self.inst_id,
                                                                            self.conf['data']['mwr_dir']))
-            # TODO: also add a CRITICAL entry with err_msg to logger before raising the exception
+            logger.critical(err_msg)
             raise MissingDataError(err_msg)
 
     def retrieve_single(self, start_time, end_time, wigos=None, inst_id=None):

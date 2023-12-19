@@ -9,7 +9,7 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior, extract_avk, extract_attrs, add_variables_attrs
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior, extract_avk, extract_attrs, add_variables_attrs, add_flags
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
     scalars_to_time, vectors_to_time
@@ -492,6 +492,8 @@ class Retrieval(object):
 
         # TODO: xarray has problem with duplicate dimensions... for now we use a renamed altitude axis which is the same as the main one.
         data = extract_avk(data, tropoe_out_config)
+
+        data = add_flags(data)
 
         # add some metadata on specific variables:
         derived_product_list = ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 'mlCAPE', 'mlCIN','mlLCL']
