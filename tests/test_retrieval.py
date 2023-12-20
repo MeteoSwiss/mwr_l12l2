@@ -149,6 +149,9 @@ class TestRetrieval(unittest.TestCase):
         self.ret.model_prof_file_tropoe = model_prof_file_out
         self.ret.model_sfc_file_tropoe = model_sfc_file_out
 
+        self.ret.time_min = model_get_time
+        self.ret.time_max = model_get_time
+
         with self.subTest(operation='run main'):
             """run prepare_model method"""
             self.ret.select_instrument()
