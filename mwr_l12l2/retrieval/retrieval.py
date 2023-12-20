@@ -336,64 +336,13 @@ class Retrieval(object):
             # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
             alc = get_from_nc_files(self.alc_files)
             alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
-                            & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
+                                & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
             if alc.time.size == 0:
                 self.alc_exists = False
             else:
-                logger.info('#############################################################################################')
-                logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
-                if delete_mwr_in:
-                    for file in self.mwr_files:
-                        os.remove(file)
-
-            # if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
-            #     raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
-            #                            'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
-
-            # TODO: uncomment the following block once getting good test files with ok quality flags
-            # mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
-            # if mwr.tb.isnull().all():
-            #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
-            #                            'Nothing to retrieve!'.format(start_time, end_time))
-
-            # Check if the wigos id is the correct one:
-            if mwr.wigos_station_id != self.wigos:
-                logger.error('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
-                                          .format(mwr.wigos_station_id, self.wigos))
-                raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
-                                       .format(mwr.wigos_station_id, self.wigos))
-
-            # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
-            # with tolerance of 0.5 degree for lat and lon and 50 m for alt:
-            tolerance_lat_lon = self.conf['data']['tolerance_lat_lon'] 
-            tolerance_alt = self.conf['data']['tolerance_alt'] 
-
-            if (abs(np.nanmedian(mwr.station_latitude.values) - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
-                    (abs(np.nanmedian(mwr.station_longitude.values) - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
-                    (abs(np.nanmedian(mwr.station_altitude.values) - self.inst_conf['station_altitude']) > tolerance_alt):
-                raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
-            
-            mwr.to_netcdf(self.mwr_file_tropoe)
-
-            self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
-            self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
-            self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
-
-            self.mwr = mwr
-
-            # ALC treatment
-            self.alc_exists = True  # start assuming ALC obs exist, set to False if not.
-            if self.alc_files:  # not empty list, not None
-                # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
-                alc = get_from_nc_files(self.alc_files)
-                alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
-                                & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
-                if alc.time.size == 0:
-                    self.alc_exists = False
-                else:
-                    alc.to_netcdf(self.alc_file_tropoe)
-            else:
-                self.alc_exists = False
+                alc.to_netcdf(self.alc_file_tropoe)
+        else:
+            self.alc_exists = False
 
     def choose_model_files(self):
         """choose most actual model forecast run containing time range in MWR data and according zg file"""
