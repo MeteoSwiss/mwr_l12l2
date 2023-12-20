@@ -26,8 +26,10 @@ model_request:
 #     extension:
 
 retrieval:
-  tb_noise: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.8, 0.8, 0.6, 0.4, 0.25, 0.25, 0.25]
-  tb_bias: [0.81,  0.71 , 0.84 , 0.87 , 0.85 , 0.79 , 0.7 ,  2.29 , 3.75,  1.33 ,-0.07 ,-0.06, -0.04, -0.01]
+  tb_noise: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 2, 2, 0.6, 0.4, 0.25, 0.25, 0.25]
+  #tb_bias: [0.81,  0.71 , 0.84 , 0.87 , 0.85 , 0.79 , 0.7 ,  2.29 , 3.75,  1.33 ,-0.07 ,-0.06, -0.04, -0.01]
+  tb_bias: [0., 0., 0., 0., 0., 0., 0.,
+            0., 0., 0., 0., 0., 0., 0.]
   zenith_channels: [True, True, True, True, True, True, True, True, True, True, True, True, True, True]
   scan_channels: [False, False, False, False, False, False, False, False, False, False, False, True, True, True]
   scan_ele: [30, 19.2, 14.4, 11.4, 8.4, 5.4, 4.2]

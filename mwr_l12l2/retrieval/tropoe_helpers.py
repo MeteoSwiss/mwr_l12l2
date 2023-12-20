@@ -149,7 +149,7 @@ def transform_units(data):
     # unit_match contents. key: orig unit; value: (new unit, multiplier, adder)
     unit_match = {'C': ('K', 1, 273.15),
                   'km': ('m', 1e3, 0),
-                  'g/kg': ('kg kg-1', 1e-3, 0),
+                  'g/kg': ('ppm', 1e3, 0),
                   'g/m2': ('kg m-2', 1e-3, 0),  # for liquid water path
                   'cm': ('kg m-2', 10, 0),  # for integrated water vapour
                   }
@@ -167,7 +167,6 @@ def transform_units(data):
         
 
     return data
-
 
 def height_to_altitude(data, station_altitude):
     """transform height above ground level to altitude above mean sea level and add as dataarray and coordinate
@@ -187,6 +186,43 @@ def height_to_altitude(data, station_altitude):
     data.update({'station_altitude': station_altitude})
     data['altitude'] = data['height'] + data['station_altitude']
     return data.swap_dims({'height': 'altitude'})
+
+def add_variables_attrs(data, derived_product_list):
+    """Add variables attributes linked to the retrieval_type, retrieval_elevation_angles and retrieval_frequency"""
+    
+    # temperature
+    data['temperature'].attrs['retrieval_type'] = 'optimal estimation'
+    if data.attrs['VIP_mwrscan_type'] == '0': # Careful, if not specified, TROPoe output defaulf values for elevation angle and scan frequencies, even if none were used !
+        data['temperature'].attrs['retrieval_elevation_angles'] = '90'
+        data['temperature'].attrs['retrieval_frequency'] = data.attrs['VIP_mwr_tb_freqs']
+        data['temperature'].attrs['retrieval_auxiliary_input'] = ''
+        data['temperature'].attrs['retrieval_description'] = ''
+    else:
+        data['temperature'].attrs['retrieval_elevation_angles'] = '90, ' + data.attrs['VIP_mwrscan_elevations']
+        data['temperature'].attrs['retrieval_frequency'] = data.attrs['VIP_mwr_tb_freqs']+data.attrs['VIP_mwrscan_tb_freqs']
+        data['temperature'].attrs['retrieval_auxiliary_input'] = ''
+        data['temperature'].attrs['retrieval_description'] = ''
+
+    # water vapor
+    data['waterVapor'].attrs['retrieval_type'] = 'optimal estimation'
+    data['waterVapor'].attrs['retrieval_elevation_angles'] = '90'
+    data['waterVapor'].attrs['retrieval_frequency'] = data.attrs['VIP_mwr_tb_freqs']
+    data['waterVapor'].attrs['retrieval_auxiliary_input'] = ''
+    data['waterVapor'].attrs['retrieval_description'] = ''
+
+    # liquid water path
+    data['lwp'].attrs['retrieval_type'] = 'optimal estimation'
+    data['lwp'].attrs['retrieval_elevation_angles'] = '90'
+    data['lwp'].attrs['retrieval_frequency'] = data.attrs['VIP_mwr_tb_freqs']
+    data['lwp'].attrs['retrieval_auxiliary_input'] = ''
+    data['lwp'].attrs['retrieval_description'] = ''
+
+    for var in derived_product_list:
+        data[var].attrs['retrieval_type'] = 'derived product'
+        # data[var].attrs['retrieval_elevation_angles'] = ''
+        # data[var].attrs['retrieval_frequency'] = ''
+
+    return data
 
 def extract_prior(data, tropoe_out_config):
     """
@@ -210,7 +246,6 @@ def extract_prior(data, tropoe_out_config):
     else:
         raise FileExistsError("The argument 'conf' must be a conf dictionary")
 
-
     # Temperature
     data = data.assign(
         temperature_prior = xr.DataArray(
@@ -221,7 +256,6 @@ def extract_prior(data, tropoe_out_config):
         ),
     )
     
-
     # Water vapor
     data = data.assign(
         waterVapor_prior = xr.DataArray(
@@ -238,6 +272,77 @@ def extract_prior(data, tropoe_out_config):
         data.Xa.where(data.arb1==tropoe_conf['lwp'], drop=True).data,
         coords= {},
         attrs={'units':data.lwp.units},
+        ),
+    )
+    return data
+
+def add_flags(data):
+    """
+    Add dummy quality flags to the given data.
+    TODO: define the quality flags.
+
+    Parameters:
+    data (xarray.Dataset): The input data.
+
+    Returns:
+    xarray.Dataset: The data with quality flags added.
+    """
+    
+    # Temperature
+    data['temperature_quality_flag'] = data.temperature.copy(data=0*data.temperature.data)
+    # Water vapor
+    data['waterVapor_quality_flag'] = data.waterVapor.copy(data=0*data.waterVapor.data)
+    # Liquid water path
+    data['lwp_quality_flag'] = data.lwp.copy(data=0*data.lwp.data)
+
+    return data
+
+def extract_avk(data, tropoe_out_config):
+    """
+    Extracts prior information from the given data based on the TROPoe output configuration.
+    #TODO: this function could be done more generic, e.g. by inputing a list of variables to extract prior information from.
+
+    Args:
+        data (xr.Dataset): The input data containing the variables to extract prior information from.
+        tropoe_out_config (dict): The TROPoe output configuration dictionary.
+
+    Returns:
+        xr.Dataset: The input data with the prior information variables added.
+
+    Raises:
+        FileExistsError: If the tropoe_out_config argument is not a dictionary.
+    """
+
+    # read config file for TROPoe output
+    if isinstance(tropoe_out_config, dict):
+        tropoe_conf = tropoe_out_config
+    else:
+        raise FileExistsError("The argument 'conf' must be a conf dictionary")
+    
+    data = data.assign(
+        temperature_avk = xr.DataArray(
+        data.Akernal_no_model[:,data.arb1==tropoe_conf['temperature'],data.arb2==tropoe_conf['temperature']].data,
+        coords= {'time':data.time, 'altitude':data.altitude.data, 'avk_altitude':data.altitude.data},
+        dims=['time','altitude','avk_altitude'],
+        attrs={'long_name':'temperature averaging kernels'}
+        ),
+    )
+    # Water vapor
+    data = data.assign(
+        waterVapor_avk = xr.DataArray(
+        data.Akernal_no_model[:,data.arb1==tropoe_conf['waterVapor'],data.arb2==tropoe_conf['waterVapor']].data,
+        coords= {'time':data.time, 'altitude':data.altitude.data, 'avk_altitude':data.altitude.data},
+        dims=['time','altitude','avk_altitude'],
+        attrs={'long_name':'water vapor averaging kernels'}
+        ),
+    )
+    # Liquid water path
+    data = data.assign(
+        lwp_avk = xr.DataArray(
+        data.Akernal_no_model[:,data.arb1==tropoe_conf['lwp'],data.arb2==tropoe_conf['lwp']].data.ravel(),
+        coords= {'time':data.time},
+        dims=['time'],
+        attrs={'long_name':'liquid water path averaging kernels'}
         ),
     )
     return data

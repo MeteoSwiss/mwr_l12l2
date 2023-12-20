@@ -1,7 +1,8 @@
-# config file example for reading TROPoe output
+# Config file for reading TROPoe output
 ################################################################
 
-# Manual description of the retrieved quantities and corresponding indices in arbitrary dimension variables
+# Manual description of the retrieval quantities and corresponding indices in arbitrary dimension variables
+# It should remains essentially constant except if we change the retrieval setup
 temperature: 1
 waterVapor: 2
 lwp: 3
@@ -12,7 +13,7 @@ co2: 7
 ch4: 8
 n2o: 9
 
-# Obsevation vector
+# The same for the obsevation vector, defined in the obs_dimension variables of the TROPoe output
 radianceWN: 1
 zenithTb: 2
 scanTb: 10

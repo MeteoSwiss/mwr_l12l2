@@ -9,7 +9,7 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior, extract_attrs
+from mwr_l12l2.retrieval.tropoe_helpers import model_to_tropoe, run_tropoe, transform_units, height_to_altitude, extract_prior, extract_avk, extract_attrs, add_variables_attrs, add_flags
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
     scalars_to_time, vectors_to_time
@@ -161,13 +161,17 @@ class Retrieval(object):
         os.mkdir(self.tropoe_dir)
 
     def select_instrument(self):
-        """select instrument which has oldest (processable) mwr file in input dir"""
-        # TODO: implement this
-        # TODO: Need to lock lookup for station selection for other nodes until prepare_eprofile_main with delete_mwr_in
-        #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work.
-        #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
-        # find oldest file in the folder and get station id from filename (or from file content)
-        # list files in input dir
+        """Selects the instrument which has the oldest MWR file in the input directory (based on its filename).
+
+        Note that this method is not called in case of the operationnal processing or in case we already have the WIGOS number setup.
+
+        This method finds the oldest file in the folder and extracts the station ID from the filename or file content.
+        It then retrieves the instrument configuration based on the station ID and instrument ID.
+        Finally, it sets the necessary attributes for further processing.
+
+        Raises:
+            MissingDataError: If no MWR data is found in the specified directory.
+        """
         list_of_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
                                                '{}*.nc'.format(self.conf['data']['mwr_file_prefix'])))
         
@@ -217,8 +221,20 @@ class Retrieval(object):
             raise MissingDataError(err_msg)
 
     def prepare_obs(self, start_time=None, end_time=None, delete_mwr_in=False):
-        """function preparing E-PROFILE MWR and ALC inputs (concatenate to one file, select time, saving)"""
-
+        """
+        Function to prepare E-PROFILE MWR and ALC inputs.
+        
+        Args:
+            start_time (datetime64): The start time for selecting the data.
+            end_time (datetime64): The end time for selecting the data.
+            delete_mwr_in (bool): Flag indicating whether to delete the MWR files after processing.
+            
+        Raises:
+            MissingDataError: If none of the MWR files contain data between the required time limits.
+            MissingDataError: If there is not enough data to run the retrieval.
+            
+        Finally, it sets the necessary attributes for further processing.
+        """
         tolerance_alc_time = np.timedelta64(5, 'm')  # get ALC up to 5 minutes before/after start/end of MWR interval
 
         start_time = np.datetime64(start_time)
@@ -226,6 +242,14 @@ class Retrieval(object):
 
         # MWR treatment
         mwr = get_from_nc_files(self.mwr_files)
+
+        self.time_min = max(mwr.time.min().values, start_time) 
+        self.time_max = min(mwr.time.max().values, end_time)
+        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
+            
+        # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
+        if end_time < mwr.time.max().values:
+            Warning('The provided end_time is smaller than the time present in the mwr files. ')
 
         self.time_min = max(mwr.time.min().values, start_time) 
         self.time_max = min(mwr.time.max().values, end_time)
@@ -256,12 +280,12 @@ class Retrieval(object):
             if delete_mwr_in:
                 for file in self.mwr_files:
                     os.remove(file)
-            logger.error('None of the MWR files found for {} {} contains data between the required time '
+            logger.critical('None of the MWR files found for {} {} contains data between the required time '
                                       'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
             raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
                                    'limits (min={}; max={})'.format(self.wigos, self.inst_id, self.time_min, self.time_max))
         elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
-            logger.error('Not enough data to run the retrieval. Skipping this instrument.')
+            logger.critical('Not enough data to run the retrieval. Skipping this instrument.')
             raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
         else:
             logger.info('#############################################################################################')
@@ -295,6 +319,7 @@ class Retrieval(object):
         if (abs(np.nanmedian(mwr.station_latitude.values) - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
                 (abs(np.nanmedian(mwr.station_longitude.values) - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
                 (abs(np.nanmedian(mwr.station_altitude.values) - self.inst_conf['station_altitude']) > tolerance_alt):
+            logger.error('The station coordinates in the MWR file do not match the ones in the config file')
             raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
         
         mwr.to_netcdf(self.mwr_file_tropoe)
@@ -315,9 +340,60 @@ class Retrieval(object):
             if alc.time.size == 0:
                 self.alc_exists = False
             else:
-                alc.to_netcdf(self.alc_file_tropoe)
-        else:
-            self.alc_exists = False
+                logger.info('#############################################################################################')
+                logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+                if delete_mwr_in:
+                    for file in self.mwr_files:
+                        os.remove(file)
+
+            # if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
+            #     raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
+            #                            'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
+
+            # TODO: uncomment the following block once getting good test files with ok quality flags
+            # mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
+            # if mwr.tb.isnull().all():
+            #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
+            #                            'Nothing to retrieve!'.format(start_time, end_time))
+
+            # Check if the wigos id is the correct one:
+            if mwr.wigos_station_id != self.wigos:
+                logger.error('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                          .format(mwr.wigos_station_id, self.wigos))
+                raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                       .format(mwr.wigos_station_id, self.wigos))
+
+            # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
+            # with tolerance of 0.5 degree for lat and lon and 50 m for alt:
+            tolerance_lat_lon = self.conf['data']['tolerance_lat_lon'] 
+            tolerance_alt = self.conf['data']['tolerance_alt'] 
+
+            if (abs(np.nanmedian(mwr.station_latitude.values) - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
+                    (abs(np.nanmedian(mwr.station_longitude.values) - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
+                    (abs(np.nanmedian(mwr.station_altitude.values) - self.inst_conf['station_altitude']) > tolerance_alt):
+                raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
+            
+            mwr.to_netcdf(self.mwr_file_tropoe)
+
+            self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
+            self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
+            self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
+
+            self.mwr = mwr
+
+            # ALC treatment
+            self.alc_exists = True  # start assuming ALC obs exist, set to False if not.
+            if self.alc_files:  # not empty list, not None
+                # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
+                alc = get_from_nc_files(self.alc_files)
+                alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
+                                & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
+                if alc.time.size == 0:
+                    self.alc_exists = False
+                else:
+                    alc.to_netcdf(self.alc_file_tropoe)
+            else:
+                self.alc_exists = False
 
     def choose_model_files(self):
         """choose most actual model forecast run containing time range in MWR data and according zg file"""
@@ -423,13 +499,13 @@ class Retrieval(object):
         
         # Add scan variables to the VIP file only if they exist
         if any(ch_scan):
-            logger.info('Found scan data measured by the MWR')
+            logger.info('Searching for scan data measured by the MWR')
             vip_edits['mwrscan_type']=4
             vip_edits['mwrscan_elev_field']='ele'
             vip_edits['mwrscan_freq_field']='frequency'
             vip_edits['mwrscan_tb_field_names']='tb'
             vip_edits['mwrscan_tb_field1_tbmax']=330.
-            vip_edits['mwrscan_time_delta']=5/60 # the time delta (in hours) in which TROPoe will search for a scan around the main time
+            vip_edits['mwrscan_time_delta']=0.1/60 # the time delta (in hours) in which TROPoe will search for a scan around the main time
             vip_edits['mwrscan_elevations']=self.inst_conf['retrieval']['scan_ele']
             vip_edits['mwrscan_n_elevations']=len(self.inst_conf['retrieval']['scan_ele'])
             vip_edits['mwrscan_n_tb_fields']=len(self.mwr.frequency[ch_scan])
@@ -437,7 +513,7 @@ class Retrieval(object):
             vip_edits['mwrscan_tb_noise']=self.inst_conf['retrieval']['tb_noise'][ch_scan]
             vip_edits['mwrscan_tb_bias']=self.inst_conf['retrieval']['tb_bias'][ch_scan]
         else: 
-            logger.info('No scan available for this retrieval')
+            logger.info('No scan searched for this retrieval')
         
         
         self.conf['vip'].update(vip_edits)
@@ -474,7 +550,7 @@ class Retrieval(object):
 
         # Some variables needs to be extracted from TROPoe output (e.g. prior for each quantity)
         data = extract_prior(data, tropoe_out_config) 
-
+        
         # Some variables needs to be propagated from L1
         # e.g azi
         data['azi'] = np.median(self.mwr.azi.values)
@@ -482,15 +558,24 @@ class Retrieval(object):
         data = transform_units(data)
 
         data = height_to_altitude(data, self.mwr.station_altitude)
-        data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude
+        data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude 
         data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior']) 
         # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
+
+        # TODO: xarray has problem with duplicate dimensions... for now we use a renamed altitude axis which is the same as the main one.
+        data = extract_avk(data, tropoe_out_config)
+
+        data = add_flags(data)
+
+        # add some metadata on specific variables:
+        derived_product_list = ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 'mlCAPE', 'mlCIN','mlLCL']
+        data = add_variables_attrs(data, derived_product_list)
 
         # propagate some (all ?) metadata from L1 to L2
         for attr in self.mwr.attrs:
             data.attrs[attr] = self.mwr.attrs[attr]
 
-        # Some extra attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
+        # Some extra global attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
         data = extract_attrs(data)
 
         if self.use_model_data:
