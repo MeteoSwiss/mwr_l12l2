@@ -78,6 +78,9 @@ class Retrieval(object):
         # set by choose_mode_files():
         self.model_fc_file = None
         self.model_zg_file = None
+        
+        # set by prepare_model():
+        self.met_sfc_offset = 0 # Default to 0 as TROPoe should then try to use the higher opacity channels to find T. 
 
     def run(self, start_time=None, end_time=None):
         """run the entire retrieval chain
@@ -218,55 +221,124 @@ class Retrieval(object):
             raise MissingDataError(err_msg)
 
     def prepare_obs(self, start_time=None, end_time=None, delete_mwr_in=False):
-            """
-            Function to prepare E-PROFILE MWR and ALC inputs.
+        """
+        Function to prepare E-PROFILE MWR and ALC inputs.
+        
+        Args:
+            start_time (datetime64): The start time for selecting the data.
+            end_time (datetime64): The end time for selecting the data.
+            delete_mwr_in (bool): Flag indicating whether to delete the MWR files after processing.
             
-            Args:
-                start_time (datetime64): The start time for selecting the data.
-                end_time (datetime64): The end time for selecting the data.
-                delete_mwr_in (bool): Flag indicating whether to delete the MWR files after processing.
+        Raises:
+            MissingDataError: If none of the MWR files contain data between the required time limits.
+            MissingDataError: If there is not enough data to run the retrieval.
             
-            Raises:
-                MissingDataError: If none of the MWR files contain data between the required time limits.
-                MissingDataError: If there is not enough data to run the retrieval.
-            
-            Finally, it sets the necessary attributes for further processing.
-            """
-            tolerance_alc_time = np.timedelta64(5, 'm')  # get ALC up to 5 minutes before/after start/end of MWR interval
+        Finally, it sets the necessary attributes for further processing.
+        """
+        tolerance_alc_time = np.timedelta64(5, 'm')  # get ALC up to 5 minutes before/after start/end of MWR interval
 
-            start_time = np.datetime64(start_time)
-            end_time = np.datetime64(end_time)
+        start_time = np.datetime64(start_time)
+        end_time = np.datetime64(end_time)
 
-            # MWR treatment
-            mwr = get_from_nc_files(self.mwr_files)
+        # MWR treatment
+        mwr = get_from_nc_files(self.mwr_files)
 
-            self.time_min = max(mwr.time.min().values, start_time) 
-            self.time_max = min(mwr.time.max().values, end_time)
-            self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
+        self.time_min = max(mwr.time.min().values, start_time) 
+        self.time_max = min(mwr.time.max().values, end_time)
+        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
             
-            # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
-            if end_time < mwr.time.max().values:
-                Warning('The provided end_time is smaller than the time present in the mwr files. ')
+        # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
+        if end_time < mwr.time.max().values:
+            Warning('The provided end_time is smaller than the time present in the mwr files. ')
 
-            mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
-                            drop=True)  # brackets because of precedence of & over > and <
-            
-            # Add here a check on the time_min and time_max to make sure that we have at least 10 minutes of data
-            # Before file deletion so that the files are kept for the next retrievals
-            #TODO: Different bugs can still happen with this way of doing:
-            # 1. Problem when multiple days ?
-            # 2. Problem if end_time is before the mwr.time -> files from future retrievals will be deleted
-            if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
-                if delete_mwr_in:
-                    for file in self.mwr_files:
-                        os.remove(file)
-                logger.error('None of the MWR files found for {} {} contains data between the required time '
-                                          'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
-                raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
-                                       'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
-            elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
-                logger.error('Not enough data to run the retrieval. Skipping this instrument.')
-                raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
+        self.time_min = max(mwr.time.min().values, start_time) 
+        self.time_max = min(mwr.time.max().values, end_time)
+        
+        if self.time_min > self.time_max:
+            # Typically happens when mwr data are older than start_time
+            logger.error('The min time exceeds the max time !')
+        
+        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
+        
+        # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
+        if self.time_max < mwr.time.max().values:
+            delete_mwr_in=False
+            logger.warning('The provided end_time is smaller than the time present in the mwr files. ')
+            Warning('The provided end_time is smaller than the time present in the mwr files. ')
+
+        mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
+                        drop=True)  # brackets because of precedence of & over > and <
+        
+        # Add here a check on the time_min and time_max to make sure that we have at least 10 minutes of data
+        # Before file deletion so that the files are kept for the next retrievals
+        #TODO: Different bugs can still happen with this way of doing:
+        # 1. Problem when multiple days ?
+        # 2. Problem if end_time is before the mwr.time -> files from future retrievals will be deleted
+        # 3. Timing problem can occur when reading delayed data (esp. when cron starts just before data arrival) 
+        # --> the time min can then exceed the last time present in the mwr files...
+        if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
+            if delete_mwr_in:
+                for file in self.mwr_files:
+                    os.remove(file)
+            logger.critical('None of the MWR files found for {} {} contains data between the required time '
+                                      'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
+            raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
+                                   'limits (min={}; max={})'.format(self.wigos, self.inst_id, self.time_min, self.time_max))
+        elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
+            logger.critical('Not enough data to run the retrieval. Skipping this instrument.')
+            raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
+        else:
+            logger.info('#############################################################################################')
+            logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(self.time_min, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(self.time_max, '%Y-%m-%d %H:%M:%S'))
+            if delete_mwr_in:
+                for file in self.mwr_files:
+                    os.remove(file)
+
+        # if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
+        #     raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
+        #                            'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
+
+        # TODO: uncomment the following block once getting good test files with ok quality flags
+        # mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
+        # if mwr.tb.isnull().all():
+        #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
+        #                            'Nothing to retrieve!'.format(start_time, end_time))
+
+        # Check if the wigos id is the correct one:
+        if mwr.wigos_station_id != self.wigos:
+            logger.error('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                      .format(mwr.wigos_station_id, self.wigos))
+            raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
+                                   .format(mwr.wigos_station_id, self.wigos))
+
+        # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
+        # with tolerance of 0.5 degree for lat and lon and 50 m for alt:
+        tolerance_lat_lon = self.conf['data']['tolerance_lat_lon'] 
+        tolerance_alt = self.conf['data']['tolerance_alt'] 
+
+        if (abs(np.nanmedian(mwr.station_latitude.values) - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
+                (abs(np.nanmedian(mwr.station_longitude.values) - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
+                (abs(np.nanmedian(mwr.station_altitude.values) - self.inst_conf['station_altitude']) > tolerance_alt):
+            logger.error('The station coordinates in the MWR file do not match the ones in the config file')
+            raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
+        
+        mwr.to_netcdf(self.mwr_file_tropoe)
+
+        self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
+        self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
+        self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
+
+        self.mwr = mwr
+
+        # ALC treatment
+        self.alc_exists = True  # start assuming ALC obs exist, set to False if not.
+        if self.alc_files:  # not empty list, not None
+            # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
+            alc = get_from_nc_files(self.alc_files)
+            alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
+                            & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
+            if alc.time.size == 0:
+                self.alc_exists = False
             else:
                 logger.info('#############################################################################################')
                 logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
@@ -535,7 +607,14 @@ class Retrieval(object):
         filename = generate_output_filename(basename, 'time_mean', files_in=self.mwr_files, time=data.time)
         nc_writer = Writer(data, filename, conf_nc)
         nc_writer.run()
-
+        # copy file to other location:
+        # check if filename exist:
+        if os.path.isfile(filename) & ('output_dir_copy' in self.conf['data']):
+            # copy file to other location:
+            shutil.copy(filename, self.conf['data']['output_dir_copy'])
+            logger.info(filename+' copied to'+self.conf['data']['output_dir_copy'])
+            shutil.copy(outfiles[0], self.conf['data']['output_dir_copy'])
+            logger.info(outfiles[0]+' copied to'+self.conf['data']['output_dir_copy'])
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
