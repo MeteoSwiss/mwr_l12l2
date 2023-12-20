@@ -129,34 +129,35 @@ variables:
 # Measurement mode
 ##########################################################################################################
   
-  pointing:
-    name: pointing
+  observing_geometry_flag:
+    name: observing_geometry_flag
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: True
     attributes:
-      long_name: 'pointing'
-      comment: ''
+      long_name: 'Flag for the observation geometry'
+      flags_meaning: ''
+      comment: 'TO BE DEFINED'
       units: "1"
 
 
-##########################################################################################################
-# QC fields
-##########################################################################################################
+# ##########################################################################################################
+# # QC fields
+# ##########################################################################################################
   
-  qc_flag:
-    name: qc_flag
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: True
-    attributes:
-      long_name: Quality flag
-      comment: ''
-      units: "1"
+#   qc_flag:
+#     name: qc_flag
+#     dim:
+#       - time
+#     type: f4
+#     _FillValue: -999.
+#     optional: True
+#     attributes:
+#       long_name: Quality flag
+#       comment: ''
+#       units: "1"
 
 
 ##########################################################################################################
@@ -307,7 +308,7 @@ variables:
       units: ppm
 
   waterVapor_avk:
-    name: water_vapor_avk
+    name: water_vapor_vmr_avk
     dim:
       - time
       - altitude
@@ -403,16 +404,16 @@ variables:
 ##########################################################################################################
 # Measurement related fields
 ##########################################################################################################
-  rmsr:
-    name: rmsr
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: True
-    attributes:
-      long_name: Root mean square error between IRS and MWR obs in the observation vector and the forward calculation
-      units: "1"
+  # rmsr:
+  #   name: rmsr
+  #   dim:
+  #     - time
+  #   type: f4
+  #   _FillValue: -999.
+  #   optional: True
+  #   attributes:
+  #     long_name: Root mean square error between IRS and MWR obs in the observation vector and the forward calculation
+  #     units: "1"
 
 ##########################################################################################################
 # Integrated fields

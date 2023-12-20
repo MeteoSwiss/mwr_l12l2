@@ -292,7 +292,6 @@ def add_flags(data):
     data['temperature_quality_flag'] = data.temperature.copy(data=0*data.temperature.data)
     # Water vapor
     data['waterVapor_quality_flag'] = data.waterVapor.copy(data=0*data.waterVapor.data)
-        
     # Liquid water path
     data['lwp_quality_flag'] = data.lwp.copy(data=0*data.lwp.data)
 
