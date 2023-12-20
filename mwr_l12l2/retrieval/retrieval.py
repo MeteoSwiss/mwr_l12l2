@@ -78,6 +78,9 @@ class Retrieval(object):
         # set by choose_mode_files():
         self.model_fc_file = None
         self.model_zg_file = None
+        
+        # set by prepare_model():
+        self.met_sfc_offset = 0 # Default to 0 as TROPoe should then try to use the higher opacity channels to find T. 
 
     def run(self, start_time=None, end_time=None):
         """run the entire retrieval chain
@@ -226,10 +229,17 @@ class Retrieval(object):
 
         self.time_min = max(mwr.time.min().values, start_time) 
         self.time_max = min(mwr.time.max().values, end_time)
+        
+        if self.time_min > self.time_max:
+            # Typically happens when mwr data are older than start_time
+            logger.error('The min time exceeds the max time !')
+        
         self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
         
         # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
-        if end_time < mwr.time.max().values:
+        if self.time_max < mwr.time.max().values:
+            delete_mwr_in=False
+            logger.warning('The provided end_time is smaller than the time present in the mwr files. ')
             Warning('The provided end_time is smaller than the time present in the mwr files. ')
 
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
@@ -240,6 +250,8 @@ class Retrieval(object):
         #TODO: Different bugs can still happen with this way of doing:
         # 1. Problem when multiple days ?
         # 2. Problem if end_time is before the mwr.time -> files from future retrievals will be deleted
+        # 3. Timing problem can occur when reading delayed data (esp. when cron starts just before data arrival) 
+        # --> the time min can then exceed the last time present in the mwr files...
         if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
             if delete_mwr_in:
                 for file in self.mwr_files:
@@ -247,13 +259,13 @@ class Retrieval(object):
             logger.error('None of the MWR files found for {} {} contains data between the required time '
                                       'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
             raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
-                                   'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
+                                   'limits (min={}; max={})'.format(self.wigos, self.inst_id, self.time_min, self.time_max))
         elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
             logger.error('Not enough data to run the retrieval. Skipping this instrument.')
             raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
         else:
             logger.info('#############################################################################################')
-            logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(mwr.time.min().values, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(mwr.time.max().values, '%Y-%m-%d %H:%M:%S'))
+            logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(self.time_min, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(self.time_max, '%Y-%m-%d %H:%M:%S'))
             if delete_mwr_in:
                 for file in self.mwr_files:
                     os.remove(file)
@@ -510,7 +522,14 @@ class Retrieval(object):
         filename = generate_output_filename(basename, 'time_mean', files_in=self.mwr_files, time=data.time)
         nc_writer = Writer(data, filename, conf_nc)
         nc_writer.run()
-
+        # copy file to other location:
+        # check if filename exist:
+        if os.path.isfile(filename) & ('output_dir_copy' in self.conf['data']):
+            # copy file to other location:
+            shutil.copy(filename, self.conf['data']['output_dir_copy'])
+            logger.info(filename+' copied to'+self.conf['data']['output_dir_copy'])
+            shutil.copy(outfiles[0], self.conf['data']['output_dir_copy'])
+            logger.info(outfiles[0]+' copied to'+self.conf['data']['output_dir_copy'])
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))

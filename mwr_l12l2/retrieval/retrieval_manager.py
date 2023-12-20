@@ -1,24 +1,15 @@
 import os
-import sys
 import time
-import logging
-import argparse
 import glob
 
 import multiprocessing as mp
 
 import datetime as dt
-import numpy as np
 
-from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError
+from mwr_l12l2.errors import MissingDataError, MWRConfigError
+from mwr_l12l2.log import logger
 from mwr_l12l2.utils.config_utils import abs_file_path, get_retrieval_config, get_inst_config
 from retrieval import Retrieval
-
-# from watchdog.observers import Observer
-# from watchdog.events import LoggingEventHandler
-
-# TODO: remove unused imports, e.g. sys, logging, argparse, numpy, MWRInputError
-
 
 class RetrievalManager(object):
     """Class to manage the operational retrieval of MWR data from E-PROFILE
@@ -35,6 +26,7 @@ class RetrievalManager(object):
         elif os.path.isfile(conf):
             self.conf = get_retrieval_config(conf)
         else:
+            logger.error("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
             raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
 
         self.wigos_list = []
@@ -54,6 +46,7 @@ class RetrievalManager(object):
                                                '{}*.nc'.format(self.conf['data']['mwr_file_prefix'])))
         
         if not list_of_files:
+            logger.error('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
             raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
         
         # get station id from filenames
@@ -108,7 +101,7 @@ class RetrievalManager(object):
                     'alc_files': self.alc_files_dict[wigos_and_id]
                 }
             except:  # TODO: catch a specific exception here e.g. MWRConfigError
-                print('Instrument config file not found for {}_{}'.format(wigos_and_id.split('_')[0],
+                logger.error('Instrument config file not found for {}_{}'.format(wigos_and_id.split('_')[0],
                                                                           wigos_and_id.split('_')[1]))
                 continue
 
@@ -138,11 +131,12 @@ class RetrievalManager(object):
             try:
                 self.run_retrieval(start_time, end_time, self.retrieval_dict[wigos_and_id], node=node_number)
             except Exception as e:
-                print(f"Retrieval for {wigos_and_id} failed with error: {e}")
+                logger.error(f"Retrieval for {wigos_and_id} failed with error: {e}")
 
     def retrieve_all_in_parallel(self, start_time, end_time, cores=2):
         """Use multiprocessing to run the retrieval in parallel. 
         """
+        logger.info('Starting operational retrievals in multiprocessing')
         self.select_all_instruments()
         self.prepare_retrieval_dicts()
 
@@ -161,7 +155,7 @@ class RetrievalManager(object):
             try:
                 output.append(p.get())
             except Exception as e:  # TODO: possibly catch a specific exception related to async. Not 100% sure
-                print(f"A process failed with error: {e}")
+                logger.critical(f"A process failed with error: {e}")
         # handle the error as appropriate for your program
 
         # Close the pool
@@ -185,7 +179,7 @@ if __name__ == '__main__':
         manager.retrieve_all(start_time=dt.datetime(2023, 4, 25, 13, 0, 0), end_time=dt.datetime(2023, 4, 25, 16, 0, 0))
 
     end = time.time()
-    print('Time taken to run the retrievals: {} seconds'.format(end-start))
+    logger.info('Time taken to run the retrievals: {} seconds'.format(end-start))
 
     pass
 
