@@ -7,11 +7,11 @@ base_filename_in: MWR_1C01_0-20000-0-10393_C
 base_filename_out: MWR_tbd_0-20000-0-10393_C
 
 # the following keys are most possibly duplicates of the input file's attributes. If both exist, should be used to check
-wigos_station_id: 0-20000-0-10393
+wigos_station_id: 0-20000-0-10393 # new WIGOS: 0-276-4-14997
 instrument_id: C
 station_latitude: 52.21
 station_longitude: 14.12
-station_altitude: 98.
+station_altitude: 126.73
 
 # the following can be used to deviate from the standard defined in mars_config_fc.yaml for requesting model data.
 model_request:

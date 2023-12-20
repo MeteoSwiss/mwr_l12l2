@@ -7,9 +7,9 @@ base_filename_in: MWR_1C01_0-20000-0-10505_A
 base_filename_out: MWR_tbd_0-20000-0-10505_A
 
 # the following keys are most possibly duplicates of the input file's attributes. If both exist, should be used to check
-wigos_station_id: 0-20000-0-10505
-instrument_id: A
-station_latitude: 50.80
+wigos_station_id: 0-20000-0-10505 # new WIGOS: 0-276-4-14998
+instrument_id: A # This instrument was previsouly in Lindenberg with the "B" id, which explains why the instruments currently in Lindenberg are "A" and "C"
+station_latitude: 50.79
 station_longitude: 6.02
 station_altitude: 231.
 
