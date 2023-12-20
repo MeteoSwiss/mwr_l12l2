@@ -123,6 +123,8 @@ def generate_output_filename(basename, timestamp_src, files_in=None, time=None, 
         timestamp = time[0].dt.strftime(format_stamp).data
     elif timestamp_src == 'time_max':
         timestamp = time[-1].dt.strftime(format_stamp).data
+    elif timestamp_src == 'time_mean':
+        timestamp = np.mean(time).dt.strftime(format_stamp).data
     else:
         raise MWRInputError("Known values for 'timestamp_src' are {} but found '{}'".format(
             "['instamp_min', 'instamp_max', 'time_min', 'time_max']", timestamp_src))

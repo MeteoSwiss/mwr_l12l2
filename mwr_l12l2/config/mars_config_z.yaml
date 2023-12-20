@@ -15,6 +15,6 @@ request:  # configurations of mars keywords common to all z requests
   step: 0  # needs to be specified here for avoiding inheritance from mars_config_fc leading to error
 
 outfile:
-  path: mwr_l12l2/data/output/ecmwf/
+  path: /home/eric/ecmwf/
   basename: ecmwf_z_
   extension: .grb

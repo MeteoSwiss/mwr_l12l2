@@ -21,6 +21,7 @@ LOG_COLORS = {
     'CRITICAL': 'red,bg_white'}
 
 try:
+    # TODO: solve bug with colorlog package
     import colorlog
 
     formatter = colorlog.ColoredFormatter(

@@ -64,6 +64,7 @@ class Writer(object):
 
         self.data.encoding.update(                                   # acts during to_netcdf()
             unlimited_dims=self.conf_nc['dimensions']['unlimited'])  # default is fixed, i.e. only need to set unlimited
+        #self.prepare_time_bnds()
         for var, specs in self.conf_nc['variables'].items():
             # check availability and fill absent variables
             if var not in self.data.keys():
@@ -127,7 +128,11 @@ class Writer(object):
             hist_str = '{}: mwr_l12l2'.format(current_time_str)
             logger.warning('Received error {} while trying to set history global attribute. Therefore, will be using '
                            'hardcoded project name without version number'.format(err))
-        self.data.attrs['history'] = hist_str
+        
+        if self.data.attrs['history']:
+            self.data.attrs['history'] = self.data.attrs['history'] + '; ' + hist_str
+        else:
+            self.data.attrs['history'] = hist_str
 
     def check_dims(self, var, specs):
         """check dims of var (retain order of config specs, but order of dims returned by xarray Dataset is arbitrary)
@@ -172,6 +177,15 @@ class Writer(object):
                 if att in self.data[var].attrs:
                     encs[att] = self.data[var].attrs.pop(att)
             self.data[var].encoding.update(encs)
+
+    # def prepare_time_bnds(self):
+    #     """Function to setup correctly the bnds coordinates and time_bnds variables"""
+
+    #     # Set the bnds coordinates:
+    #     self.data['bnds'] = [0,1]
+
+    #     # Set the time_bnds variables:
+    #     self.data['time_bnds'] = (['time', 'bnds'],-999.0 * np.ones((len(self.data['time']), 2)))
 
     def rename_vars(self):
         """set variable and dimension names to the ones set in conf_nc (CARE: must be last operation before save!)"""

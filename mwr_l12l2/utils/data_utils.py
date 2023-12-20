@@ -93,6 +93,18 @@ def scalars_to_time(ds, variables, time_dim='time'):
         ds.update({var: (time_dim, ds[var].values * np.ones(ds[time_dim].shape))})
     return ds
 
+def vectors_to_time(ds, variables, time_dim='time'):
+    """expand constant vector variables onto time dimension to form an array of len(time) containing identical values
+    TODO: merge with scalars_to_time
+
+    Args:
+        ds: :class:`xarray.Dataset` containing all requested scalar variables and the time dimension to transform to
+        variables: list of variables to expand onto the time dimension. These will be replaced in-place
+        time_dim (optional): name of the time dimension. Defaults to 'time'.
+    """
+    for var in variables:
+        ds[var] = ds[var].expand_dims(time=ds[time_dim])
+    return ds
 
 def lists_to_np(indict):
     """transform all values of a dict with type list to a :class:`numpy.ndarray`"""

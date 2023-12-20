@@ -23,7 +23,7 @@ grid:  # lat/lon grid for the region around the station where to request data fr
   lon_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
 
 outfile:
-  path: mwr_l12l2/data/output/ecmwf/
+  path: /home/eric/ecmwf/
   basename: ecmwf_fc_
   extension: .grb
 
