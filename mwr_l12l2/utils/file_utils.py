@@ -147,7 +147,7 @@ def dict_to_file(data, file, sep, header=None, remove_brackets=False, remove_par
         header: header string to write to the head of the file before the first dictionary item. Defaults to None
         remove_brackets (optional): Remove square brackets [ and ], e.g. from lists, while printing to file.
             Defaults to False
-        remove_parentheses (optional): Remove parantheses ( and ), e.g. from tuples, while printing to file.
+        remove_parentheses (optional): Remove parentheses ( and ), e.g. from tuples, while printing to file.
             Defaults to False
         remove_braces (optional): Remove curly braces { and } while printing to file. Defaults to False
     """
