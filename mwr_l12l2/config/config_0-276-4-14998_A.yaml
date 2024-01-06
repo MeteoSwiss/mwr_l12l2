@@ -1,0 +1,35 @@
+# config file example for a RPG HATPRO in Aachen, Germany #
+########################################################################
+
+input_directory: tbd  # use absolute path (or relative to mwr_l12l1 project dir)
+output_directory: tbd  # use absolute path (or relative to mwr_l12l1 project dir)
+base_filename_in: MWR_1C01_0-276-4-14998_A
+base_filename_out: MWR_tbd_0-276-4-14998_A
+
+# the following keys are most possibly duplicates of the input file's attributes. If both exist, should be used to check
+wigos_station_id: 0-276-4-14998  # old wigos: 0-20000-0-10505
+instrument_id: A # This instrument was previsouly in Lindenberg with the "B" id, which explains why the instruments currently in Lindenberg are "A" and "C"
+station_latitude: 50.79
+station_longitude: 6.02
+station_altitude: 231.
+
+# the following can be used to deviate from the standard defined in mars_config_fc.yaml for requesting model data.
+model_request:
+  grid:
+    lat_res: 0.1  # latitude resolution with which to write values to the output file
+    lon_res: 0.1  # longitude resolution with which to write values to the output file
+    lat_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
+    lon_offset: [-0.1, 0.1]  # corners of box relative to station within which to get model data for mean and std
+#  outfile: # do not set unless you have a very good reason to deviate from default defined in mars_config_fc.yaml
+#     path:
+#     basename:
+#     extension:
+
+retrieval:
+  tb_noise: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 6, 6, 0.6, 0.4, 0.25, 0.25, 0.25]
+  tb_bias: [0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]
+  #tb_bias: [0.46,  0.98,  1.41 , 1.27,  1.56,  0.95,  1.09,  4.59,  5.9,   2.77, -0.16, -0.2,-0.07, -0.03]
+  zenith_channels: [True, True, True, True, True, True, True, True, True, True, True, True, True, True]
+  scan_channels: [False, False, False, False, False, False, False, False, False, False, True, True, True, True]
+  #scan_ele: [19.2, 11.4, 5.4]
+  scan_ele: [30, 19.2, 14.4, 11.4, 8.4, 5.4, 4.2]
