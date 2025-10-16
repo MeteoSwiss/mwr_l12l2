@@ -8,7 +8,7 @@ from mwr_l12l2.errors import MissingDataError, MWRConfigError
 from mwr_l12l2.log import logger
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
 from mwr_l12l2.utils.file_utils import abs_file_path
-from mwr_l12l2.utils.monitoring_utils import read_mwr_summary_csv, ObservationMinusBackground
+from mwr_l12l2.utils.monitoring_utils import read_mwr_summary_csv, Level1, ObservationMinusBackground
 from mwr_l12l2.retrieval.retrieval import Retrieval
 
 class Level1Monitoring(object):
@@ -74,6 +74,38 @@ class Level1Monitoring(object):
                                                                            self.conf['data']['mwr_dir']))
             logger.critical(err_msg)
 
+    def compute_OmB_for_single_instrument(self, wigos, inst_id, start_time, end_time):
+        """Compute OmB for a single instrument over a specified time range
+
+        Args:
+            wigos (str): WIGOS station identifier
+            inst_id (str): Instrument identifier
+            start_time (datetime): Start time for the OmB computation
+            end_time (datetime): End time for the OmB computation
+        """
+        self.set_instrument(wigos, inst_id)
+        self.list_obs_files()
+
+        selected_instrument = {
+            'wigos': self.wigos,
+            'inst_id': self.inst_id,
+            'inst_conf': self.inst_conf,
+            'mwr_files': self.mwr_files,
+            'alc_files': self.alc_files
+        }
+
+        if not self.mwr_files:
+            logger.info(f'No MWR files found for {self.wigos} {self.inst_id}. Skipping.')
+            return
+
+        ret = Retrieval(self.conf, selected_instrument, node=1)
+        ret.monitor(start_time, end_time, OmB=True)
+        omb = ObservationMinusBackground(wigos=self.wigos, inst_id=self.inst_id,
+                                        tropoe_OmB_file=ret.tropoe_omb_file,
+                                        tropoe_output_config=abs_file_path('mwr_l12l2/config/tropoe_output_config.yaml'))
+        omb.read_tropoe()
+        omb.plot_omb(output_dir=self.conf['quicklook_outdir'])
+    
     def monitor_mwr_l1(self, day=None, OmB=False, max_instruments=None):
         """Monitor MWR L1 data for instruments listed in the provided summary.
 
@@ -130,7 +162,8 @@ class Level1Monitoring(object):
                 # run retrieval/monitor for this instrument
                 ret = Retrieval(self.conf, selected_instrument, node=1)
                 ret.monitor(start_time, end_time, OmB)
-
+                quicklook = Level1(self.conf['quicklook_outdir'])
+                quicklook.plot_l1(ret.mwr, date_start=None, date_stop=None, plot_tb=True, plot_scan=False, plot_housekeeping=True, plot_meteo=True, plot_tb_spectra=True)
             except Exception as e:
                 logger.error(f"Error processing {wigos} {inst_id}: {e}")
                 continue
@@ -141,4 +174,8 @@ if __name__ == '__main__':
                             l1_instrument_list='/home/eric/eprofile_config/mwr/mwr_raw2l1_summary.csv')
     # For quick testing limit instruments: pass max_instruments=5
     inst.monitor_mwr_l1()
+    # day=dt.datetime.today()
+    # start_time = day.replace(hour=14, minute=0, second=0, microsecond=0)#-dt.timedelta(days=1)
+    # end_time = day.replace(hour=16, minute=0, second=0, microsecond=0)
+    # inst.compute_OmB_for_single_instrument(wigos='0-20000-0-06610', inst_id='A', start_time=start_time, end_time=end_time)
     pass

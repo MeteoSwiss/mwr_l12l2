@@ -10,6 +10,7 @@ from matplotlib.cm import get_cmap
 from matplotlib.backends.backend_pdf import PdfPages
 from mwr_l12l2.utils.file_utils import abs_file_path
 from mwr_l12l2.utils.config_utils import get_conf
+from mwr_l12l2.retrieval.tropoe_helpers import extract_zenith_tbs
 from mwr_l12l2.log import logger
 
 np.set_printoptions(precision=2, suppress=True)
@@ -103,40 +104,7 @@ class ObservationMinusBackground(object):
     def read_tropoe(self):
         """Read the tropoe OmB file and extract relevant data"""
         ds = xr.open_dataset(self.tropoe_OmB_file)
-
-        # extract frequencies from attrs
-        self.mwr_frequencies = [float(item) for item in ds.attrs['VIP_mwr_tb_freqs'].split(', ')]
-
-        # extract some additional attributes from the file
-        # ds['dfs_tot'] = ds.dfs[:,0]
-        # ds['dfs_temperature'] = ds.dfs[:,1]
-        # ds['dfs_waterVapor'] = ds.dfs[:,2]
-        
-        # Measurement vector and FM:
-        ds = ds.assign(
-            Tb = xr.DataArray(
-            ds.obs_vector[:,ds.obs_flag==self.brightness_temperature_zenith].data,
-            coords= {'time':ds.time, 'frequency':self.mwr_frequencies},
-            dims=['time','frequency'],
-            attrs={'long_name':'zenith brightness temperature'}
-            ),
-        )
-        ds = ds.assign(
-            sigma_Tb = xr.DataArray(
-            ds.obs_vector_uncertainty[:,ds.obs_flag==self.brightness_temperature_zenith].data,
-            coords= {'time':ds.time, 'frequency':self.mwr_frequencies},
-            dims=['time','frequency'],
-            attrs={'long_name':'zenith brightness temperature'}
-            ),
-        )
-        ds = ds.assign(
-            Tb_simulated = xr.DataArray(
-            ds.forward_calc[:,ds.obs_flag==self.brightness_temperature_zenith].data,
-            coords= {'time':ds.time, 'frequency':self.mwr_frequencies},
-            dims=['time','frequency'],
-            attrs={'long_name':'simulated brightness temperature'}
-            ),
-        )
+        ds = extract_zenith_tbs(ds, self.conf)
         self.ds_omb = ds
     
     def plot_omb(self, output_dir):
@@ -192,6 +160,7 @@ class ObservationMinusBackground(object):
         plt.tight_layout()
         filename =  os.path.join(output_dir, f"L1_{self.wigos}_{self.inst_id}_{self.ds_omb.time[0].dt.strftime('%Y%m%d').item()}_OmB.jpg")
         fig.savefig(filename)
+        print('Saved OmB plot to {}'.format(filename))
 
 class Level1(object):
     # Collection of function to deal with MWR L1 E-Profile data
@@ -536,8 +505,8 @@ class Level1(object):
             plt.close(fig)
             
 if __name__ == "__main__":
-    omb_test_file = "/home/eric/retrieval/level2/tropoe_out_0-276-4-14997C.20251016.100030.nc"
+    omb_test_file = "/home/eric/retrieval/level2/tropoe_out_0-250-1001-07151A.20251016.100030.nc"
     tropoe_conf_file = abs_file_path('mwr_l12l2/config/tropoe_output_config.yaml')
-    omb = ObservationMinusBackground(wigos='0-276-4-14997', inst_id='C', tropoe_OmB_file=omb_test_file, tropoe_output_config=tropoe_conf_file)
+    omb = ObservationMinusBackground(wigos='0-250-1001-07151', inst_id='A', tropoe_OmB_file=omb_test_file, tropoe_output_config=tropoe_conf_file)
     omb.read_tropoe()
-    omb.plot_omb(output_dir='/home/eric/retrieval/OmB/plots/')
+    omb.plot_omb(output_dir='/home/eric/monitoring/quicklooks/')
