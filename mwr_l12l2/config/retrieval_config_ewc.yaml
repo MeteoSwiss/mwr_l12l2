@@ -78,6 +78,13 @@ vip:
   # Surface met parameters
   ext_sfc_relative_height: 0
   ext_sfc_pres_type: 0
+  ext_sfc_time_format: -1
+  ext_sfc_pres_fieldname: 'air_pressure'
+  ext_sfc_pres_units: 2
+  station_pres: 980.0
+  ext_sfc_temp_fieldname: 'air_temperature'
+  ext_sfc_temp_units: 2
+  ext_sfc_wv_fieldname: 'relative_humidity'
 
   # The model input
   mod_temp_prof_type: 0
