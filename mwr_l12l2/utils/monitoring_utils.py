@@ -128,9 +128,10 @@ class ObservationMinusBackground(object):
             legend_elements_kband.append(plt.Line2D([0], [0], color=col, label=str(f.data)+' GHz'))
 
         ax_top.set_xlabel('')
-        ax_top.set_ylabel('Tb (K)')
+        ax_top.set_ylabel(r'$\Delta$ Tb (K)')
+        ax_top.set_ylim(-10,10)
         ax_top.legend(handles=legend_elements_kband, loc='best', fontsize=8, ncol=2)
-        ax_top.set_title('OmB time series')
+        ax_top.set_title('O-B for '+self.wigos+'_'+self.inst_id)
 
         # Bottom left subplot: K-band statistics
         ax_kband = plt.subplot2grid((2, 2), (1, 0))
@@ -142,7 +143,8 @@ class ObservationMinusBackground(object):
         ax_kband.boxplot(k_band_values, positions=k_band_positions, widths=0.5, 
                          patch_artist=True, boxprops=dict(facecolor='blue', alpha=0.5))
         ax_kband.set_xlabel('Frequency')
-        ax_kband.set_ylabel('Tb (K)')
+        ax_kband.set_ylabel(r'$\Delta$ Tb (K)')
+        ax_kband.set_ylim(-10,10)
         ax_kband.set_title('K-band OmB statistics')
         
         # Bottom right subplot: V-band statistics
@@ -154,7 +156,8 @@ class ObservationMinusBackground(object):
         ax_vband.boxplot(v_band_values, positions=v_band_positions, widths=0.5,
                          patch_artist=True, boxprops=dict(facecolor='orange', alpha=0.5))
         ax_vband.set_xlabel('Frequency')
-        ax_vband.set_ylabel('Tb (K)')
+        ax_vband.set_ylabel(r'$\Delta$ Tb (K)')
+        ax_vband.set_ylim(-10,10)
         ax_vband.set_title('V-band OmB statistics')
 
         plt.tight_layout()
