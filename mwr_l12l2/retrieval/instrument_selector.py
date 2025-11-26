@@ -149,6 +149,32 @@ class InstrumentSelector(object):
         ret = Retrieval(self.conf, selected_instrument, node=1)
         ret.run(start_time, end_time)
 
+    def retrieve_radiosonde(self, day, wigos, inst_id):
+        '''
+        Workaround to run retrieval for radiosonde times (00:00 and 12:00 UTC) and avoid running for all times in between
+        This is just for testing purpose and should be deleted in the near future...
+        '''
+        self.set_instrument(wigos, inst_id)
+        self.list_obs_files()
+        # Necessary information to perform the retrieval for the selected instrument
+        selected_instrument = {
+            'wigos': self.wigos,
+            'inst_id': self.inst_id,
+            'inst_conf': self.inst_conf,
+            'mwr_files': self.mwr_files,
+            'alc_files': self.alc_files
+        }
+
+        ret = Retrieval(self.conf, selected_instrument, node=1)
+        
+        start_time = day.replace(hour=11, minute=0, second=0, microsecond=0)
+        end_time = day.replace(hour=11, minute=30, second=0, microsecond=0)
+        ret.run(start_time, end_time)
+        
+        start_time_noon = day.replace(hour=23, minute=0, second=0, microsecond=0)
+        end_time_noon = day.replace(hour=23, minute=30, second=0, microsecond=0)
+        ret.run(start_time_noon, end_time_noon)
+        
 if __name__ == '__main__':
     start = time.time()
     instrument = InstrumentSelector(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
