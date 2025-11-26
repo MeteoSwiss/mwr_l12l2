@@ -106,7 +106,7 @@ class Level1Monitoring(object):
         omb.read_tropoe()
         omb.plot_omb(output_dir=self.conf['quicklook_outdir'])
     
-    def monitor_mwr_l1(self, day=None, OmB=False, max_instruments=None):
+    def monitor_mwr_l1(self, day=None, OmB=False, single_wigos=None, singe_inst_id=None):
         """Monitor MWR L1 data for instruments listed in the provided summary.
 
         Args:
@@ -114,8 +114,8 @@ class Level1Monitoring(object):
             OmB (bool, optional): whether to perform O-B processing. Defaults to True.
             output_dir (str, optional): directory to write quicklook images. If None a 'monitoring/quicklooks'
                 directory under the current working directory is used.
-            max_instruments (int, optional): maximum number of instruments to process. If None all instruments
-                in the summary list are processed. This is useful for quick testing. Defaults to None.
+            wigos (str, optional): WIGOS station identifier to filter instruments. If provided, only this instrument is processed.
+            inst_id (str, optional): Instrument identifier to filter instruments. If provided, only this instrument is processed.
         """
         if day is None:
             day = dt.datetime.today()
@@ -125,12 +125,15 @@ class Level1Monitoring(object):
             raise MWRConfigError("The argument 'output_dir' must be provided and point to a valid directory")
         
         for index, inst in self.l1_instrument_list.iterrows():
-            if (max_instruments is not None) and (index >= max_instruments):
-                break
+            if single_wigos is not None and singe_inst_id is not None:
+                if (inst['wigos_station_id'] != single_wigos) or (inst['instrument_id'] != singe_inst_id):
+                    continue
+                else:
+                    logger.info(f'Processing only instrument {single_wigos} {singe_inst_id}')
             wigos = inst['wigos_station_id']
             inst_id = inst['instrument_id']
             start_time = day.replace(hour=0, minute=0, second=0, microsecond=0) - dt.timedelta(days=1)
-            end_time = day.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_time = day.replace(hour=23, minute=59, second=0, microsecond=0) - dt.timedelta(days=1)
             datetime_str = start_time.strftime('%Y%m%d')
 
             try:
@@ -164,6 +167,11 @@ class Level1Monitoring(object):
                 ret.monitor(start_time, end_time, OmB)
                 quicklook = Level1(self.conf['quicklook_outdir'])
                 quicklook.plot_l1(ret.mwr, date_start=None, date_stop=None, plot_tb=True, plot_scan=False, plot_housekeeping=True, plot_meteo=True, plot_tb_spectra=True)
+                omb = ObservationMinusBackground(wigos=self.wigos, inst_id=self.inst_id,
+                                    tropoe_OmB_file=ret.tropoe_omb_file,
+                                    tropoe_output_config=abs_file_path('mwr_l12l2/config/tropoe_output_config.yaml'))
+                omb.read_tropoe()
+                omb.plot_omb(output_dir=self.conf['quicklook_outdir'])
             except Exception as e:
                 logger.error(f"Error processing {wigos} {inst_id}: {e}")
                 continue
@@ -173,9 +181,6 @@ if __name__ == '__main__':
     inst = Level1Monitoring(abs_file_path('mwr_l12l2/config/omb_config.yaml'),
                             l1_instrument_list='/home/eric/eprofile_config/mwr/mwr_raw2l1_summary.csv')
     # For quick testing limit instruments: pass max_instruments=5
-    inst.monitor_mwr_l1()
+    inst.monitor_mwr_l1(OmB=True) #, single_wigos='0-276-13-20039', singe_inst_id='A')
     # day=dt.datetime.today()
-    # start_time = day.replace(hour=14, minute=0, second=0, microsecond=0)#-dt.timedelta(days=1)
-    # end_time = day.replace(hour=16, minute=0, second=0, microsecond=0)
-    # inst.compute_OmB_for_single_instrument(wigos='0-20000-0-06610', inst_id='A', start_time=start_time, end_time=end_time)
     pass

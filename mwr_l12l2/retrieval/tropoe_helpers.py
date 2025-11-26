@@ -8,11 +8,13 @@ from mwr_l12l2.utils.data_utils import set_encoding
 from mwr_l12l2.utils.file_utils import abs_file_path, replace_path
 from mwr_l12l2.log import logger
 
-def model_to_tropoe(model, station_altitude):
+def model_to_tropoe(model, station_altitude, OmB=False):
     """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe
 
     Args:
         model: instance of :class:`mwr_l12l2.model.ecmwf.interpret_ecmwf.ModelInterpreter` that with executed run()
+        station_altitude: altitude of the station in meters above mean sea level
+        OmB: bool, if True OmB is performed on temperature and humidity profiles -> needs a different formatting (?)
 
     Returns:
         prof_data: :class:`xarray.Dataset` containing model profile data in a form writable to an input nc for TROPoe
@@ -33,23 +35,43 @@ def model_to_tropoe(model, station_altitude):
     #         height=([])
     #     )
     # )
-    prof_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
-                       'time_offset': dict(dims='time', data=model.time_ref),
-                       'lat': dict(dims=(), data=central_lat,
-                                   attrs={'units': 'degrees_north'}),
-                       'lon': dict(dims=(), data=central_lon,
-                                   attrs={'units': 'degrees_east'}),
-                       'height': dict(dims='height', data=np.mean(height_agl[:,id_station_alt], axis=0) / 1e3,
-                                      attrs={'long_name': 'Height above ground level', 'units': 'km'}),
-                       'temperature': dict(dims=('time', 'height'), data=model.t_ref[:,id_station_alt] - 273.15,
-                                           attrs={'units': 'Celsius'}),
-                       'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[:,id_station_alt],
-                                                 attrs={'units': 'Celsius'}),
-                       'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[:,id_station_alt] * 1e3,
-                                          attrs={'units': 'g/kg'}),
-                       'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[:,id_station_alt] * 1e3,
-                                                attrs={'units': 'g/kg'}),
-                       }
+    if OmB:
+        prof_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
+                'time': dict(dims='time', data=np.flip(np.mean(height_agl[:,id_station_alt], axis=0)) / 1e3),
+                #'time_offset': dict(dims='time', data=model.time_ref),
+                # 'lat': dict(dims=(), data=central_lat,
+                #             attrs={'units': 'degrees_north'}),
+                # 'lon': dict(dims=(), data=central_lon,
+                #             attrs={'units': 'degrees_east'}),
+                'height': dict(dims='time', data=np.flip(np.mean(height_agl[:,id_station_alt], axis=0)) / 1e3,
+                                attrs={'long_name': 'Height above ground level', 'units': 'km'}),
+                'temperature': dict(dims='time', data=np.flip(model.t_ref[:,id_station_alt][0]) - 273.15,
+                                    attrs={'units': 'Celsius'}),
+                'pressure': dict(dims='time', data=np.flip(model.p_ref[:,id_station_alt][0])/ 1e2,
+                                    attrs={'units': 'hPa'}),
+                # 'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[:,id_station_alt],
+                #                             attrs={'units': 'Celsius'}),
+                'rh': dict(dims='time', data=np.flip(model.rh[:,id_station_alt][0]) * 1e2,
+                                    attrs={'units': '%'}),
+                }
+    else:
+        prof_data_specs = {'base_time': dict(dims=(), data=np.datetime64('1970-01-01', 'ns')),
+                        'time_offset': dict(dims='time', data=model.time_ref),
+                        'lat': dict(dims=(), data=central_lat,
+                                    attrs={'units': 'degrees_north'}),
+                        'lon': dict(dims=(), data=central_lon,
+                                    attrs={'units': 'degrees_east'}),
+                        'height': dict(dims='height', data=np.mean(height_agl[:,id_station_alt], axis=0) / 1e3,
+                                        attrs={'long_name': 'Height above ground level', 'units': 'km'}),
+                        'temperature': dict(dims=('time', 'height'), data=model.t_ref[:,id_station_alt] - 273.15,
+                                            attrs={'units': 'Celsius'}),
+                        'sigma_temperature': dict(dims=('time', 'height'), data=model.t_err[:,id_station_alt],
+                                                    attrs={'units': 'Celsius'}),
+                        'waterVapor': dict(dims=('time', 'height'), data=model.q_ref[:,id_station_alt] * 1e3,
+                                            attrs={'units': 'g/kg'}),
+                        'sigma_waterVapor': dict(dims=('time', 'height'), data=model.q_err[:,id_station_alt] * 1e3,
+                                                    attrs={'units': 'g/kg'}),
+                        }
 
     prof_data_attrs = {
         'model': 'reference profile and uncertainties extracted from ECMWF operational forecast',
@@ -87,8 +109,10 @@ def model_to_tropoe(model, station_altitude):
     sfc_data = xr.Dataset.from_dict(sfc_data_specs)
 
     # add encodings and global attrs to datasets
-    for ds in [prof_data, sfc_data]:  # common time encodings for all datasets
-        ds = set_encoding(ds, ['base_time', 'time_offset'], time_encoding)
+    # Currently not working for OmB:
+    if not OmB:
+        for ds in [prof_data, sfc_data]:  # common time encodings for all datasets
+            ds = set_encoding(ds, ['base_time', 'time_offset'], time_encoding)
     prof_data.attrs = prof_data_attrs
     sfc_data.attrs = sfc_data_attrs
 
@@ -375,6 +399,35 @@ def extract_attrs(data):
     data.attrs['mod_temp_prof_type'] = data.attrs['VIP_mod_temp_prof_type']
     data.attrs['mod_wv_prof_type'] = data.attrs['VIP_mod_wv_prof_type']
 
+    return data
+
+def extract_zenith_tbs(data, tropoe_out_config):
+    # read config file for TROPoe output
+    if isinstance(tropoe_out_config, dict):
+        tropoe_conf = tropoe_out_config
+    else:
+        raise FileExistsError("The argument 'conf' must be a conf dictionary")
+    
+    # extract frequencies from attrs
+    mwr_frequencies = [float(item) for item in data.attrs['VIP_mwr_tb_freqs'].split(', ')]
+
+    # Measurement vector and FM:
+    data = data.assign(
+        Tb = xr.DataArray(
+        data.obs_vector[:,data.obs_flag==tropoe_conf['zenithTb']].data,
+        coords= {'time':data.time, 'frequency':mwr_frequencies},
+        dims=['time','frequency'],
+        attrs={'long_name':'zenith brightness temperature'}
+        ),
+    )
+    data = data.assign(
+        Tb_simulated = xr.DataArray(
+        data.forward_calc[:,data.obs_flag==tropoe_conf['zenithTb']].data,
+        coords= {'time':data.time, 'frequency':mwr_frequencies},
+        dims=['time','frequency'],
+        attrs={'long_name':'simulated brightness temperature'}
+        ),
+    )
     return data
 
 if __name__ == '__main__':
