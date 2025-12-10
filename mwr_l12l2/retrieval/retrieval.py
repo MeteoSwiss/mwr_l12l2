@@ -171,45 +171,48 @@ class Retrieval(object):
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
         # only read model data if it's actually required
-               
+        
         if OmB:
-            # start the OmB calculation from TROPoe:
-            self.use_model_data = True
-            vip_edits = dict(omb_flag=1)
-            self.conf['vip'].update(vip_edits)          
-            
-
-            # We also read the model if there are no mwr met station
-            if self.use_model_data or \
-                    not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
-                logger.info('Reading model data for this retrieval (as pseudo observations or because no met data exist)')
-                try:
-                    self.choose_model_files()
-                    self.prepare_model(OmB)
-                except Exception as e:
-                    logger.warning(e)
-                    self.use_model_data = False
-                    logger.warning('No model data will be used for the retrieval')
+            try:
+                # start the OmB calculation from TROPoe:
+                self.use_model_data = True
+                vip_edits = dict(omb_flag=1)
+                self.conf['vip'].update(vip_edits)          
                 
-            self.prepare_vip()
-            #print(self.mwr)       
 
-            self.do_retrieval()
-            logger.info('Post-processing TROPoe output for OmB calculation')
-            outfiles_pattern = os.path.join(self.tropoe_dir, self.tropoe_output_basename + '*.nc')
-            outfiles = glob.glob(outfiles_pattern)
-            if len(outfiles) == 1:
-                # Copy the file to the quicklook directory
-                omb_file = os.path.join(self.conf['omb_outdir'], os.path.basename(outfiles[0]))
-                shutil.copy(outfiles[0], omb_file)
-                self.tropoe_omb_file = omb_file
-            elif len(outfiles) == 0:
-                raise MWRRetrievalError('Found no file matching {}. Possibly the TROPoe did not run through.'.format(
-                    outfiles_pattern))
-            elif len(outfiles) > 1:
-                raise MWRRetrievalError("Found several files matching {}. Don't know which TROPoe output to use.".format(
-                    outfiles_pattern))
-            logger.info(' OmB calculation done.')
+                # We also read the model if there are no mwr met station
+                if self.use_model_data or \
+                        not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+                    logger.info('Reading model data for this retrieval (as pseudo observations or because no met data exist)')
+                    try:
+                        self.choose_model_files()
+                        self.prepare_model(OmB)
+                    except Exception as e:
+                        logger.warning(e)
+                        self.use_model_data = False
+                        logger.warning('No model data will be used for the retrieval')
+                    
+                self.prepare_vip()
+                #print(self.mwr)       
+
+                self.do_retrieval()
+                logger.info('Post-processing TROPoe output for OmB calculation')
+                outfiles_pattern = os.path.join(self.tropoe_dir, self.tropoe_output_basename + '*.nc')
+                outfiles = glob.glob(outfiles_pattern)
+                if len(outfiles) == 1:
+                    # Copy the file to the quicklook directory
+                    omb_file = os.path.join(self.conf['omb_outdir'], os.path.basename(outfiles[0]))
+                    shutil.copy(outfiles[0], omb_file)
+                    self.tropoe_omb_file = omb_file
+                elif len(outfiles) == 0:
+                    raise MWRRetrievalError('Found no file matching {}. Possibly the TROPoe did not run through.'.format(
+                        outfiles_pattern))
+                elif len(outfiles) > 1:
+                    raise MWRRetrievalError("Found several files matching {}. Don't know which TROPoe output to use.".format(
+                        outfiles_pattern))
+                logger.info('OmB calculation done.')
+            except Exception as e:
+                logger.error(f'Error during OmB calculation: {e}, SKIPPING OmB calculation.')
         
     def prepare_paths(self, datestamp='', netcdf_ext='.nc'):
         """prepare input and output paths and filenames from config"""

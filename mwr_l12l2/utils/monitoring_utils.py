@@ -173,7 +173,7 @@ class Level1(object):
     def plot_tb_zenith(self, ds):
         # Plot the brightness temperature at zenith:
         # select observation at zenith:
-        tb = ds.tb.where(ds.ele>88.0, drop=True)
+        tb = ds.tb.where(ds.ele>88.0, drop=True).where(ds.ele<92.0, drop=True)
 
         fig, axs = plt.subplots(3, 1, figsize=(16, 12))
         
@@ -190,6 +190,7 @@ class Level1(object):
             tb_f = tb.sel(frequency=f)
             
             if f < 35:
+                kband=True
                 # plot good data with a dot marker
                 tb_f.where(flags.sel(frequency=f)==0).plot(ax=axs[0], x='time', color=col, label=str(f.data)+' GHz') 
                 
@@ -204,14 +205,25 @@ class Level1(object):
                 # in the 4th and 5th plot, plot the standard deviation of all frequencies coomputed on 10 minutes
                 # std_tb_i = tb_f.rolling(time=10, center=True).std().resample(time='10min').mean()
                 # std_tb_i.plot(ax=axs[3], x='time', color=col, label=str(f.data)+' GHz')
-            else:
+            elif ((f >= 35) and (f < 60)):
                 tb_f.where(flags.sel(frequency=f)==0).plot(ax=axs[1], x='time', color=col,label=str(f.data)+' GHz')
                 #tb_f.where(flags.sel(frequency=f)>0).plot(ax=axs[1], x='time', color=col, linewidth=6, label=str(f.data)+' GHz')
                 legend_elements_vband.append(plt.Line2D([0], [0],  color=col, label=str(f.data)+' GHz'))
 
                 # std_tb_i = tb_f.rolling(time=10, center=True).std().resample(time='10min').mean()
                 # std_tb_i.plot(ax=axs[4], x='time', color=col, label=str(f.data)+' GHz')
-
+            
+            elif (f > 160):
+                # Adding plots for LHATPRO whcih measures around 180-190 GHz
+                kband=False
+                # plot good data with a dot marker
+                tb_f.where(flags.sel(frequency=f)==0).plot(ax=axs[0], x='time', color=col, label=str(f.data)+' GHz') 
+                
+                #tb_f.where(flags.sel(frequency=f)>0).plot(ax=axs[0], x='time', color=col, linewidth=6, label=str(f.data)+' GHz')
+                legend_elements_kband.append(plt.Line2D([0], [0], color=col, label=str(f.data)+' GHz'))
+            
+            else:
+                logger.warning(f"Frequency {f.data} GHz not in K-band or V-band range, skipping plot.")
         # liquid_cloud_flag = ds.liquid_cloud_flag #.where(ds.ele>89.0, drop=True)
         # liquid_cloud_flag.plot(ax=axs[5], x='time', label='Liquid Cloud Flag')
 
@@ -226,18 +238,19 @@ class Level1(object):
 
         axs[0].legend(handles=legend_elements_kband, loc='best', fontsize=8, ncol=2)
         axs[1].legend(handles=legend_elements_vband, loc='best', fontsize=8, ncol=2)
-        axs[0].set_title('Tb: K-band')
-        axs[1].set_title('Tb: V-band')
-        axs[2].set_title(r'$\Delta Tb$ to 31.8 GHz')
         
+        if kband:
+            axs[0].set_title('Tb: K-band')
+            axs[2].set_title(r'$\Delta Tb$ to 31.8 GHz')
+        else:
+            axs[0].set_title('Brightness Temperature at Zenith')
+        axs[1].set_title('Tb: V-band')
         
         # Add vertical gray band for flagged data (sum>0)
         # only on the first two plots
         sum_flags = ds.quality_flag.sum(dim='frequency')
         axs[0].fill_between(ds.time, 0, 1, where=(sum_flags>0), color='gray', alpha=0.3, transform=axs[0].get_xaxis_transform())
         axs[1].fill_between(ds.time, 0, 1, where=(sum_flags>0), color='gray', alpha=0.3, transform=axs[1].get_xaxis_transform())
-
-               
         #fig.suptitle('Brightness Temperature at Zenith')
 
         return fig
