@@ -19,6 +19,38 @@ from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime6
 from mwr_l12l2.write_netcdf import Writer
 
 
+class RetrievalConstants:
+    """Constants used throughout the retrieval process"""
+    # Time tolerances
+    ALC_TIME_TOLERANCE_MINUTES = 5
+    FILE_TIME_THRESHOLD_HOURS = 2
+    
+    # Station validation tolerances (can be overridden by config)
+    DEFAULT_TOLERANCE_LAT_LON = 0.5  # degrees
+    DEFAULT_TOLERANCE_ALT = 50.0  # meters
+    
+    # Station pressure limits
+    STATION_PSFC_MAX = 1030.0  # hPa
+    STATION_PSFC_MIN = 800.0  # hPa
+    
+    # TROPoe defaults
+    DEFAULT_CBH_KM = 2.0  # default cloud base height when no ALC available
+    TROPOE_VERBOSITY = 3
+    
+    # Surface data type codes
+    SFC_DATA_TYPE_MODEL = 1
+    SFC_DATA_TYPE_MWR = 4
+    
+    # Surface data error defaults
+    SFC_TEMP_ERROR_MWR = 0.5  # K
+    SFC_RH_ERROR_MWR = 3.0  # %
+    SFC_TEMP_ERROR_MODEL = 1.0  # K
+    SFC_RH_ERROR_MODEL = 6.0  # %
+    
+    # Apriori file
+    DEFAULT_APRIORI_FILE = 'prior.MIDLAT.nc'
+
+
 class Retrieval(object):
     """Class for gathering and preparing all necessary information to run the retrieval
 
@@ -82,6 +114,38 @@ class Retrieval(object):
         
         # set by prepare_model():
         self.met_sfc_offset = 0 # Default to 0 as TROPoe should then try to use the higher opacity channels to find T. 
+        
+        # Will be set during processing
+        self.use_model_data = False
+        self.ext_sfc_data_type = None
+        self.station_latitude = None
+        self.station_longitude = None
+        self.station_altitude = None
+
+    # ============================================================================
+    # Properties for better readability
+    # ============================================================================
+    
+    @property
+    def has_complete_surface_data(self):
+        """Check if all required surface measurements exist."""
+        return (self.sfc_temp_obs_exists and 
+                self.sfc_rh_obs_exists and 
+                self.sfc_p_obs_exists)
+    
+    @property
+    def needs_model_data(self):
+        """Determine if model data is required for this retrieval."""
+        return self._uses_model_as_pseudo_obs() or not self.has_complete_surface_data
+    
+    def _uses_model_as_pseudo_obs(self):
+        """Check if model data is configured to be used as pseudo observations."""
+        return (self.conf['vip']['mod_temp_prof_type'] != 0 or 
+                self.conf['vip']['mod_wv_prof_type'] != 0)
+
+    # ============================================================================
+    # Main workflow methods
+    # ============================================================================
 
     def run(self, start_time=None, end_time=None):
         """run the entire retrieval chain
@@ -117,17 +181,11 @@ class Retrieval(object):
         self.prepare_obs(start_time=start_time, end_time=end_time,
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
-        # only read model data if it's actually required
         
-        # New flag for the use of the model data as pseudo observation
-        if self.conf['vip']['mod_temp_prof_type'] != 0 or self.conf['vip']['mod_wv_prof_type'] != 0:
-            self.use_model_data = True
-        else:
-            self.use_model_data = False
-
-        # We also read the model if there are no mwr met station 
-        if  self.use_model_data or \
-                not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+        # Determine if model data is needed (as pseudo observations or for missing surface data)
+        self.use_model_data = self._uses_model_as_pseudo_obs()
+        
+        if self.needs_model_data:
             logger.info('Reading model data for this retrieval (as pseudo observations or because no met data exist)')
             try:
                 self.choose_model_files()
@@ -183,10 +241,8 @@ class Retrieval(object):
                 vip_edits = dict(omb_flag=1)
                 self.conf['vip'].update(vip_edits)          
                 
-
-                # We also read the model if there are no mwr met station
-                if self.use_model_data or \
-                        not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+                # Read model data if needed for retrieval or surface data
+                if self.needs_model_data:
                     logger.info('Reading model data for this retrieval (as pseudo observations or because no met data exist)')
                     try:
                         self.choose_model_files()
@@ -301,14 +357,14 @@ class Retrieval(object):
             valid_files = []
             for i, file in enumerate(list_of_files):
                 file_date = list_of_dates[i]
-                if start_time - dt.timedelta(hours=2) <= file_date <= end_time + dt.timedelta(hours=2):
+                if start_time - dt.timedelta(hours=RetrievalConstants.FILE_TIME_THRESHOLD_HOURS) <= file_date <= end_time + dt.timedelta(hours=RetrievalConstants.FILE_TIME_THRESHOLD_HOURS):
                     valid_files.append(file)
             list_of_files = valid_files
             if not list_of_files:
                 logger.error('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
-                    self.wigos, self.inst_id, start_time, end_time, 2))
+                    self.wigos, self.inst_id, start_time, end_time, RetrievalConstants.FILE_TIME_THRESHOLD_HOURS))
                 raise MissingDataError('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
-                    self.wigos, self.inst_id, start_time, end_time, 2))
+                    self.wigos, self.inst_id, start_time, end_time, RetrievalConstants.FILE_TIME_THRESHOLD_HOURS))
 
         self.mwr_files = list_of_files
         self.alc_files = glob.glob(os.path.join(self.conf['data']['alc_dir'],
@@ -321,9 +377,13 @@ class Retrieval(object):
         #     logger.error(err_msg)
         #     raise MissingDataError(err_msg)
 
+    # ============================================================================
+    # Observations preparation methods
+    # ============================================================================
+
     def prepare_obs(self, start_time=None, end_time=None, delete_mwr_in=False):
         """
-        Function to prepare E-PROFILE MWR and ALC inputs.
+        Prepare E-PROFILE MWR and ALC inputs.
         
         Args:
             start_time (datetime64): The start time for selecting the data.
@@ -333,43 +393,59 @@ class Retrieval(object):
         Raises:
             MissingDataError: If none of the MWR files contain data between the required time limits.
             MissingDataError: If there is not enough data to run the retrieval.
-            
-        Finally, it sets the necessary attributes for further processing.
         """
-        tolerance_alc_time = np.timedelta64(5, 'm')  # get ALC up to 5 minutes before/after start/end of MWR interval
-
         start_time = np.datetime64(start_time)
         end_time = np.datetime64(end_time)
 
-        # MWR treatment
+        # Load and process MWR data
+        mwr = self._load_and_filter_mwr(start_time, end_time, delete_mwr_in)
+        
+        # Validate MWR data
+        self._validate_mwr_data(mwr)
+        
+        # Extract station coordinates and validate
+        self._extract_and_validate_coordinates(mwr)
+        
+        # Save MWR data and check surface measurements
+        self._save_mwr_and_check_surface_data(mwr)
+        
+        # Process ALC data if available
+        self._process_alc_data(start_time, end_time)
+
+    def _load_and_filter_mwr(self, start_time, end_time, delete_mwr_in):
+        """Load MWR data from files and filter by time range.
+        
+        Args:
+            start_time: Start of time range
+            end_time: End of time range
+            delete_mwr_in: Whether to delete input files after processing
+            
+        Returns:
+            xr.Dataset: Filtered MWR data
+            
+        Raises:
+            MissingDataError: If no valid data exists in time range
+        """
         mwr = get_from_nc_files(self.mwr_files)
 
-        self.time_min = max(mwr.time.min().values, start_time) 
-        self.time_max = min(mwr.time.max().values, end_time)
-        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
-            
-        # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
-        if end_time < mwr.time.max().values:
-            Warning('The provided end_time is smaller than the time present in the mwr files. ')
-
-        self.time_min = max(mwr.time.min().values, start_time) 
+        # Calculate time boundaries
+        self.time_min = max(mwr.time.min().values, start_time)
         self.time_max = min(mwr.time.max().values, end_time)
         
         if self.time_min > self.time_max:
-            # Typically happens when mwr data are older than start_time
-            logger.error('The min time exceeds the max time !')
+            logger.error('The min time exceeds the max time!')
+            raise MissingDataError(f'Time range error: min_time ({self.time_min}) > max_time ({self.time_max})')
         
-        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2  # need to work with diff to get timedelta 
+        self.time_mean = self.time_min + (self.time_max - self.time_min) / 2
         
-        # If the provided end_time is smaller than the time present in the mwr files, we should not delete the files
+        # Check if we should preserve files for future processing
         if self.time_max < mwr.time.max().values:
-            delete_mwr_in=False
-            logger.warning('The provided end_time is smaller than the time present in the mwr files. ')
-            Warning('The provided end_time is smaller than the time present in the mwr files. ')
+            delete_mwr_in = False
+            logger.warning('End time is before latest data in files. Preserving files for future processing.')
 
-        # This line removes the time_bnds encoding for some reasons... We need to restore it later
-        mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
-                        drop=True)  # brackets because of precedence of & over > and <
+        # Filter data by time range
+        mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max), drop=True)
+        mwr.time_bnds.encoding = mwr.time.encoding  # Restore encoding after filtering
 
         mwr.time_bnds.encoding = mwr.time.encoding
         # Add here a check on the time_min and time_max to make sure that we have at least 10 minutes of data
@@ -379,78 +455,144 @@ class Retrieval(object):
         # 2. Problem if end_time is before the mwr.time -> files from future retrievals will be deleted
         # 3. Timing problem can occur when reading delayed data (esp. when cron starts just before data arrival) 
         # --> the time min can then exceed the last time present in the mwr files...
-        if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
+        
+        if mwr.time.size == 0:
             if delete_mwr_in:
-                for file in self.mwr_files:
-                    os.remove(file)
-            logger.critical('None of the MWR files found for {} {} contains data between the required time '
-                                      'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
-            raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
-                                   'limits (min={}; max={})'.format(self.wigos, self.inst_id, self.time_min, self.time_max))
-        elif (mwr.time.max().values - mwr.time.min().values) < np.timedelta64(self.conf['vip']['tres'], 'm'):
+                self._delete_files(self.mwr_files)
+            logger.critical(f'None of the MWR files for {self.wigos} {self.inst_id} contains data '
+                          f'between {start_time} and {end_time}')
+            raise MissingDataError(f'No MWR data for {self.wigos} {self.inst_id} in time range '
+                                 f'{self.time_min} to {self.time_max}')
+        
+        min_duration = np.timedelta64(self.conf['vip']['tres'], 'm')
+        data_duration = mwr.time.max().values - mwr.time.min().values
+        
+        if data_duration < min_duration:
             logger.critical('Not enough data to run the retrieval. Skipping this instrument.')
-            raise MissingDataError('Not enough data to run the retrieval. Skipping this instrument.')
-        else:
-            logger.info('#############################################################################################')
-            logger.info('Data retrieval from '+mwr.title+' between '+datetime64_to_str(self.time_min, '%Y-%m-%d %H:%M:%S')+' and '+datetime64_to_str(self.time_max, '%Y-%m-%d %H:%M:%S'))
-            if delete_mwr_in:
-                for file in self.mwr_files:
-                    os.remove(file)
+            raise MissingDataError(f'Insufficient data duration: {data_duration} < {min_duration}')
+        
+        # Log successful data loading
+        logger.info('=' * 90)
+        logger.info(f'Data retrieval from {mwr.title} between '
+                   f'{datetime64_to_str(self.time_min, "%Y-%m-%d %H:%M:%S")} and '
+                   f'{datetime64_to_str(self.time_max, "%Y-%m-%d %H:%M:%S")}')
+        
+        if delete_mwr_in:
+            self._delete_files(self.mwr_files)
+        
+        return mwr
 
-        # if mwr.time.size == 0:  # this must happen after file deletion to avoid useless files persist in input dir
-        #     raise MissingDataError('None of the MWR files found for {} {} contains data between the required time '
-        #                            'limits (min={}; max={})'.format(self.wigos, self.inst_id, start_time, end_time))
-
+    def _validate_mwr_data(self, mwr):
+        """Validate MWR data quality and metadata.
+        
+        Args:
+            mwr: MWR dataset to validate
+            
+        Raises:
+            MissingDataError: If validation fails
+        """
         # TODO: uncomment the following block once getting good test files with ok quality flags
         # mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
         # if mwr.tb.isnull().all():
-        #     raise MissingDataError('All MWR brightness temperature observations between {} and {} are flagged. '
-        #                            'Nothing to retrieve!'.format(start_time, end_time))
+        #     raise MissingDataError(f'All MWR brightness temperature observations between '
+        #                            f'{self.time_min} and {self.time_max} are flagged.')
 
-        # Check if the wigos id is the correct one:
+        # Validate WIGOS ID
         if mwr.wigos_station_id != self.wigos:
-            logger.error('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
-                                      .format(mwr.wigos_station_id, self.wigos))
-            raise MissingDataError('The wigos id in the MWR file ({}) does not match the one in the config file ({})'
-                                   .format(mwr.wigos_station_id, self.wigos))
+            logger.error(f'WIGOS ID mismatch: file has {mwr.wigos_station_id}, '
+                        f'expected {self.wigos}')
+            raise MissingDataError(f'WIGOS ID mismatch: {mwr.wigos_station_id} != {self.wigos}')
 
-        # Check if the latitute, longitude and altitude of the station correspond to the ones in the config file:
-        # with tolerance of 0.5 degree for lat and lon and 50 m for alt:
-        tolerance_lat_lon = self.conf['data']['tolerance_lat_lon'] 
-        tolerance_alt = self.conf['data']['tolerance_alt']
+    def _extract_and_validate_coordinates(self, mwr):
+        """Extract station coordinates from MWR data and validate against config.
         
-        # extract coordinates from mwr file and compare to config
+        Args:
+            mwr: MWR dataset
+            
+        Raises:
+            MissingDataError: If coordinates don't match config within tolerance
+        """
+        # Get tolerances from config or use defaults
+        tolerance_lat_lon = self.conf['data'].get('tolerance_lat_lon', 
+                                                   RetrievalConstants.DEFAULT_TOLERANCE_LAT_LON)
+        tolerance_alt = self.conf['data'].get('tolerance_alt', 
+                                              RetrievalConstants.DEFAULT_TOLERANCE_ALT)
+        
+        # Extract coordinates (using median to be robust against outliers)
         self.station_latitude = np.nanmedian(mwr.station_latitude.values)
         self.station_longitude = np.nanmedian(mwr.station_longitude.values)
         self.station_altitude = np.nanmedian(mwr.station_altitude.values)
 
-        if (abs(self.station_latitude - self.inst_conf['station_latitude']) > tolerance_lat_lon) | \
-                (abs(self.station_longitude - self.inst_conf['station_longitude']) > tolerance_lat_lon) | \
-                (abs(self.station_altitude - self.inst_conf['station_altitude']) > tolerance_alt):
-            logger.error('The station coordinates in the MWR file do not match the ones in the config file')
-            raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
+        # Validate coordinates
+        lat_diff = abs(self.station_latitude - self.inst_conf['station_latitude'])
+        lon_diff = abs(self.station_longitude - self.inst_conf['station_longitude'])
+        alt_diff = abs(self.station_altitude - self.inst_conf['station_altitude'])
+        
+        if lat_diff > tolerance_lat_lon or lon_diff > tolerance_lat_lon or alt_diff > tolerance_alt:
+            logger.error(f'Station coordinate mismatch: '
+                        f'lat_diff={lat_diff:.3f}, lon_diff={lon_diff:.3f}, alt_diff={alt_diff:.1f}m')
+            raise MissingDataError('Station coordinates in MWR file do not match config file '
+                                 f'(tolerances: {tolerance_lat_lon}°, {tolerance_alt}m)')
+
+    def _save_mwr_and_check_surface_data(self, mwr):
+        """Save MWR data to file and check availability of surface measurements.
+        
+        Args:
+            mwr: MWR dataset to save
+        """
         mwr.time_bnds.encoding = mwr.time.encoding
         mwr.to_netcdf(self.mwr_file_tropoe)
 
+        # Check which surface measurements are available
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
         self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
 
         self.mwr = mwr
 
-        # ALC treatment
-        self.alc_exists = True  # start assuming ALC obs exist, set to False if not.
-        if self.alc_files:  # not empty list, not None
-            # careful: MeteoSwiss daily concat files have problem with calendar. Use instant files or concat at CEDA
+    def _process_alc_data(self, start_time, end_time):
+        """Process ceilometer (ALC) data if available.
+        
+        Args:
+            start_time: Start of time range
+            end_time: End of time range
+        """
+        tolerance_alc_time = np.timedelta64(RetrievalConstants.ALC_TIME_TOLERANCE_MINUTES, 'm')
+        
+        self.alc_exists = False
+        
+        if not self.alc_files:
+            logger.debug('No ALC files available')
+            return
+        
+        try:
+            # MeteoSwiss daily concat files have calendar issues. Use instant files or concat at CEDA
             alc = get_from_nc_files(self.alc_files)
-            alc = alc.where((alc.time >= self.time_min - tolerance_alc_time)
-                                & (alc.time <= self.time_max + tolerance_alc_time), drop=True)
-            if alc.time.size == 0:
-                self.alc_exists = False
-            else:
+            alc = alc.where((alc.time >= self.time_min - tolerance_alc_time) &
+                           (alc.time <= self.time_max + tolerance_alc_time), drop=True)
+            
+            if alc.time.size > 0:
                 alc.to_netcdf(self.alc_file_tropoe)
-        else:
+                self.alc_exists = True
+                logger.info(f'ALC data available: {alc.time.size} timesteps')
+            else:
+                logger.info('ALC files found but no data in time range')
+        except Exception as e:
+            logger.warning(f'Failed to process ALC data: {e}')
             self.alc_exists = False
+
+    def _delete_files(self, file_list):
+        """Safely delete a list of files with logging.
+        
+        Args:
+            file_list: List of file paths to delete
+        """
+        for filepath in file_list:
+            try:
+                os.remove(filepath)
+                logger.debug(f'Deleted file: {filepath}')
+            except OSError as e:
+                logger.warning(f'Failed to delete {filepath}: {e}')
 
     def choose_model_files(self):
         """choose most actual model forecast run containing time range in MWR data and according zg file"""
@@ -490,7 +632,7 @@ class Retrieval(object):
         prof_data, sfc_data = model_to_tropoe(model, station_altitude=self.inst_conf['station_altitude'], OmB=OmB)
         prof_data.to_netcdf(self.model_prof_file_tropoe)
         self.met_sfc_offset = int(1e3*sfc_data.height.mean(dim='time').data)
-        if not (self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists):
+        if not self.has_complete_surface_data:
             sfc_data.to_netcdf(self.model_sfc_file_tropoe)
         
     def prepare_vip(self):
@@ -510,23 +652,21 @@ class Retrieval(object):
             err_msg_2 = 'This is not the case for {}_{}'.format(self.wigos, self.inst_id)
             raise MWRConfigError(' '.join([err_msg_1, err_msg_2]))
 
-        # Check for met data in the mwr level 1, if exist setup VIP file accordingly to read mwr level 1 file for 
-        # surface data and if not taking lowest model level as surface data (with altitude offset in m !)
-        if self.sfc_temp_obs_exists & self.sfc_rh_obs_exists & self.sfc_p_obs_exists:
+        # Determine surface data source and configure accordingly
+        if self.has_complete_surface_data:
             logger.info('Surface data measured by the MWR')
-            self.ext_sfc_data_type = 4  # 4 for mwr file, 1 for model file
+            self.ext_sfc_data_type = RetrievalConstants.SFC_DATA_TYPE_MWR
             sfc_data_offset = 0
-            sfc_rootname = "mwr"       
-            # the default values:     
-            sfc_temp_random_error = 0.5
-            sfc_rh_random_error = 3
-        else: 
+            sfc_rootname = "mwr"
+            sfc_temp_random_error = RetrievalConstants.SFC_TEMP_ERROR_MWR
+            sfc_rh_random_error = RetrievalConstants.SFC_RH_ERROR_MWR
+        else:
             logger.info('No surface data measured by the MWR, using the forecast data instead')
-            self.ext_sfc_data_type = 1
+            self.ext_sfc_data_type = RetrievalConstants.SFC_DATA_TYPE_MODEL
             sfc_data_offset = self.met_sfc_offset
-            sfc_rootname = "met"  # this should be the default value but better specify
-            sfc_temp_random_error = 1
-            sfc_rh_random_error = 6
+            sfc_rootname = "met"
+            sfc_temp_random_error = RetrievalConstants.SFC_TEMP_ERROR_MODEL
+            sfc_rh_random_error = RetrievalConstants.SFC_RH_ERROR_MODEL
 
         # update and complete vip entries with info from conf and data availability
         vip_edits = dict(
@@ -537,8 +677,8 @@ class Retrieval(object):
                         mwr_tb_freqs=self.mwr.frequency[ch_zenith].values,
                         mwr_tb_noise=self.inst_conf['retrieval']['tb_noise'][ch_zenith],
                         mwr_tb_bias=self.inst_conf['retrieval']['tb_bias'][ch_zenith],
-                        station_psfc_max=1030.,  # TODO: calc from station altitude
-                        station_psfc_min=800.,
+                        station_psfc_max=RetrievalConstants.STATION_PSFC_MAX,  # TODO: calc from station altitude
+                        station_psfc_min=RetrievalConstants.STATION_PSFC_MIN,
                         ext_sfc_wv_type=self.ext_sfc_data_type,  # 4 for mwr file, 1 for model file
                         ext_sfc_temp_type=self.ext_sfc_data_type,  # 4 for mwr file, 1 for model file
                         ext_sfc_relative_height=sfc_data_offset,
@@ -552,7 +692,7 @@ class Retrieval(object):
                         mwrscan_rootname=self.conf['data']['mwr_basefilename_tropoe'],
                         mod_temp_prof_path=self.tropoe_dir_mountpoint,
                         mod_wv_prof_path=self.tropoe_dir_mountpoint,
-                        cbh_path=self.tropoe_dir_mountpoint,  # if no ALC is available, TROPoe uses default cbh of 2 km
+                        cbh_path=self.tropoe_dir_mountpoint,  # if no ALC is available, TROPoe uses default cbh
                         ext_sfc_path=self.tropoe_dir_mountpoint,
                         output_path=self.tropoe_dir_mountpoint,
                         output_rootname=self.tropoe_output_basename,
@@ -585,10 +725,11 @@ class Retrieval(object):
         """run the retrieval using the TROPoe container"""
         # TODO: decide which a-priori file to use. associate with inst or general? where to store this config:
         #  inst config file, some DB or a apriori config file with info for all instruments
-        apriori_file = 'prior.MIDLAT.nc'  # located outside TROPoe container unless starting with prior.*
+        apriori_file = RetrievalConstants.DEFAULT_APRIORI_FILE  # located outside TROPoe container unless starting with prior.*
         date = datetime64_to_str(self.time_mean, '%Y%m%d')
         run_tropoe(self.tropoe_dir, date, datetime64_to_hour(self.time_min), datetime64_to_hour(self.time_max),
-                   self.vip_file_tropoe, apriori_file, tropoe_img=self.conf['data']['tropoe_img'], verbosity=3)
+                   self.vip_file_tropoe, apriori_file, tropoe_img=self.conf['data']['tropoe_img'], 
+                   verbosity=RetrievalConstants.TROPOE_VERBOSITY)
         
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
@@ -644,10 +785,10 @@ class Retrieval(object):
         else:
             data.attrs['retrieval_type'] = 'optimal estimation'
 
-        if self.ext_sfc_data_type == 1:
+        if self.ext_sfc_data_type == RetrievalConstants.SFC_DATA_TYPE_MODEL:
             data.attrs['ext_sfc_temp_type'] = 'model'
             data.attrs['ext_sfc_wv_type'] = 'model'
-        elif self.ext_sfc_data_type == 4:
+        elif self.ext_sfc_data_type == RetrievalConstants.SFC_DATA_TYPE_MWR:
             data.attrs['ext_sfc_temp_type'] = 'mwr'
             data.attrs['ext_sfc_wv_type'] = 'mwr'
         else:
