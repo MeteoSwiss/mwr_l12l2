@@ -7,6 +7,8 @@ import xarray as xr
 from mwr_l12l2.utils.data_utils import set_encoding
 from mwr_l12l2.utils.file_utils import abs_file_path, replace_path
 from mwr_l12l2.log import logger
+from mwr_l12l2.errors import MWRConfigError
+from mwr_l12l2.utils.file_utils import dict_to_file
 
 def model_to_tropoe(model, station_altitude, OmB=False):
     """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe
@@ -117,6 +119,144 @@ def model_to_tropoe(model, station_altitude, OmB=False):
     sfc_data.attrs = sfc_data_attrs
 
     return prof_data, sfc_data
+
+
+def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data, 
+                    met_sfc_offset, tropoe_paths, output_basename, constants):
+    """Build VIP configuration dictionary for TROPoe.
+    
+    Args:
+        mwr_data: xarray Dataset with MWR observations
+        inst_conf: Instrument configuration dictionary
+        station_coords: dict with 'latitude', 'longitude', 'altitude'
+        has_surface_data: bool indicating if complete surface data is available
+        met_sfc_offset: Surface offset in meters (for model data)
+        tropoe_paths: dict with path configuration:
+            - 'mountpoint': TROPoe directory mountpoint
+            - 'mwr_basename': MWR file basename
+        output_basename: Output file basename
+        constants: Constants class (e.g., RetrievalConstants)
+        
+    Returns:
+        dict: VIP configuration parameters ready for writing
+        int: Surface data type code (for setting ext_sfc_data_type)
+        
+    Raises:
+        MWRConfigError: If channel configuration is invalid
+    """
+    ch_zenith = inst_conf['retrieval']['zenith_channels']
+    ch_scan = inst_conf['retrieval']['scan_channels']
+    
+    # Validate channel configuration
+    if not (len(ch_zenith) == len(ch_scan) == len(mwr_data.frequency)):
+        raise MWRConfigError(
+            f'Channel configuration mismatch: '
+            f'zenith_channels={len(ch_zenith)}, scan_channels={len(ch_scan)}, '
+            f'frequency dimension={len(mwr_data.frequency)}. All must be equal.'
+        )
+    
+    # Configure surface data
+    if has_surface_data:
+        logger.info('Surface data from MWR measurements')
+        sfc_data_type = constants.SFC_DATA_TYPE_MWR
+        sfc_config = {
+            'offset': 0,
+            'rootname': 'mwr',
+            'temp_error': constants.SFC_TEMP_ERROR_MWR,
+            'rh_error': constants.SFC_RH_ERROR_MWR
+        }
+    else:
+        logger.info('Surface data from model forecast')
+        sfc_data_type = constants.SFC_DATA_TYPE_MODEL
+        sfc_config = {
+            'offset': met_sfc_offset,
+            'rootname': 'met',
+            'temp_error': constants.SFC_TEMP_ERROR_MODEL,
+            'rh_error': constants.SFC_RH_ERROR_MODEL
+        }
+    
+    # Build base configuration
+    vip_config = {
+        # Station information
+        'station_lat': station_coords['latitude'],
+        'station_lon': station_coords['longitude'],
+        'station_alt': station_coords['altitude'],
+        'station_psfc_max': constants.STATION_PSFC_MAX,
+        'station_psfc_min': constants.STATION_PSFC_MIN,
+        
+        # MWR zenith configuration
+        'mwr_n_tb_fields': len(mwr_data.frequency[ch_zenith]),
+        'mwr_tb_freqs': mwr_data.frequency[ch_zenith].values,
+        'mwr_tb_noise': inst_conf['retrieval']['tb_noise'][ch_zenith],
+        'mwr_tb_bias': inst_conf['retrieval']['tb_bias'][ch_zenith],
+        
+        # Surface data configuration
+        'ext_sfc_wv_type': sfc_data_type,
+        'ext_sfc_temp_type': sfc_data_type,
+        'ext_sfc_relative_height': sfc_config['offset'],
+        'ext_sfc_rootname': sfc_config['rootname'],
+        'ext_sfc_temp_random_error': sfc_config['temp_error'],
+        'ext_sfc_rh_random_error': sfc_config['rh_error'],
+        
+        # File paths
+        'mwr_path': tropoe_paths['mountpoint'],
+        'mwr_rootname': tropoe_paths['mwr_basename'],
+        'mwrscan_path': tropoe_paths['mountpoint'],
+        'mwrscan_rootname': tropoe_paths['mwr_basename'],
+        'mod_temp_prof_path': tropoe_paths['mountpoint'],
+        'mod_wv_prof_path': tropoe_paths['mountpoint'],
+        'cbh_path': tropoe_paths['mountpoint'],
+        'ext_sfc_path': tropoe_paths['mountpoint'],
+        
+        # Output configuration
+        'output_path': tropoe_paths['mountpoint'],
+        'output_rootname': output_basename,
+    }
+    
+    # Add scan configuration if available
+    if any(ch_scan):
+        logger.info('Configuring scan data for retrieval')
+        scan_config = {
+            'mwrscan_type': 4,
+            'mwrscan_elev_field': 'ele',
+            'mwrscan_freq_field': 'frequency',
+            'mwrscan_tb_field_names': 'tb',
+            'mwrscan_tb_field1_tbmax': 330.0,
+            'mwrscan_time_delta': 0.1 / 60,
+            'mwrscan_elevations': inst_conf['retrieval']['scan_ele'],
+            'mwrscan_n_elevations': len(inst_conf['retrieval']['scan_ele']),
+            'mwrscan_n_tb_fields': len(mwr_data.frequency[ch_scan]),
+            'mwrscan_tb_freqs': mwr_data.frequency[ch_scan].values,
+            'mwrscan_tb_noise': inst_conf['retrieval']['tb_noise'][ch_scan],
+            'mwrscan_tb_bias': inst_conf['retrieval']['tb_bias'][ch_scan],
+        }
+        vip_config.update(scan_config)
+    else:
+        logger.info('No scan data for this retrieval')
+    
+    return vip_config, sfc_data_type
+
+
+def write_vip_file(vip_base_config, vip_updates, output_filepath):
+    """Write VIP configuration to file.
+    
+    Args:
+        vip_base_config: Base VIP configuration dictionary
+        vip_updates: Dictionary of updates to apply to base config
+        output_filepath: Path where to write the VIP file
+    """
+    header = '# This file is automatically generated. Do not edit. To change settings modify retrieval config file.'
+    vip_base_config.update(vip_updates)
+    dict_to_file(
+        vip_base_config,
+        output_filepath,
+        sep=' = ',
+        header=header,
+        remove_brackets=True,
+        remove_parentheses=True,
+        remove_braces=True
+    )
+    logger.debug(f'VIP configuration written to {output_filepath}')
 
 
 def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
