@@ -144,6 +144,37 @@ class Retrieval(object):
         """Check if model data is configured to be used as pseudo observations."""
         return (self.conf['vip']['mod_temp_prof_type'] != 0 or 
                 self.conf['vip']['mod_wv_prof_type'] != 0)
+    
+    def _validate_time_input(self, start_time, end_time):
+        """Validate and adjust start_time and end_time parameters.
+        
+        Args:
+            start_time: User-provided start time or None
+            end_time: User-provided end time or None
+            
+        Returns:
+            tuple: (validated_start_time, validated_end_time)
+            
+        Raises:
+            MWRInputError: If start_time is not a datetime object or None
+        """
+        # Validate start_time type
+        if start_time is not None and not isinstance(start_time, dt.datetime):
+            logger.error("input argument 'start_time' is expected to be of type datetime.datetime or None")
+            raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
+        
+        # Apply default start_time based on max_age if not provided
+        if start_time is None and self.conf['data']['max_age'] is not None:
+            logger.info('No start time provided. Using data from the last {} minutes.'.format(
+                self.conf['data']['max_age']))
+            start_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
+                minutes=self.conf['data']['max_age'])
+        
+        # Apply default end_time if not provided
+        if end_time is None:
+            end_time = dt.datetime.now(dt.timezone.utc)
+        
+        return start_time, end_time
 
     # ============================================================================
     # Main workflow methods
@@ -158,14 +189,8 @@ class Retrieval(object):
             end_time (optional): latest time from which to consider data. If not specified, all data received by now is
                 processed.
         """
-        if start_time is not None and not isinstance(start_time, dt.datetime):
-            logger.error("input argument 'start_time' is expected to be of type datetime.datetime or None")
-            raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
-        if start_time is None and self.conf['data']['max_age'] is not None:
-            logger.info('No start time provided. Using data from the last {} minutes.'.format(self.conf['data']['max_age']))
-            start_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=self.conf['data']['max_age'])
-        if end_time is None:
-            end_time = dt.datetime.now(dt.timezone.utc)
+        # Validate and adjust time parameters
+        start_time, end_time = self._validate_time_input(start_time, end_time)
         # start_time can be left at None to consider earliest available MWR data
 
         datestamp = start_time.strftime('%Y%m%d')
@@ -211,13 +236,10 @@ class Retrieval(object):
                 'max_age' specified in retrieval config will be used or, if 'max_age' is None, age of data is unlimited.
             end_time (optional): latest time from which to consider data. If not specified, all data received by now is
                 processed.
+            OmB (optional): If True, perform Observation minus Background calculation.
         """
-        if start_time is not None and not isinstance(start_time, dt.datetime):
-            logger.error("input argument 'start_time' is expected to be of type datetime.datetime or None")
-            raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
-        if start_time is None and self.conf['data']['max_age'] is not None:
-            logger.info('No start time provided. Using data from the last {} minutes.'.format(self.conf['data']['max_age']))
-            start_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=self.conf['data']['max_age'])
+        # Validate and adjust time parameters
+        start_time, end_time = self._validate_time_input(start_time, end_time)
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
 
         datestamp = start_time.strftime('%Y%m%d')
