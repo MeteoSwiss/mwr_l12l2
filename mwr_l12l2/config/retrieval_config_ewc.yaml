@@ -16,12 +16,12 @@ data:
   tolerance_alt: 50
 
   # info on instrument configuration files
-  inst_config_dir: mwr_l12l2/config/
+  inst_config_dir: /home/eric/eprofile_config/mwr/l12l2/
   inst_config_file_prefix: config_
 
   # location and filenames of output data
-  output_dir: /data/eprofile-mwr-l2/  # directory for microwave radiometer input data
-  output_dir_copy: /home/eric/retrieval/level2/
+  output_dir: /home/eric/level2/  # directory for microwave radiometer input data
+  #output_dir_copy: /home/eric/level2/
   output_file_prefix: MWR_2C01_
   
   # location and filenames of input E-PROFILE data
@@ -40,6 +40,7 @@ data:
   model_z_file_ext: .grb
 
   # location and filenames of temporary TROPoe files
+  tropoe_img: 'davidturner53/tropoe:v0.19'
   tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
   tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
   tropoe_dir_mountpoint: /data  # where the tropoe subfolder shall be mounted inside the TROPoe container
