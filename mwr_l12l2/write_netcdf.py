@@ -2,7 +2,7 @@ import datetime as dt
 from copy import deepcopy
 
 import numpy as np
-from pkg_resources import get_distribution
+from importlib.metadata import version, PackageNotFoundError
 
 import mwr_l12l2
 from mwr_l12l2.errors import MissingConfig, OutputDimensionError
@@ -122,8 +122,11 @@ class Writer(object):
         current_time_str = dt.datetime.now(tz=dt.timezone(dt.timedelta(0))).strftime('%Y%m%d')  # ensure UTC
         proj_dir = mwr_l12l2.__file__.split('/')[-2]
         try:
-            proj_dist = get_distribution(proj_dir)
-            hist_str = '{}: {} ({})'.format(current_time_str, proj_dist.project_name, proj_dist.version)
+            proj_ver = version(proj_dir)
+            hist_str = f'{current_time_str}: {proj_dir} ({proj_ver})'
+        except PackageNotFoundError:
+            hist_str = f'{current_time_str}: {proj_dir} (version not found)'
+            logger.warning('Could not find version of package {}. Is it installed via pip?'.format(proj_dir))
         except Exception as err:  # noqa E722  # Don't want code to fail for just writing history
             hist_str = '{}: mwr_l12l2'.format(current_time_str)
             logger.warning('Received error {} while trying to set history global attribute. Therefore, will be using '
