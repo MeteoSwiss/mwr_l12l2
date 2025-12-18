@@ -135,15 +135,15 @@ class InstrumentSelector(object):
             self.set_instrument(wigos, inst_id)
         else:
             self.select_oldest()
-        self.list_obs_files()
+        #self.list_obs_files()
 
         # Necessary information to perform the retrieval for the selected instrument
         selected_instrument = {
             'wigos': self.wigos,
             'inst_id': self.inst_id,
             'inst_conf': self.inst_conf,
-            'mwr_files': self.mwr_files,
-            'alc_files': self.alc_files
+            'mwr_files': None,
+            'alc_files': None
         }
 
         ret = Retrieval(self.conf, selected_instrument, node=1)

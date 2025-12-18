@@ -4,6 +4,7 @@ import shutil
 
 import datetime as dt
 import numpy as np
+import pytz
 import xarray as xr
 
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
@@ -96,8 +97,10 @@ class Retrieval(object):
             raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
         if start_time is None and self.conf['data']['max_age'] is not None:
             logger.info('No start time provided. Using data from the last {} minutes.'.format(self.conf['data']['max_age']))
-            start_time = dt.datetime.utcnow() - dt.timedelta(minutes=self.conf['data']['max_age'])
-        # end_time/start_time can be left at None to consider latest/earliest available MWR data
+            start_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=self.conf['data']['max_age'])
+        if end_time is None:
+            end_time = dt.datetime.now(dt.timezone.utc)
+        # start_time can be left at None to consider earliest available MWR data
 
         datestamp = start_time.strftime('%Y%m%d')
 
@@ -108,8 +111,9 @@ class Retrieval(object):
         if self.wigos is None:
             logger.info('No instrument specified. Selecting the oldest one.')
             self.select_instrument()
-            self.list_obs_files()
 
+        if self.mwr_files is None:
+            self.list_obs_files(start_time=start_time, end_time=end_time)
         self.prepare_obs(start_time=start_time, end_time=end_time,
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
@@ -153,7 +157,7 @@ class Retrieval(object):
             raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
         if start_time is None and self.conf['data']['max_age'] is not None:
             logger.info('No start time provided. Using data from the last {} minutes.'.format(self.conf['data']['max_age']))
-            start_time = dt.datetime.utcnow() - dt.timedelta(minutes=self.conf['data']['max_age'])
+            start_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=self.conf['data']['max_age'])
         # end_time/start_time can be left at None to consider latest/earliest available MWR data
 
         datestamp = start_time.strftime('%Y%m%d')
@@ -274,25 +278,48 @@ class Retrieval(object):
 
         self.tropoe_output_basename = self.conf['data']['result_basefilename_tropoe'] + '_' + self.wigos + self.inst_id
 
-    def list_obs_files(self):
+    def list_obs_files(self, start_time=None, end_time=None):
         """get file lists for the selected station
 
         Note:
              this method shall list all (MWR) files not just the ones matching time settings. Like that old (obsolete)
              files are removed when :meth:`prepare_obs` is run with delete_mwr_in=True
         """
-        self.mwr_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
+        list_of_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
                                                 '{}*{}_{}*.nc'.format(self.conf['data']['mwr_file_prefix'],
                                                                       self.wigos, self.inst_id)))
+        if not list_of_files:
+            logger.error('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
+            raise MissingDataError('No MWR data found in {}'.format(self.conf['data']['mwr_dir']))
+        
+        # extract filename and dates of all files
+        list_of_file_date = [os.path.basename(x).split('/')[-1].split('_')[3] for x in list_of_files]
+        list_of_dates = [dt.datetime.strptime(x[1:-3], '%Y%m%d%H%M%S').replace(tzinfo=pytz.UTC) for x in list_of_file_date]
+        
+        # Now only keep the files within the time range (+ threshold) if provided
+        if start_time is not None:
+            valid_files = []
+            for i, file in enumerate(list_of_files):
+                file_date = list_of_dates[i]
+                if start_time - dt.timedelta(hours=2) <= file_date <= end_time + dt.timedelta(hours=2):
+                    valid_files.append(file)
+            list_of_files = valid_files
+            if not list_of_files:
+                logger.error('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
+                    self.wigos, self.inst_id, start_time, end_time, 2))
+                raise MissingDataError('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
+                    self.wigos, self.inst_id, start_time, end_time, 2))
+
+        self.mwr_files = list_of_files
         self.alc_files = glob.glob(os.path.join(self.conf['data']['alc_dir'],
                                                 '{}*{}*.nc'.format(self.conf['data']['alc_file_prefix'], self.wigos)))
-        if not self.mwr_files:
-            err_msg = ('No MWR data for {} {} found in {}. These files must have been removed between station selection'
-                       ' and file listing. This should not happen!'.format(self.wigos, self.inst_id,
-                                                                           self.conf['data']['mwr_dir']))
-            # TODO: also add a CRITICAL entry with err_msg to logger before raising the exception
-            logger.error(err_msg)
-            raise MissingDataError(err_msg)
+        # if not self.mwr_files:
+        #     err_msg = ('No MWR data for {} {} found in {}. These files must have been removed between station selection'
+        #                ' and file listing. This should not happen!'.format(self.wigos, self.inst_id,
+        #                                                                    self.conf['data']['mwr_dir']))
+        #     # TODO: also add a CRITICAL entry with err_msg to logger before raising the exception
+        #     logger.error(err_msg)
+        #     raise MissingDataError(err_msg)
 
     def prepare_obs(self, start_time=None, end_time=None, delete_mwr_in=False):
         """
@@ -340,9 +367,11 @@ class Retrieval(object):
             logger.warning('The provided end_time is smaller than the time present in the mwr files. ')
             Warning('The provided end_time is smaller than the time present in the mwr files. ')
 
+        # This line removes the time_bnds encoding for some reasons... We need to restore it later
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max),
                         drop=True)  # brackets because of precedence of & over > and <
-        
+
+        mwr.time_bnds.encoding = mwr.time.encoding
         # Add here a check on the time_min and time_max to make sure that we have at least 10 minutes of data
         # Before file deletion so that the files are kept for the next retrievals
         #TODO: Different bugs can still happen with this way of doing:
@@ -400,7 +429,7 @@ class Retrieval(object):
                 (abs(self.station_altitude - self.inst_conf['station_altitude']) > tolerance_alt):
             logger.error('The station coordinates in the MWR file do not match the ones in the config file')
             raise MissingDataError('The station coordinates in the MWR file do not match the ones in the config file')
-        
+        mwr.time_bnds.encoding = mwr.time.encoding
         mwr.to_netcdf(self.mwr_file_tropoe)
 
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
@@ -559,8 +588,8 @@ class Retrieval(object):
         apriori_file = 'prior.MIDLAT.nc'  # located outside TROPoe container unless starting with prior.*
         date = datetime64_to_str(self.time_mean, '%Y%m%d')
         run_tropoe(self.tropoe_dir, date, datetime64_to_hour(self.time_min), datetime64_to_hour(self.time_max),
-                   self.vip_file_tropoe, apriori_file, verbosity=2)
-
+                   self.vip_file_tropoe, apriori_file, tropoe_img=self.conf['data']['tropoe_img'], verbosity=3)
+        
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
         # TODO: set up a writer producing the E-PROFILE format. 90% of mwr_raw2l1.write_netcdf() and
