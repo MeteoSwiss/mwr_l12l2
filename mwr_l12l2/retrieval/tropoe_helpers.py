@@ -296,6 +296,7 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
     cmd = ['podman', 'run', '-i', '-u', 'root', '--rm',
            '-v', '{}:{}'.format(abs_file_path(data_path), data_mountpoint),  # map the data path inside the container
            '-v', '{}:/tmp2'.format(abs_file_path(tmp_path)),  # map the tmp path to /tmp2 (for debug only)
+           '-e', 'app=TROPoe',
            '-e', 'yyyymmdd=' + date_str,
            '-e', 'shour={}'.format(start_hour),
            '-e', 'ehour={}'.format(end_hour),
