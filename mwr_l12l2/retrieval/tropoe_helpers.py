@@ -167,58 +167,19 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
             f'frequency dimension={len(mwr_data.frequency)}. All must be equal.'
         )
     
-    # Configure surface data
-    
-    # Surface data error defaults #TODO: move these to a better place but they can't be in config file "vip" section
-    # because they are not official VIP parameters
-    sfc_temp_error_mwr = 0.5  # K - temperature error for MWR surface measurements
-    sfc_rh_error_mwr = 3.0  # % - relative humidity error for MWR surface measurements
-    sfc_temp_error_model = 1.0  # K - temperature error for surface model data
-    sfc_rh_error_model = 6.0  # % - relative humidity error for surface model data
-  
-    if has_surface_data:
-        logger.info('Surface data from MWR measurements')
-        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR
-        sfc_config = {
-            'offset': 0,
-            'rootname': 'mwr',
-            'temp_error': sfc_temp_error_mwr,
-            'rh_error': sfc_rh_error_mwr
-        }
-        sfc_pressure = np.nanmedian(mwr_data['air_pressure'].values)
-    else:
-        logger.info('Surface data from model forecast')
-        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL
-        sfc_config = {
-            'offset': met_sfc_offset,
-            'rootname': 'met',
-            'temp_error': sfc_temp_error_model,
-            'rh_error': sfc_rh_error_model
-        }
-        # TODO: define this from model data
-        # sfc_pressure = vip_conf.get('station_pres', 980.0)
-    
     # Build configuration updates to merge with base vip_conf
     vip_updates = {
         # Station information
         'station_lat': station_coords['latitude'],
         'station_lon': station_coords['longitude'],
         'station_alt': station_coords['altitude'],
-        'station_pres': sfc_pressure,
+        
         
         # MWR zenith configuration
         'mwr_n_tb_fields': len(mwr_data.frequency[ch_zenith]),
         'mwr_tb_freqs': mwr_data.frequency[ch_zenith].values,
         'mwr_tb_noise': inst_conf['retrieval']['tb_noise'][ch_zenith],
         'mwr_tb_bias': inst_conf['retrieval']['tb_bias'][ch_zenith],
-        
-        # Surface data configuration
-        'ext_sfc_wv_type': sfc_data_type,
-        'ext_sfc_temp_type': sfc_data_type,
-        'ext_sfc_relative_height': sfc_config['offset'],
-        'ext_sfc_rootname': sfc_config['rootname'],
-        'ext_sfc_temp_random_error': sfc_config['temp_error'],
-        'ext_sfc_rh_random_error': sfc_config['rh_error'],
         
         # File paths
         'mwr_path': tropoe_paths['mountpoint'],
@@ -259,7 +220,36 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
     
     # Merge updates into base vip configuration
     vip_conf.update(vip_updates)
-
+    
+    # Updates related to surface meteorological data (depends on availability)  
+    if has_surface_data:
+        logger.info('Surface data from MWR measurements')
+        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR
+        # Only need to adapt the station pressure
+        vip_updates_sfc_data = {
+            'station_pres': np.nanmedian(mwr_data['air_pressure'].values)
+        }
+    else:
+        logger.info('Surface data from model forecast')
+        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL
+        # TODO: define this from model data
+        sfc_pressure = 980.0  # hPa - default value
+        sfc_temp_error_model = 1.0  # K - temperature error for surface model data
+        sfc_rh_error_model = 6.0  # % - relative humidity error for surface model data
+        
+        vip_updates_sfc_data = {
+            'station_pres': sfc_pressure,
+            'ext_sfc_wv_type': sfc_data_type,
+            'ext_sfc_temp_type': sfc_data_type,
+            'ext_sfc_relative_height': met_sfc_offset,
+            'ext_sfc_rootname': 'met',
+            'ext_sfc_temp_random_error': sfc_temp_error_model,
+            'ext_sfc_rh_random_error': sfc_rh_error_model,
+        }
+        
+    # Merge surface data updates    
+    vip_conf.update(vip_updates_sfc_data)
+    
     return vip_conf, sfc_data_type
 
 def write_vip_file(vip_config, output_filepath):

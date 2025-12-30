@@ -39,6 +39,7 @@ data:
   model_z_file_ext: .grb
 
   # location and filenames of temporary TROPoe files
+  tropoe_img: 'davidturner53/tropoe:v0.20'
   tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
   tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
   tropoe_dir_mountpoint: /data  # where the tropoe subfolder shall be mounted inside the TROPoe container
@@ -48,6 +49,16 @@ data:
   alc_basefilename_tropoe: alc.
   model_prof_basefilename_tropoe: model_prof.
   model_sfc_basefilename_tropoe: met.
+
+  # Time tolerances
+  alc_time_tolerance_minutes: 5  # minutes - tolerance for matching ALC data with MWR data
+  file_time_threshold_hours: 2  # hours - threshold for including files outside time range
+
+  # Apriori file
+  default_apriori_file: 'prior.MIDLAT.nc'  # default apriori file for TROPoe
+
+  default_cbh_km: 2.0  # km - default cloud base height when no ALC available
+  tropoe_verbosity: 3  # verbosity level for TROPoe output
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
@@ -66,17 +77,21 @@ vip:
   mwr_tb_field_names: tb
   mwr_tb_field1_tbmax: 100.
 
-  # The parameters for an elevation scanning radiometer
-  #mwrscan_type: 4
-  #mwrscan_elev_field: ele
-  #mwrscan_freq_field: frequency
-  #mwrscan_tb_field_names: tb
-  #mwrscan_tb_field1_tbmax: 330.
-  #mwrscan_time_delta: 0.25  # The maximum amount of time [hours] that the elevation scan must be to the
+  # The parameters for an elevation scanning radiometer are now defined in the code
 
   # Surface met parameters
   ext_sfc_relative_height: 0
   ext_sfc_pres_type: 0
+  ext_sfc_time_format: -1
+  ext_sfc_pres_fieldname: 'air_pressure'
+  ext_sfc_pres_units: 2
+  ext_sfc_temp_fieldname: 'air_temperature'
+  ext_sfc_temp_units: 2
+  ext_sfc_wv_fieldname: 'relative_humidity'
+
+  # Station pressure limits
+  station_psfc_max: 1030.0  # hPa - maximum allowed surface pressure
+  station_psfc_min: 800.0  # hPa - minimum allowed surface pressure
 
   # The model input
   mod_temp_prof_type: 0
