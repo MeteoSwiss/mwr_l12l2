@@ -11,7 +11,7 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import (TROPoeRetrievalConstants, model_to_tropoe, run_tropoe, 
+from mwr_l12l2.retrieval.tropoe_helpers import (model_to_tropoe, run_tropoe, 
                                                   build_vip_config, write_vip_file, convert_tropoe_output)
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
@@ -107,8 +107,9 @@ class Retrieval(object):
     @property
     def needs_model_data(self):
         """Determine if model data is required for this retrieval."""
-        return self._uses_model_as_pseudo_obs() or not self.has_complete_surface_data
-    
+        return self._uses_model_as_pseudo_obs() # or not self.has_complete_surface_data 
+        # TODO: for now leaving the model out in case of missing surface data as TROPoe can extract it from the MWR observations itself.
+
     def _uses_model_as_pseudo_obs(self):
         """Check if model data is configured to be used as pseudo observations."""
         return (self.conf['vip']['mod_temp_prof_type'] != 0 or 
@@ -132,6 +133,11 @@ class Retrieval(object):
             logger.error("input argument 'start_time' is expected to be of type datetime.datetime or None")
             raise MWRInputError("input argument 'start_time' is expected to be of type datetime.datetime or None")
         
+        # Make sure that the provided start_time is timezone-aware in UTC
+        if start_time is not None and start_time.tzinfo is None:
+            logger.info('Assuming provided start_time is in UTC timezone')
+            start_time = start_time.replace(tzinfo=pytz.UTC)        
+        
         # Apply default start_time based on max_age if not provided
         if start_time is None and self.conf['data']['max_age'] is not None:
             logger.info('No start time provided. Using data from the last {} minutes.'.format(
@@ -142,6 +148,11 @@ class Retrieval(object):
         # Apply default end_time if not provided
         if end_time is None:
             end_time = dt.datetime.now(dt.timezone.utc)
+        else:
+            # Make sure that the provided end_time is timezone-aware in UTC
+            if end_time.tzinfo is None:
+                logger.info('Assuming provided end_time is in UTC timezone')
+                end_time = end_time.replace(tzinfo=pytz.UTC)
         
         return start_time, end_time
 
@@ -178,7 +189,7 @@ class Retrieval(object):
                          delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
         # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
         
-        # Determine if model data is needed (as pseudo observations or for missing surface data)
+        # Determine if model data is needed (as pseudo observations or TODO for missing surface data)
         self.use_model_data = self._uses_model_as_pseudo_obs()
         
         if self.needs_model_data:
@@ -234,16 +245,13 @@ class Retrieval(object):
                 vip_edits = dict(omb_flag=1)
                 self.conf['vip'].update(vip_edits)          
                 
-                # Read model data if needed for retrieval or surface data
-                if self.needs_model_data:
-                    logger.info('Reading model data for this retrieval (as pseudo observations or because no met data exist)')
-                    try:
-                        self.choose_model_files()
-                        self.prepare_model(OmB)
-                    except Exception as e:
-                        logger.warning(e)
-                        self.use_model_data = False
-                        logger.warning('No model data will be used for the retrieval')
+                # Read model data
+                logger.info('Reading model data for this OmB calculation')
+                try:
+                    self.choose_model_files()
+                    self.prepare_model(OmB)
+                except Exception as e:
+                    raise MWRRetrievalError('Cannot perform OmB calculation without model data: {}'.format(e))
                     
                 self.prepare_vip()
                 #print(self.mwr)       
@@ -539,6 +547,11 @@ class Retrieval(object):
         self.sfc_temp_obs_exists = has_data(mwr, 'air_temperature')
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
         self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
+        
+        if self.sfc_p_obs_exists:
+            self.station_pressure = np.nanmedian(mwr.air_pressure.values)
+        else:
+            self.station_pressure = None
 
         self.mwr = mwr
 
@@ -637,7 +650,8 @@ class Retrieval(object):
         station_coords = {
             'latitude': self.station_latitude,
             'longitude': self.station_longitude,
-            'altitude': self.station_altitude
+            'altitude': self.station_altitude,
+            'pressure': self.station_pressure
         }
         
         tropoe_paths = {

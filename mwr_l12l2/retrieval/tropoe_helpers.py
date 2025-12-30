@@ -17,10 +17,9 @@ class TROPoeRetrievalConstants:
     """
     MWR_SCAN_TYPE = 4  # MWR scan data type code
     
-    # Surface data type codes
-    SFC_DATA_TYPE_MODEL = 1
-    SFC_DATA_TYPE_MWR = 4
-    
+    # Surface data type codes for TROPoe VIP file (0 is missing, >1 is either model or MWR)
+    SFC_DATA_TYPE_MISSING = 0
+    SFC_DATA_TYPE_PROVIDED = 1
     
 def model_to_tropoe(model, station_altitude, OmB=False):
     """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe
@@ -173,8 +172,8 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
         'station_lat': station_coords['latitude'],
         'station_lon': station_coords['longitude'],
         'station_alt': station_coords['altitude'],
-        
-        
+        'station_pres': station_coords['pressure'],
+
         # MWR zenith configuration
         'mwr_n_tb_fields': len(mwr_data.frequency[ch_zenith]),
         'mwr_tb_freqs': mwr_data.frequency[ch_zenith].values,
@@ -221,34 +220,37 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
     # Merge updates into base vip configuration
     vip_conf.update(vip_updates)
     
-    # Updates related to surface meteorological data (depends on availability)  
+    # Updates related to surface meteorological data (only if available)  
     if has_surface_data:
-        logger.info('Surface data from MWR measurements')
-        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR
-        # Only need to adapt the station pressure
-        vip_updates_sfc_data = {
-            'station_pres': np.nanmedian(mwr_data['air_pressure'].values)
-        }
+        logger.info('Surface data are complete and will be read from MWR met station')
+        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_PROVIDED
     else:
-        logger.info('Surface data from model forecast')
-        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL
-        # TODO: define this from model data
-        sfc_pressure = 980.0  # hPa - default value
-        sfc_temp_error_model = 1.0  # K - temperature error for surface model data
-        sfc_rh_error_model = 6.0  # % - relative humidity error for surface model data
+        logger.info('No or incomplete surface met data found')
+        logger.info('For now, we are not implementing partial surface data from model, all or nothing')
+        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MISSING
+        # # TODO: define this from model data
+        # # sfc_pressure = 980.0  # hPa - default value
+        # # sfc_temp_error_model = 1.0  # K - temperature error for surface model data
+        # # sfc_rh_error_model = 6.0  # % - relative humidity error for surface model data
         
         vip_updates_sfc_data = {
-            'station_pres': sfc_pressure,
-            'ext_sfc_wv_type': sfc_data_type,
-            'ext_sfc_temp_type': sfc_data_type,
-            'ext_sfc_relative_height': met_sfc_offset,
-            'ext_sfc_rootname': 'met',
-            'ext_sfc_temp_random_error': sfc_temp_error_model,
-            'ext_sfc_rh_random_error': sfc_rh_error_model,
+        #     #'station_pres': sfc_pressure,
+            'ext_sfc_wv_type': sfc_data_type, # specify that sfc data are missing
+            'ext_sfc_temp_type': sfc_data_type, # specify that sfc data are missing
+        #     # 'ext_sfc_relative_height': met_sfc_offset,
+        #     # 'ext_sfc_rootname': 'met',
+        #     # 'ext_sfc_temp_random_error': sfc_temp_error_model,
+        #     # 'ext_sfc_rh_random_error': sfc_rh_error_model,
+        #     # 'ext_sfc_pres_type': 0,
+        #     # 'ext_sfc_time_format': -1,
+        #     # 'ext_sfc_pres_fieldname': 'air_pressure',
+        #     # 'ext_sfc_pres_units': 2,
+        #     # 'ext_sfc_temp_fieldname': 'air_temperature',
+        #     # 'ext_sfc_temp_units': 2 # Kelvin
         }
         
-    # Merge surface data updates    
-    vip_conf.update(vip_updates_sfc_data)
+        # Merge surface data updates    
+        vip_conf.update(vip_updates_sfc_data)
     
     return vip_conf, sfc_data_type
 
@@ -645,10 +647,10 @@ def convert_tropoe_output(tropoe_data, mwr_l1_data, tropoe_out_config,
     data.attrs['retrieval_type'] = '1DVAR' if use_model_data else 'optimal estimation'
     
     # Add surface data type info
-    if ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL:
-        data.attrs['ext_sfc_temp_type'] = 'model'
-        data.attrs['ext_sfc_wv_type'] = 'model'
-    elif ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR:
+    # if ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL:
+    #     data.attrs['ext_sfc_temp_type'] = 'model'
+    #     data.attrs['ext_sfc_wv_type'] = 'model'
+    if ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_PROVIDED:
         data.attrs['ext_sfc_temp_type'] = 'mwr'
         data.attrs['ext_sfc_wv_type'] = 'mwr'
     else:
