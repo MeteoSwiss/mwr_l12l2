@@ -82,15 +82,21 @@ vip:
 
   # The parameters for an elevation scanning radiometer are now defined in the code
 
-  # Surface met parameters
+  # Surface met parameters: default to meteorological station installed on the MWR
+  # Will be overridden if no measurements are available and model data is used instead
   ext_sfc_relative_height: 0
+  ext_sfc_temp_type: 4
+  ext_sfc_wv_type: 4
+  ext_sfc_rootname: 'mwr'
   ext_sfc_pres_type: 0
   ext_sfc_time_format: -1
   ext_sfc_pres_fieldname: 'air_pressure'
   ext_sfc_pres_units: 2
   ext_sfc_temp_fieldname: 'air_temperature'
   ext_sfc_temp_units: 2
+  ext_sfc_temp_random_error: 0.5  # K - temperature error for surface measurements
   ext_sfc_wv_fieldname: 'relative_humidity'
+  ext_sfc_rh_random_error: 3.0  # % - relative humidity error for surface measurements
 
   # Station pressure limits
   station_psfc_max: 1030.0  # hPa - maximum allowed surface pressure
