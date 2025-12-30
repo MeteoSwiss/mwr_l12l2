@@ -363,9 +363,7 @@ class Retrieval(object):
                     valid_files.append(file)
             list_of_files = valid_files
             if not list_of_files:
-                logger.error('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
-                    self.wigos, self.inst_id, start_time, end_time, file_time_threshold))
-                raise MissingDataError('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
+                raise MissingDataError('No MWR data found for {} {} between {} and {} (with threshold for file timestamps of {} hours)'.format(
                     self.wigos, self.inst_id, start_time, end_time, file_time_threshold))
 
         self.mwr_files = list_of_files
