@@ -10,6 +10,18 @@ from mwr_l12l2.log import logger
 from mwr_l12l2.errors import MWRConfigError
 from mwr_l12l2.utils.file_utils import dict_to_file
 
+class TROPoeRetrievalConstants:
+    """
+    Class containing code and constants used in VIP file to define retrievals.
+    These should not change except if TROPoe itself changes and therefore should not be part of the config file.
+    """
+    MWR_SCAN_TYPE = 4  # MWR scan data type code
+    
+    # Surface data type codes
+    SFC_DATA_TYPE_MODEL = 1
+    SFC_DATA_TYPE_MWR = 4
+    
+    
 def model_to_tropoe(model, station_altitude, OmB=False):
     """extract reference profile and uncertainties as well as surface data from ECMWF to files readable by TROPoe
 
@@ -122,7 +134,7 @@ def model_to_tropoe(model, station_altitude, OmB=False):
 
 
 def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data, 
-                    met_sfc_offset, tropoe_paths, output_basename, constants):
+                    met_sfc_offset, tropoe_paths, output_basename, vip_conf):
     """Build VIP configuration dictionary for TROPoe.
     
     Args:
@@ -135,7 +147,7 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
             - 'mountpoint': TROPoe directory mountpoint
             - 'mwr_basename': MWR file basename
         output_basename: Output file basename
-        constants: Constants class (e.g., RetrievalConstants)
+        vip_conf: VIP configuration dictionary from retrieval config
         
     Returns:
         dict: VIP configuration parameters ready for writing
@@ -156,33 +168,43 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
         )
     
     # Configure surface data
+    
+    # Surface data error defaults #TODO: move these to a better place but they can't be in config file "vip" section
+    # because they are not official VIP parameters
+    sfc_temp_error_mwr = 0.5  # K - temperature error for MWR surface measurements
+    sfc_rh_error_mwr = 3.0  # % - relative humidity error for MWR surface measurements
+    sfc_temp_error_model = 1.0  # K - temperature error for surface model data
+    sfc_rh_error_model = 6.0  # % - relative humidity error for surface model data
+  
     if has_surface_data:
         logger.info('Surface data from MWR measurements')
-        sfc_data_type = constants.SFC_DATA_TYPE_MWR
+        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR
         sfc_config = {
             'offset': 0,
             'rootname': 'mwr',
-            'temp_error': constants.SFC_TEMP_ERROR_MWR,
-            'rh_error': constants.SFC_RH_ERROR_MWR
+            'temp_error': sfc_temp_error_mwr,
+            'rh_error': sfc_rh_error_mwr
         }
+        sfc_pressure = np.nanmedian(mwr_data['air_pressure'].values)
     else:
         logger.info('Surface data from model forecast')
-        sfc_data_type = constants.SFC_DATA_TYPE_MODEL
+        sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL
         sfc_config = {
             'offset': met_sfc_offset,
             'rootname': 'met',
-            'temp_error': constants.SFC_TEMP_ERROR_MODEL,
-            'rh_error': constants.SFC_RH_ERROR_MODEL
+            'temp_error': sfc_temp_error_model,
+            'rh_error': sfc_rh_error_model
         }
+        # TODO: define this from model data
+        # sfc_pressure = vip_conf.get('station_pres', 980.0)
     
-    # Build base configuration
-    vip_config = {
+    # Build configuration updates to merge with base vip_conf
+    vip_updates = {
         # Station information
         'station_lat': station_coords['latitude'],
         'station_lon': station_coords['longitude'],
         'station_alt': station_coords['altitude'],
-        'station_psfc_max': constants.STATION_PSFC_MAX,
-        'station_psfc_min': constants.STATION_PSFC_MIN,
+        'station_pres': sfc_pressure,
         
         # MWR zenith configuration
         'mwr_n_tb_fields': len(mwr_data.frequency[ch_zenith]),
@@ -217,7 +239,7 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
     if any(ch_scan):
         logger.info('Configuring scan data for retrieval')
         scan_config = {
-            'mwrscan_type': 4,
+            'mwrscan_type': TROPoeRetrievalConstants.MWR_SCAN_TYPE,
             'mwrscan_elev_field': 'ele',
             'mwrscan_freq_field': 'frequency',
             'mwrscan_tb_field_names': 'tb',
@@ -230,25 +252,27 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
             'mwrscan_tb_noise': inst_conf['retrieval']['tb_noise'][ch_scan],
             'mwrscan_tb_bias': inst_conf['retrieval']['tb_bias'][ch_scan],
         }
-        vip_config.update(scan_config)
+        vip_updates.update(scan_config)
     else:
         logger.info('No scan data for this retrieval')
+        #TODO: ensure TROPoe handles this correctly when no scan data is provided, seems that it might be using some default RDX values...
     
-    return vip_config, sfc_data_type
+    # Merge updates into base vip configuration
+    vip_conf.update(vip_updates)
 
+    return vip_conf, sfc_data_type
 
-def write_vip_file(vip_base_config, vip_updates, output_filepath):
+def write_vip_file(vip_config, output_filepath):
     """Write VIP configuration to file.
     
     Args:
-        vip_base_config: Base VIP configuration dictionary
-        vip_updates: Dictionary of updates to apply to base config
+        vip_config: Complete VIP configuration dictionary (already merged)
         output_filepath: Path where to write the VIP file
     """
     header = '# This file is automatically generated. Do not edit. To change settings modify retrieval config file.'
-    vip_base_config.update(vip_updates)
+    
     dict_to_file(
-        vip_base_config,
+        vip_config,
         output_filepath,
         sep=' = ',
         header=header,
