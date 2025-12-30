@@ -1,6 +1,7 @@
 import glob
 import os
 import shutil
+import boto3
 
 import datetime as dt
 import numpy as np
@@ -10,7 +11,7 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import (model_to_tropoe, run_tropoe, transform_units, height_to_altitude, 
+from mwr_l12l2.retrieval.tropoe_helpers import (TROPoeRetrievalConstants, model_to_tropoe, run_tropoe, transform_units, height_to_altitude, 
                                                   extract_prior, extract_avk, extract_attrs, add_variables_attrs, 
                                                   add_flags, build_vip_config, write_vip_file)
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
@@ -19,38 +20,6 @@ from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file, \
     generate_output_filename
 from mwr_l12l2.write_netcdf import Writer
-
-
-class RetrievalConstants:
-    """Constants used throughout the retrieval process"""
-    # Time tolerances
-    ALC_TIME_TOLERANCE_MINUTES = 5
-    FILE_TIME_THRESHOLD_HOURS = 2
-    
-    # Station validation tolerances (can be overridden by config)
-    DEFAULT_TOLERANCE_LAT_LON = 0.5  # degrees
-    DEFAULT_TOLERANCE_ALT = 50.0  # meters
-    
-    # Station pressure limits
-    STATION_PSFC_MAX = 1030.0  # hPa
-    STATION_PSFC_MIN = 800.0  # hPa
-    
-    # TROPoe defaults
-    DEFAULT_CBH_KM = 2.0  # default cloud base height when no ALC available
-    TROPOE_VERBOSITY = 3
-    
-    # Surface data type codes
-    SFC_DATA_TYPE_MODEL = 1
-    SFC_DATA_TYPE_MWR = 4
-    
-    # Surface data error defaults
-    SFC_TEMP_ERROR_MWR = 0.5  # K
-    SFC_RH_ERROR_MWR = 3.0  # %
-    SFC_TEMP_ERROR_MODEL = 1.0  # K
-    SFC_RH_ERROR_MODEL = 6.0  # %
-    
-    # Apriori file
-    DEFAULT_APRIORI_FILE = 'prior.MIDLAT.nc'
 
 
 class Retrieval(object):
@@ -123,6 +92,7 @@ class Retrieval(object):
         self.station_latitude = None
         self.station_longitude = None
         self.station_altitude = None
+        self.station_pressure = None
 
     # ============================================================================
     # Properties for better readability
@@ -378,17 +348,18 @@ class Retrieval(object):
         
         # Now only keep the files within the time range (+ threshold) if provided
         if start_time is not None:
+            file_time_threshold = self.conf['data']['file_time_threshold_hours']
             valid_files = []
             for i, file in enumerate(list_of_files):
                 file_date = list_of_dates[i]
-                if start_time - dt.timedelta(hours=RetrievalConstants.FILE_TIME_THRESHOLD_HOURS) <= file_date <= end_time + dt.timedelta(hours=RetrievalConstants.FILE_TIME_THRESHOLD_HOURS):
+                if start_time - dt.timedelta(hours=file_time_threshold) <= file_date <= end_time + dt.timedelta(hours=file_time_threshold):
                     valid_files.append(file)
             list_of_files = valid_files
             if not list_of_files:
                 logger.error('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
-                    self.wigos, self.inst_id, start_time, end_time, RetrievalConstants.FILE_TIME_THRESHOLD_HOURS))
+                    self.wigos, self.inst_id, start_time, end_time, file_time_threshold))
                 raise MissingDataError('No MWR data found for {} {} between {} and {} (with threshold of {} hours)'.format(
-                    self.wigos, self.inst_id, start_time, end_time, RetrievalConstants.FILE_TIME_THRESHOLD_HOURS))
+                    self.wigos, self.inst_id, start_time, end_time, file_time_threshold))
 
         self.mwr_files = list_of_files
         self.alc_files = glob.glob(os.path.join(self.conf['data']['alc_dir'],
@@ -536,11 +507,9 @@ class Retrieval(object):
         Raises:
             MissingDataError: If coordinates don't match config within tolerance
         """
-        # Get tolerances from config or use defaults
-        tolerance_lat_lon = self.conf['data'].get('tolerance_lat_lon', 
-                                                   RetrievalConstants.DEFAULT_TOLERANCE_LAT_LON)
-        tolerance_alt = self.conf['data'].get('tolerance_alt', 
-                                              RetrievalConstants.DEFAULT_TOLERANCE_ALT)
+        # Get tolerances from config (already defined in data section)
+        tolerance_lat_lon = self.conf['data']['tolerance_lat_lon']
+        tolerance_alt = self.conf['data']['tolerance_alt']
         
         # Extract coordinates (using median to be robust against outliers)
         self.station_latitude = np.nanmedian(mwr.station_latitude.values)
@@ -581,7 +550,7 @@ class Retrieval(object):
             start_time: Start of time range
             end_time: End of time range
         """
-        tolerance_alc_time = np.timedelta64(RetrievalConstants.ALC_TIME_TOLERANCE_MINUTES, 'm')
+        tolerance_alc_time = np.timedelta64(self.conf['data']['alc_time_tolerance_minutes'], 'm')
         
         self.alc_exists = False
         
@@ -678,7 +647,7 @@ class Retrieval(object):
         }
         
         # Build VIP configuration using helper function from tropoe_helpers
-        vip_edits, sfc_data_type = build_vip_config(
+        vip_full, sfc_data_type = build_vip_config(
             mwr_data=self.mwr,
             inst_conf=self.inst_conf,
             station_coords=station_coords,
@@ -686,30 +655,31 @@ class Retrieval(object):
             met_sfc_offset=self.met_sfc_offset,
             tropoe_paths=tropoe_paths,
             output_basename=self.tropoe_output_basename,
-            constants=RetrievalConstants
+            vip_conf=self.conf['vip']
         )
         
         # Store surface data type for later use
         self.ext_sfc_data_type = sfc_data_type
         
         # Write VIP file using helper function from tropoe_helpers
-        write_vip_file(self.conf['vip'], vip_edits, self.vip_file_tropoe)
+        write_vip_file(vip_full, self.vip_file_tropoe)
 
     def do_retrieval(self):
         """run the retrieval using the TROPoe container"""
         # TODO: decide which a-priori file to use. associate with inst or general? where to store this config:
         #  inst config file, some DB or a apriori config file with info for all instruments
-        apriori_file = RetrievalConstants.DEFAULT_APRIORI_FILE  # located outside TROPoe container unless starting with prior.*
+        apriori_file = self.conf['data']['default_apriori_file']  # located outside TROPoe container unless starting with prior.*
         date = datetime64_to_str(self.time_mean, '%Y%m%d')
         run_tropoe(self.tropoe_dir, date, datetime64_to_hour(self.time_min), datetime64_to_hour(self.time_max),
                    self.vip_file_tropoe, apriori_file, tropoe_img=self.conf['data']['tropoe_img'], 
-                   verbosity=RetrievalConstants.TROPOE_VERBOSITY)
+                   verbosity=self.conf['data']['tropoe_verbosity'])
         
     def postprocess_tropoe(self):
         """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
         # TODO: set up a writer producing the E-PROFILE format. 90% of mwr_raw2l1.write_netcdf() and
         #  mwr_raw2l1.config.L2_format.yaml will be re-usable by just modifying the .yaml to match TROPoe output vars to
         #  the output format varnames and attributes
+        # TODO: move this to tropoe_helpers ?
         logger.info('Post-processing TROPoe output')
         outfiles_pattern = os.path.join(self.tropoe_dir, self.tropoe_output_basename + '*.nc')
         outfiles = glob.glob(outfiles_pattern)
@@ -759,10 +729,10 @@ class Retrieval(object):
         else:
             data.attrs['retrieval_type'] = 'optimal estimation'
 
-        if self.ext_sfc_data_type == RetrievalConstants.SFC_DATA_TYPE_MODEL:
+        if self.ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL:
             data.attrs['ext_sfc_temp_type'] = 'model'
             data.attrs['ext_sfc_wv_type'] = 'model'
-        elif self.ext_sfc_data_type == RetrievalConstants.SFC_DATA_TYPE_MWR:
+        elif self.ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR:
             data.attrs['ext_sfc_temp_type'] = 'mwr'
             data.attrs['ext_sfc_wv_type'] = 'mwr'
         else:
@@ -785,12 +755,41 @@ class Retrieval(object):
         nc_writer.run()
         # copy file to other location:
         # check if filename exist:
-        if os.path.isfile(filename) & ('output_dir_copy' in self.conf['data']):
-            # copy file to other location:
-            shutil.copy(filename, self.conf['data']['output_dir_copy'])
-            logger.info(filename+' copied to'+self.conf['data']['output_dir_copy'])
-            shutil.copy(outfiles[0], self.conf['data']['output_dir_copy'])
-            logger.info(outfiles[0]+' copied to'+self.conf['data']['output_dir_copy'])
+        if os.path.isfile(filename) & ('output_bucket_copy' in self.conf['data']) & ('bucket_credentials' in self.conf['data']):
+            # Load the configuration file
+            config_credentials_file = self.conf['data']['bucket_credentials']
+
+            # read S3 credential from the config text file
+            config = {}
+            with open(config_credentials_file, 'r') as f:
+                for line in f:
+                    # read all lines
+                    if line.strip() and not line.startswith('#'):
+                        key, value = line.strip().split('=', 1)
+                        config[key.strip()] = value.strip()
+            
+
+            # Extract the necessary values from the configuration
+            access_key_id = config['access_key']
+            secret_access_key = config['secret_key']
+            endpoint = config['host_base']  # The HTTP endpoint for notifications
+
+            # uploading the output to an S3 bucket if specified in config
+            s3 = boto3.client('s3',
+                endpoint_url=endpoint ,
+                aws_access_key_id=access_key_id,
+                aws_secret_access_key=secret_access_key,
+            )
+            bucket_name = self.conf['data']['output_bucket_copy']
+            s3_key = os.path.basename(filename)
+            # Also upload the TROPoe output
+            s3_key_tropoe = os.path.basename(outfiles[0])          
+            try:
+                s3.upload_file(filename, bucket_name, s3_key)
+                s3.upload_file(outfiles[0], bucket_name, s3_key_tropoe)
+                logger.info(f'Uploaded output file to S3 bucket {bucket_name} with key {s3_key}')
+            except Exception as e:
+                logger.error(f'Failed to upload output file to S3 bucket: {e}')
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
