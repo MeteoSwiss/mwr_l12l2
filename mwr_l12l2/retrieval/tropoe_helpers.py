@@ -4,7 +4,7 @@ import subprocess
 import numpy as np
 import xarray as xr
 
-from mwr_l12l2.utils.data_utils import set_encoding
+from mwr_l12l2.utils.data_utils import scalars_to_time, vectors_to_time, set_encoding
 from mwr_l12l2.utils.file_utils import abs_file_path, replace_path
 from mwr_l12l2.log import logger
 from mwr_l12l2.errors import MWRConfigError
@@ -583,6 +583,83 @@ def extract_zenith_tbs(data, tropoe_out_config):
         attrs={'long_name':'simulated brightness temperature'}
         ),
     )
+    return data
+
+def convert_tropoe_output(tropoe_data, mwr_l1_data, tropoe_out_config, 
+                               use_model_data=False, ext_sfc_data_type=None):
+    """
+    Convert TROPoe output data into E-Profile L2 format.
+
+    This function transforms raw TROPoe output into the standardized E-Profile format by:
+    - Extracting prior information and averaging kernels
+    - Converting units to match E-Profile standards
+    - Propagating Level 1 metadata
+    - Adding quality flags and variable attributes
+    - Setting retrieval type and surface data information
+    
+    Args:
+        tropoe_data: xarray Dataset from TROPoe output
+        mwr_l1_data: xarray Dataset from Level 1 MWR data
+        tropoe_out_config: TROPoe output configuration dict
+        use_model_data: Whether model data was used in retrieval (default: False)
+        ext_sfc_data_type: Surface data type constant (default: None)
+        
+    Returns:
+        xarray Dataset ready for E-Profile output
+    """
+    
+    
+    # Extract prior information
+    data = extract_prior(tropoe_data, tropoe_out_config)
+    
+    # Propagate some L1 variables
+    data['azi'] = np.median(mwr_l1_data.azi.values)
+    
+    # Transform units to E-PROFILE standards
+    data = transform_units(data)
+    
+    # Convert height to altitude
+    data = height_to_altitude(data, mwr_l1_data.station_altitude)
+    data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude', 'lwp_prior'])
+    data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior'])
+    
+    # Extract averaging kernels
+    data = extract_avk(data, tropoe_out_config)
+    
+    # Add quality flags
+    data = add_flags(data)
+    
+    # Add variable attributes for derived products
+    derived_products = ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 
+                        'mlCAPE', 'mlCIN', 'mlLCL']
+    data = add_variables_attrs(data, derived_products)
+    
+    # Propagate L1 global attributes
+    for attr in mwr_l1_data.attrs:
+        data.attrs[attr] = mwr_l1_data.attrs[attr]
+    
+    # Extract and clean TROPoe attributes
+    data = extract_attrs(data)
+    
+    # Add retrieval type
+    data.attrs['retrieval_type'] = '1DVAR' if use_model_data else 'optimal estimation'
+    
+    # Add surface data type info
+    if ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL:
+        data.attrs['ext_sfc_temp_type'] = 'model'
+        data.attrs['ext_sfc_wv_type'] = 'model'
+    elif ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR:
+        data.attrs['ext_sfc_temp_type'] = 'mwr'
+        data.attrs['ext_sfc_wv_type'] = 'mwr'
+    else:
+        data.attrs['ext_sfc_temp_type'] = 'unknown'
+        data.attrs['ext_sfc_wv_type'] = 'unknown'
+    
+    # Remove VIP attributes
+    for attr in list(data.attrs):
+        if 'VIP' in attr:
+            del data.attrs[attr]
+    
     return data
 
 if __name__ == '__main__':

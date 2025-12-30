@@ -11,9 +11,8 @@ import xarray as xr
 from mwr_l12l2.errors import MissingDataError, MWRConfigError, MWRInputError, MWRRetrievalError
 from mwr_l12l2.log import logger
 from mwr_l12l2.model.ecmwf.interpret_ecmwf import ModelInterpreter
-from mwr_l12l2.retrieval.tropoe_helpers import (TROPoeRetrievalConstants, model_to_tropoe, run_tropoe, transform_units, height_to_altitude, 
-                                                  extract_prior, extract_avk, extract_attrs, add_variables_attrs, 
-                                                  add_flags, build_vip_config, write_vip_file)
+from mwr_l12l2.retrieval.tropoe_helpers import (TROPoeRetrievalConstants, model_to_tropoe, run_tropoe, 
+                                                  build_vip_config, write_vip_file, convert_tropoe_output)
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
     scalars_to_time, vectors_to_time
@@ -675,121 +674,152 @@ class Retrieval(object):
                    verbosity=self.conf['data']['tropoe_verbosity'])
         
     def postprocess_tropoe(self):
-        """post-process the outputs of TROPoe and write to NetCDF file matching the E-PROFILE format"""
-        # TODO: set up a writer producing the E-PROFILE format. 90% of mwr_raw2l1.write_netcdf() and
-        #  mwr_raw2l1.config.L2_format.yaml will be re-usable by just modifying the .yaml to match TROPoe output vars to
-        #  the output format varnames and attributes
-        # TODO: move this to tropoe_helpers ?
+        """Post-process TROPoe outputs and write to NetCDF file matching the E-PROFILE format."""
         logger.info('Post-processing TROPoe output')
+        
+        # Find and load TROPoe output file
+        tropoe_output_file = self._find_tropoe_output_file()
+        tropoe_data = xr.open_dataset(tropoe_output_file)
+        
+        # Load configuration files for transformation and output
+        tropoe_out_config = get_conf(abs_file_path('mwr_l12l2/config/tropoe_output_config.yaml'))
+        eprofile_l2_config = get_nc_format_config(abs_file_path('mwr_l12l2/config/L2_format.yaml'))
+        
+        # Transform data using helper
+        data = convert_tropoe_output(
+            tropoe_data=tropoe_data,
+            mwr_l1_data=self.mwr,
+            tropoe_out_config=tropoe_out_config,
+            use_model_data=self.use_model_data,
+            ext_sfc_data_type=self.ext_sfc_data_type
+        )
+        
+        # Write output file
+        output_filename = self._write_eprofile_l2(data, conf_nc=eprofile_l2_config)
+        
+        # Upload to S3 if configured
+        if self._should_upload_to_s3():
+            self._upload_to_s3(output_filename, tropoe_output_file)
+    
+    def _find_tropoe_output_file(self):
+        """Find the TROPoe output file.
+        
+        Returns:
+            str: Path to TROPoe output file
+            
+        Raises:
+            MWRRetrievalError: If no output file or multiple output files are found
+        """
         outfiles_pattern = os.path.join(self.tropoe_dir, self.tropoe_output_basename + '*.nc')
         outfiles = glob.glob(outfiles_pattern)
-        if len(outfiles) == 1:
-            data = xr.open_dataset(outfiles[0])
-        elif len(outfiles) == 0:
-            raise MWRRetrievalError('Found no file matching {}. Possibly the TROPoe did not run through.'.format(
-                outfiles_pattern))
+        
+        if len(outfiles) == 0:
+            raise MWRRetrievalError(
+                f'Found no file matching {outfiles_pattern}. '
+                'Possibly TROPoe did not run through.')
         elif len(outfiles) > 1:
-            raise MWRRetrievalError("Found several files matching {}. Don't know which TROPoe output to use.".format(
-                outfiles_pattern))
-
-        tropoe_out_config = get_conf(abs_file_path('mwr_l12l2/config/tropoe_output_config.yaml'))
-
-        # Some variables needs to be extracted from TROPoe output (e.g. prior for each quantity)
-        data = extract_prior(data, tropoe_out_config) 
+            raise MWRRetrievalError(
+                f"Found several files matching {outfiles_pattern}. "
+                "Don't know which TROPoe output to use.")
         
-        # Some variables needs to be propagated from L1
-        # e.g azi
-        data['azi'] = np.median(self.mwr.azi.values)
+        return outfiles[0]
+    
+    def _write_eprofile_l2(self, data, conf_nc):
+        """Write processed data to E-Profile L2 format NetCDF file.
         
-        data = transform_units(data)
-
-        data = height_to_altitude(data, self.mwr.station_altitude)
-        data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude','lwp_prior'])  # to be executed after height_to_altitude 
-        data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior']) 
-        # TODO: add postprocessing calculations for derived quantities, e.g. forecast indices
-
-        # TODO: xarray has problem with duplicate dimensions... for now we use a renamed altitude axis which is the same as the main one.
-        data = extract_avk(data, tropoe_out_config)
-
-        data = add_flags(data)
-
-        # add some metadata on specific variables:
-        derived_product_list = ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 'mlCAPE', 'mlCIN','mlLCL']
-        data = add_variables_attrs(data, derived_product_list)
-
-        # propagate some (all ?) metadata from L1 to L2
-        for attr in self.mwr.attrs:
-            data.attrs[attr] = self.mwr.attrs[attr]
-
-        # Some extra global attributes that are needed and which can be derived from the data (also renaming of some TROPoe attrs)
-        data = extract_attrs(data)
-
-        if self.use_model_data:
-            data.attrs['retrieval_type'] = '1DVAR'
-        else:
-            data.attrs['retrieval_type'] = 'optimal estimation'
-
-        if self.ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MODEL:
-            data.attrs['ext_sfc_temp_type'] = 'model'
-            data.attrs['ext_sfc_wv_type'] = 'model'
-        elif self.ext_sfc_data_type == TROPoeRetrievalConstants.SFC_DATA_TYPE_MWR:
-            data.attrs['ext_sfc_temp_type'] = 'mwr'
-            data.attrs['ext_sfc_wv_type'] = 'mwr'
-        else:
-            data.attrs['ext_sfc_temp_type'] = 'unknown'
-            data.attrs['ext_sfc_wv_type'] = 'unknown'
-
-        # Remove uncesseray attrs from data (all containinins "VIP")
-        for attr in list(data.attrs):
-            if 'VIP' in attr:
-                del data.attrs[attr]
+        Args:
+            data: xarray Dataset to write
+            conf_nc: NetCDF format configuration
+        Returns:
+            str: Path to output file
+        """        
+        basename = os.path.join(
+            self.conf['data']['output_dir'], 
+            self.conf['data']['output_file_prefix'] + self.wigos + '_' + self.inst_id
+        )
         
-        # write output  # TODO probably better split into seperate method
-        nc_format_config_file = abs_file_path('mwr_l12l2/config/L2_format.yaml')
-        conf_nc = get_nc_format_config(nc_format_config_file)
-        basename = os.path.join(self.conf['data']['output_dir'], self.conf['data']['output_file_prefix']
-                                + self.wigos + '_' + self.inst_id)
-        #TODO: at the moment use mwr_files for filename and not the actual retrieved period: TO CHANGE !
-        filename = generate_output_filename(basename, 'time_mean', files_in=self.mwr_files, time=data.time)
+        # TODO: use actual retrieved period instead of mwr_files for filename
+        filename = generate_output_filename(
+            basename, 'time_mean', 
+            files_in=self.mwr_files, 
+            time=data.time
+        )
+        
         nc_writer = Writer(data, filename, conf_nc)
         nc_writer.run()
-        # copy file to other location:
-        # check if filename exist:
-        if os.path.isfile(filename) & ('output_bucket_copy' in self.conf['data']) & ('bucket_credentials' in self.conf['data']):
-            # Load the configuration file
+        
+        logger.info(f'E-PROFILE output written to {filename}')
+        return filename
+    
+    def _should_upload_to_s3(self):
+        """Check if S3 upload is configured.
+        
+        Returns:
+            bool: True if S3 upload should be performed
+        """
+        return ('output_bucket_copy' in self.conf['data'] and 
+                'bucket_credentials' in self.conf['data'])
+    
+    def _upload_to_s3(self, eprofile_file, tropoe_file):
+        """Upload output files to S3 bucket.
+        
+        Args:
+            eprofile_file: Path to E-PROFILE output file
+            tropoe_file: Path to raw TROPoe output file
+        """
+        if not os.path.isfile(eprofile_file):
+            logger.warning(f'E-PROFILE output file {eprofile_file} not found. Skipping S3 upload.')
+            return
+        
+        try:
+            # Load S3 credentials
             config_credentials_file = self.conf['data']['bucket_credentials']
-
-            # read S3 credential from the config text file
-            config = {}
-            with open(config_credentials_file, 'r') as f:
-                for line in f:
-                    # read all lines
-                    if line.strip() and not line.startswith('#'):
-                        key, value = line.strip().split('=', 1)
-                        config[key.strip()] = value.strip()
+            s3_config = self._load_s3_credentials(config_credentials_file)
             
-
-            # Extract the necessary values from the configuration
-            access_key_id = config['access_key']
-            secret_access_key = config['secret_key']
-            endpoint = config['host_base']  # The HTTP endpoint for notifications
-
-            # uploading the output to an S3 bucket if specified in config
-            s3 = boto3.client('s3',
-                endpoint_url=endpoint ,
-                aws_access_key_id=access_key_id,
-                aws_secret_access_key=secret_access_key,
+            # Create S3 client
+            s3 = boto3.client(
+                's3',
+                endpoint_url=s3_config['endpoint'],
+                aws_access_key_id=s3_config['access_key_id'],
+                aws_secret_access_key=s3_config['secret_access_key']
             )
+            
             bucket_name = self.conf['data']['output_bucket_copy']
-            s3_key = os.path.basename(filename)
-            # Also upload the TROPoe output
-            s3_key_tropoe = os.path.basename(outfiles[0])          
-            try:
-                s3.upload_file(filename, bucket_name, s3_key)
-                s3.upload_file(outfiles[0], bucket_name, s3_key_tropoe)
-                logger.info(f'Uploaded output file to S3 bucket {bucket_name} with key {s3_key}')
-            except Exception as e:
-                logger.error(f'Failed to upload output file to S3 bucket: {e}')
+            
+            # Upload E-PROFILE output
+            s3_key = os.path.basename(eprofile_file)
+            s3.upload_file(eprofile_file, bucket_name, s3_key)
+            logger.info(f'Uploaded E-PROFILE output to S3: {bucket_name}/{s3_key}')
+            
+            # Upload TROPoe output
+            s3_key_tropoe = os.path.basename(tropoe_file)
+            s3.upload_file(tropoe_file, bucket_name, s3_key_tropoe)
+            logger.info(f'Uploaded TROPoe output to S3: {bucket_name}/{s3_key_tropoe}')
+            
+        except Exception as e:
+            logger.error(f'Failed to upload files to S3 bucket: {e}')
+    
+    def _load_s3_credentials(self, credentials_file):
+        """Load S3 credentials from configuration file.
+        
+        Args:
+            credentials_file: Path to credentials file
+            
+        Returns:
+            dict: Credentials dictionary with keys 'access_key_id', 'secret_access_key', 'endpoint'
+        """
+        config = {}
+        with open(credentials_file, 'r') as f:
+            for line in f:
+                if line.strip() and not line.startswith('#'):
+                    key, value = line.strip().split('=', 1)
+                    config[key.strip()] = value.strip()
+        
+        return {
+            'access_key_id': config['access_key'],
+            'secret_access_key': config['secret_key'],
+            'endpoint': config['host_base']
+        }
 
 if __name__ == '__main__':
     ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
