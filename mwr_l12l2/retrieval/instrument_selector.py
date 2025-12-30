@@ -10,15 +10,9 @@ from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
 from mwr_l12l2.utils.file_utils import abs_file_path
 from retrieval import Retrieval
 
-# from watchdog.observers import Observer
-# from watchdog.events import LoggingEventHandler
-
-
 class InstrumentSelector(object):
-    """Class that select and the instrument and list the files needed for the retrieval
-    It is now done outside of the retrieval class to prepare for parallel retrievals.
-
-    Essentially just running the original method "select_instrument" and "list_obs_files" from the retrieval class.
+    """Class that select an instrument for retrieval based on configuration file
+    It is aimed at performing specific retrievals and not for operational use.
 
     Args:
         conf: configuration file or dictionary
@@ -33,18 +27,18 @@ class InstrumentSelector(object):
             logger.error("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
             raise MWRConfigError("The argument 'conf' must be a conf dictionary or a path pointing to a config file")
 
-        # set by select_instrument():
+        # set by set_instrument():
         self.wigos = None
         self.inst_id = None
         self.inst_conf = None
 
-        # set by list_obs():
-        self.mwr_files = None
-        self.alc_files = None
-
     def select_oldest(self):
-        """select instrument which has oldest (processable) mwr file in input dir"""
-        # TODO: implement this
+        """
+        Select instrument which has oldest (processable) mwr file in input dir
+        This method is not used operationally and is there for historical reasons. It can be removed once the new retrieval framework is fully implemented and tested.
+
+        It sets self.wigos, self.inst_id and self.inst_conf
+        """
         # TODO: Need to lock lookup for station selection for other nodes until prepare_eprofile_main with delete_mwr_in
         #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work.
         #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
@@ -78,10 +72,6 @@ class InstrumentSelector(object):
 
     def set_instrument(self, wigos, inst_id):
         """set instrument and config file manually providing wigos and inst_id"""
-        # TODO: implement this
-        # TODO: Need to lock lookup for station selection for other nodes until prepare_eprofile_main with delete_mwr_in
-        #       is done. Something like https://stackoverflow.com/questions/52815858/python-lock-directory might work.
-        #       but better use ecflow to not data listing for other nodes until end of prepare_eprofile_main
 
         logger.info('Setting instrument to {} {}'.format(wigos, inst_id))
 
@@ -103,40 +93,19 @@ class InstrumentSelector(object):
                                                self.wigos, self.inst_id)
         self.inst_conf = get_inst_config(os.path.join(self.conf['data']['inst_config_dir'], inst_conf_file))
 
-    def list_obs_files(self):
-        """get file lists for the selected station
-
-        Note:
-             this method shall list all (MWR) files not just the ones matching time settings. Like that old (obsolete)
-             files are removed when :meth:`prepare_obs` is run with delete_mwr_in=True
-        """
-        self.mwr_files = glob.glob(os.path.join(self.conf['data']['mwr_dir'],
-                                                '{}*{}_{}*.nc'.format(self.conf['data']['mwr_file_prefix'],
-                                                                      self.wigos, self.inst_id)))
-        self.alc_files = glob.glob(os.path.join(self.conf['data']['alc_dir'],
-                                                '{}*{}*.nc'.format(self.conf['data']['alc_file_prefix'], self.wigos)))
-        if not self.mwr_files:
-            err_msg = ('No MWR data for {} {} found in {}. These files must have been removed between station selection'
-                       ' and file listing. This should not happen!'.format(self.wigos, self.inst_id,
-                                                                           self.conf['data']['mwr_dir']))
-            logger.critical(err_msg)
-            raise MissingDataError(err_msg)
-
-    def retrieve_single(self, start_time, end_time, wigos=None, inst_id=None):
-        """Method to run the retrieval for a single instrument (oldest found in the retrieval folder)
+    def retrieve_single(self, start_time, end_time, wigos, inst_id):
+        """Method to run the retrieval for a single instrument specified by its WIGOS and Instrument ID.
 
         Args:
             start_time (optional): earliest time from which to consider data. If not specified, all data younger than
                 'max_age' specified in retrieval config will be used or, if 'max_age' is None, age of data is unlimited.
             end_time (optional): latest time from which to consider data. If not specified, all data received by now is
                 processed.
+            wigos: WIGOS identifier of the instrument to be used for retrieval.
+            inst_id: Instrument ID of the instrument to be used for retrieval. 
         """
-        if wigos is not None and inst_id is not None:
-            self.set_instrument(wigos, inst_id)
-        else:
-            self.select_oldest()
-        #self.list_obs_files()
-
+        self.set_instrument(wigos, inst_id)
+        
         # Necessary information to perform the retrieval for the selected instrument
         selected_instrument = {
             'wigos': self.wigos,
@@ -155,14 +124,14 @@ class InstrumentSelector(object):
         This is just for testing purpose and should be deleted in the near future...
         '''
         self.set_instrument(wigos, inst_id)
-        self.list_obs_files()
+        
         # Necessary information to perform the retrieval for the selected instrument
         selected_instrument = {
             'wigos': self.wigos,
             'inst_id': self.inst_id,
             'inst_conf': self.inst_conf,
-            'mwr_files': self.mwr_files,
-            'alc_files': self.alc_files
+            'mwr_files': None,
+            'alc_files': None
         }
 
         ret = Retrieval(self.conf, selected_instrument, node=1)
@@ -178,7 +147,7 @@ class InstrumentSelector(object):
 if __name__ == '__main__':
     start = time.time()
     instrument = InstrumentSelector(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    instrument.retrieve_single(start_time=None,  end_time=None, wigos='0-20000-0-06620', inst_id = 'A')
+    instrument.retrieve_single(start_time=None, end_time=None, wigos='0-20000-0-06620', inst_id = 'A')
     end = time.time()
     print('Time taken to run the retrieval: {} seconds'.format(end-start))
 
