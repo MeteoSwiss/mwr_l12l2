@@ -351,7 +351,11 @@ class Retrieval(object):
         
         # extract filename and dates of all files
         list_of_file_date = [os.path.basename(x).split('/')[-1].split('_')[3] for x in list_of_files]
-        list_of_dates = [dt.datetime.strptime(x[1:-3], '%Y%m%d%H%M%S').replace(tzinfo=pytz.UTC) for x in list_of_file_date]
+        try:
+            list_of_dates = [dt.datetime.strptime(x[1:-3], '%Y%m%d%H%M%S').replace(tzinfo=pytz.UTC) for x in list_of_file_date]
+        except ValueError as e:
+            logger.warning('Non standard filename, trying to use daily concatenated filename instead.')
+            list_of_dates = [dt.datetime.strptime(x[1:-3], '%Y%m%d').replace(tzinfo=pytz.UTC) for x in list_of_file_date]
         
         # Now only keep the files within the time range (+ threshold) if provided
         if start_time is not None:
@@ -400,8 +404,20 @@ class Retrieval(object):
         # Load and process MWR data
         mwr = self._load_and_filter_mwr(start_time, end_time, delete_mwr_in)
         
-        # Validate MWR data
-        self._validate_mwr_data(mwr)
+        # Quality check of MWR data
+        if self.conf['data']['check_mwr_quality']:
+            self._check_mwr_data(mwr)
+            
+        # Calculate noise level from MWR data
+        self._calculate_noise_level(mwr)
+        
+        # Check if there are enough (4 ?) scanning observations
+        if not has_data(mwr.where(mwr.pointing_flag == 1), 'tb'):
+            logger.critical('No scanning observations available in the MWR data between '
+                            f'{self.time_min} and {self.time_max}.')
+            self.conf['vip'].mwr_scanning_obs_available = False
+            raise MissingDataError('No scanning observations available in the MWR data between '
+                                   f'{self.time_min} and {self.time_max}. ')
         
         # Extract station coordinates and validate
         self._extract_and_validate_coordinates(mwr)
@@ -482,7 +498,7 @@ class Retrieval(object):
         
         return mwr
 
-    def _validate_mwr_data(self, mwr):
+    def _check_mwr_data(self, mwr):
         """Validate MWR data quality and metadata.
         
         Args:
@@ -492,16 +508,22 @@ class Retrieval(object):
             MissingDataError: If validation fails
         """
         # TODO: uncomment the following block once getting good test files with ok quality flags
-        # mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
-        # if mwr.tb.isnull().all():
-        #     raise MissingDataError(f'All MWR brightness temperature observations between '
-        #                            f'{self.time_min} and {self.time_max} are flagged.')
+        mwr['tb'] = mwr.tb.where(mwr.quality_flag == 0)
+        if mwr.tb.isnull().all():
+            raise MissingDataError(f'All MWR brightness temperature observations between '
+                                   f'{self.time_min} and {self.time_max} are flagged.')
 
-        # Validate WIGOS ID
-        if mwr.wigos_station_id != self.wigos:
-            logger.error(f'WIGOS ID mismatch: file has {mwr.wigos_station_id}, '
-                        f'expected {self.wigos}')
-            raise MissingDataError(f'WIGOS ID mismatch: {mwr.wigos_station_id} != {self.wigos}')
+    def _calculate_noise_level(self, mwr):
+        """Calculate noise level from MWR data and add to dataset.
+        
+        Args:
+            mwr: MWR dataset to process
+        """
+        # Calculate noise level as standard deviation of brightness temperature for each channel at zenith (or near-zenith) angles, ignoring NaNs
+        noise_level = mwr.tb.where(np.abs(mwr.ele - 90) < 1).std(dim='time', skipna=True)
+        mwr['noise_level'] = noise_level
+        mwr.noise_level.attrs['units'] = 'K'
+        mwr.noise_level.attrs['long_name'] = 'Estimated noise level of tb observations'
 
     def _extract_and_validate_coordinates(self, mwr):
         """Extract station coordinates from MWR data and validate against config.
@@ -512,6 +534,12 @@ class Retrieval(object):
         Raises:
             MissingDataError: If coordinates don't match config within tolerance
         """
+        # Validate WIGOS ID
+        if mwr.wigos_station_id != self.wigos:
+            logger.error(f'WIGOS ID mismatch: file has {mwr.wigos_station_id}, '
+                        f'expected {self.wigos}')
+            raise MissingDataError(f'WIGOS ID mismatch: {mwr.wigos_station_id} != {self.wigos}')
+        
         # Get tolerances from config (already defined in data section)
         tolerance_lat_lon = self.conf['data']['tolerance_lat_lon']
         tolerance_alt = self.conf['data']['tolerance_alt']
@@ -799,12 +827,12 @@ class Retrieval(object):
             bucket_name = self.conf['data']['output_bucket_copy']
             
             # Upload E-PROFILE output
-            s3_key = os.path.basename(eprofile_file)
+            s3_key = 'rs-comp/'+os.path.basename(eprofile_file)
             s3.upload_file(eprofile_file, bucket_name, s3_key)
             logger.info(f'Uploaded E-PROFILE output to S3: {bucket_name}/{s3_key}')
             
             # Upload TROPoe output
-            s3_key_tropoe = os.path.basename(tropoe_file)
+            s3_key_tropoe = 'rs-comp/'+os.path.basename(tropoe_file)
             s3.upload_file(tropoe_file, bucket_name, s3_key_tropoe)
             logger.info(f'Uploaded TROPoe output to S3: {bucket_name}/{s3_key_tropoe}')
             
