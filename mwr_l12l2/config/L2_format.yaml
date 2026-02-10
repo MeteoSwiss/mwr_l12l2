@@ -147,17 +147,17 @@ variables:
 # # QC fields
 # ##########################################################################################################
   
-#   qc_flag:
-#     name: qc_flag
-#     dim:
-#       - time
-#     type: f4
-#     _FillValue: -999.
-#     optional: True
-#     attributes:
-#       long_name: Quality flag
-#       comment: ''
-#       units: "1"
+  qc_flag:
+    name: qc_flag
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Quality flag
+      comment: ''
+      units: "1"
 
 
 ##########################################################################################################
@@ -604,9 +604,9 @@ variables:
 # If the same fields are present in the instrument-specific config, the general ones from below will be overwritten
 attributes:
   Conventions: CF-1.8
-  references: E-PROFILE data format description document (v01.9)
+  references: E-Profile data format description document (v01.9)
   license: Closed-Use Non-Commercial General Licence 1.0 (CUNCGL)
-  network_name: E-PROFILE
+  network_name: E-Profile
   campaign_name: ''
   comment: ''
   source: Ground Based Remote Sensing
