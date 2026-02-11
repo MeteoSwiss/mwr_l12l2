@@ -1,3 +1,4 @@
+import glob
 import os.path
 import shutil
 import unittest
@@ -162,6 +163,34 @@ class TestRetrieval(unittest.TestCase):
                             msg='expected model profile data file for TROPoe run has not been generated')
             self.assertTrue(os.path.exists(model_sfc_file_out),
                             msg='expected moddel surface data file for TROPoe run has not been generated')
+
+    def test_run_retrieval(self):
+        """test the full retrieval workflow from start to finish (integration test)"""
+        expected_start_time = dt.datetime(2023, 4, 25, 13, 0, 0)
+        expected_end_time = dt.datetime(2023, 4, 25, 13, 15, 0)
+
+        # Override output directory to use test output directory
+        self.ret.conf['data']['output_dir'] = dir_out
+
+        with self.subTest(operation='run main'):
+            """run the full retrieval workflow"""
+            self.ret.run(start_time=expected_start_time, end_time=expected_end_time)
+        
+        with self.subTest(operation='check L2 output file exists'):
+            """check that MWR L2 file has been successfully created in output directory"""
+            # With these time provided, the expected L2 file name is as follows:
+            L2_filename = 'MWR_2C01_0-20000-0-10393_A202304251310.nc'
+            
+            self.assertTrue(os.path.exists(os.path.join(dir_out, L2_filename)),
+                           msg='No MWR L2 file was generated in {} matching pattern {}'.format(
+                               dir_out, L2_filename))
+
+            # Check that at least one file exists and has reasonable size
+            self.assertTrue(os.path.exists(os.path.join(dir_out, L2_filename)),
+                            msg='Expected L2 file {} does not exist'.format(L2_filename))
+            file_size = os.path.getsize(os.path.join(dir_out, L2_filename))
+            self.assertGreater(file_size, 0,
+                              msg='L2 file {} exists but is empty'.format(L2_filename))
 
 
 if __name__ == '__main__':
