@@ -22,15 +22,12 @@ file_mars_mocked = os.path.join(dir_config_test, 'mars_config_fc_mocked.yaml')
 class TestConfig(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """copy example files to the test config directory
+        """Prepare test config directory and copy example files
 
-        By doing this here, one would find out for permission issues right at set up instead of causing a failed test.
+        Clean up any existing config directory from previous test runs and create a fresh one.
         """
         if os.path.exists(dir_config_test):
-            err_msg = ("directory '{}' is supposed to be created during run of config tests, but should not be there"
-                       " when '{}' starts. Please remove it manually (making sure that you don't erase data you might"
-                       " still need) and run tests again".format(dir_config_test, __file__))
-            raise MWRTestError(err_msg)
+            shutil.rmtree(dir_config_test)
         os.mkdir(dir_config_test)
 
         shutil.copyfile(file_ret_orig, file_ret_test)

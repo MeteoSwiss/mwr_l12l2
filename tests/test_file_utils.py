@@ -14,15 +14,12 @@ dir_out = abs_file_path('tests/data/output_file_utils/')
 class TestFileUtils(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """copy example files to the test config directory
+        """Prepare test output directory
 
-        By doing this here, one would find out for permission issues right at set up instead of causing a failed test.
+        Clean up any existing output directory from previous test runs and create a fresh one.
         """
         if os.path.exists(dir_out):
-            err_msg = ("directory '{}' is supposed to be created during run of config tests, but should not be there"
-                       " when '{}' starts. Please remove it manually (making sure that you don't erase data you might"
-                       " still need) and run tests again".format(dir_out, __file__))
-            raise MWRTestError(err_msg)
+            shutil.rmtree(dir_out)
         os.mkdir(dir_out)
 
     @classmethod
