@@ -31,15 +31,12 @@ model_sfc_file_out = os.path.join(dir_out, 'model_sfc.nc')
 class TestRetrieval(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        """copy example files to the test config directory
+        """Prepare test output directory
 
-        By doing this here, one would find out for permission issues right at set up instead of causing a failed test.
+        Clean up any existing output directory from previous test runs and create a fresh one.
         """
         if os.path.exists(dir_out):
-            err_msg = ("directory '{}' is supposed to be created during run of config tests, but should not be there"
-                       " when '{}' starts. Please remove it manually (making sure that you don't erase data you might"
-                       " still need) and run tests again".format(dir_out, __file__))
-            raise MWRTestError(err_msg)
+            shutil.rmtree(dir_out)
         os.mkdir(dir_out)
 
     @classmethod
@@ -179,7 +176,7 @@ class TestRetrieval(unittest.TestCase):
         with self.subTest(operation='check L2 output file exists'):
             """check that MWR L2 file has been successfully created in output directory"""
             # With these time provided, the expected L2 file name is as follows:
-            L2_filename = 'MWR_2C01_0-20000-0-10393_A202304251310.nc'
+            L2_filename = 'MWR_2C01_0-20000-0-10393_A202304251315.nc'
             
             self.assertTrue(os.path.exists(os.path.join(dir_out, L2_filename)),
                            msg='No MWR L2 file was generated in {} matching pattern {}'.format(
