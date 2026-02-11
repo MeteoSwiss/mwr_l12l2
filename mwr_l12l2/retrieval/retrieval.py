@@ -727,6 +727,7 @@ class Retrieval(object):
         
         # Transform data using helper
         data = convert_tropoe_output(
+            retrieval_conf=self.conf,
             tropoe_data=tropoe_data,
             mwr_l1_data=self.mwr,
             tropoe_out_config=tropoe_out_config,
@@ -734,6 +735,16 @@ class Retrieval(object):
             ext_sfc_data_type=self.ext_sfc_data_type
         )
         
+        # If provided, crop to max altitude defined in config file
+        max_altitude_magl = self.conf['data']['max_altitude_magl']
+        if max_altitude_magl is not None:
+            logger.info(f'Cropping data to max altitude: {max_altitude_magl} m')
+            # find the indices where altitude is above max_altitude_magl + station_altitude and drop them
+            # we need to do this because we have both altitude and avk_altitude dimensions
+            ind_alt_max = np.argwhere(data.altitude.data > (max_altitude_magl + self.station_altitude))
+
+            data = data.isel(altitude=slice(0, ind_alt_max[0][0])).isel(avk_altitude=slice(0, ind_alt_max[0][0]))  # keep all indices below the first index where altitude exceeds max_altitude_magl + station_altitude
+
         # Write output file
         output_filename = self._write_eprofile_l2(data, conf_nc=eprofile_l2_config)
         
@@ -860,9 +871,3 @@ class Retrieval(object):
             'secret_access_key': config['secret_key'],
             'endpoint': config['host_base']
         }
-
-if __name__ == '__main__':
-    ret = Retrieval(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    ret.run(start_time=dt.datetime(2023, 4, 25, 13, 0, 0), end_time=dt.datetime(2023, 4, 25, 16, 0, 0))
-
-    pass

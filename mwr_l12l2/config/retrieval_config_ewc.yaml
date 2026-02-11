@@ -9,11 +9,22 @@
 data:
 
   # maximum age of MWR data to be considered for retrieval in minutes. Set to null for unlimited
-  max_age: 30
+  max_age: 90
+
+  # check MWR quality flags and filter out bad data (at the moment, can't be applied to past data as quality flags were not yet properly set, but should be applied to future data)
+  check_mwr_quality: False
 
   # maximum difference between the lat, lon and alt variables defined in the MWR L1 and the config file
   tolerance_lat_lon: 0.2
   tolerance_alt: 50
+
+  # maximum altitude range to keep in the MWR L2 retrieval output (in m.a.g.l)
+  max_altitude_magl: 10000
+
+  # Threshold for cumulated degree of freedom of the signal (DFS) above which the retrieval should be disregarded. Set to null for unlimited.
+  # This is a quality control threshold that can be applied to the retrieval results.
+  temperature_cdf_threshold: 0.95
+  waterVapor_cdf_threshold: 0.95
 
   # info on instrument configuration files
   inst_config_dir: /home/eric/eprofile_config/mwr/l12l2/
@@ -22,7 +33,7 @@ data:
   # location and filenames of output data
   output_dir: /home/eric/level2/  # directory for microwave radiometer input data
   #output_dir_copy: /home/eric/level2/
-  output_bucket_copy: eprofile-mwr-dev-l2  # S3 bucket for copying level 2 data
+  output_bucket_copy: eprofile-mwr-dev-l2 # S3 bucket for copying level 2 data
   bucket_credentials: /home/eric/.s3cfg # path to S3 credentials file
   output_file_prefix: MWR_2C01_
   
@@ -55,19 +66,19 @@ data:
 
   # Time tolerances
   alc_time_tolerance_minutes: 5  # minutes - tolerance for matching ALC data with MWR data
-  file_time_threshold_hours: 2  # hours - threshold for including files outside time range
+  file_time_threshold_hours: 12  # hours - threshold for including files outside time range
 
   # Apriori file
   default_apriori_file: 'prior.MIDLAT.nc'  
 
   default_cbh_km: 2.0  # km - default cloud base height when no ALC available
-  tropoe_verbosity: 3  # verbosity level for TROPoe output
+  tropoe_verbosity: 2  # verbosity level for TROPoe output
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
   # Set the temporal resolution and vertical grid of the retrieval
   avg_instant: 0
-  tres: 10
+  tres: 15
   zgrid: [0, 0.060, 0.120, 0.240, 0.480, 0.720, 0.960, 1.2, 1.44, 1.68, 1.98, 2.28, 2.58, 2.88, 3.25, 3.6, 4.014, 4.426, 4.879, 5.376, 5.924, 6.526, 7.189, 7.918, 8.72, 9.602, 10.572, 11.639, 12.813, 14.104, 15.525, 17.087]
 
   # Indicate that this is a MWR-based retrieval
@@ -85,22 +96,23 @@ vip:
   # Surface met parameters: default to meteorological station installed on the MWR
   # Will be overridden if no measurements are available and model data is used instead
   ext_sfc_relative_height: 0
-  ext_sfc_temp_type: 4
-  ext_sfc_wv_type: 4
   ext_sfc_rootname: 'mwr'
-  ext_sfc_pres_type: 0
+  ext_sfc_pres_type: 1 # indicates that ext sfc pres data exists (could be either MWR or model)
   ext_sfc_time_format: -1
   ext_sfc_pres_fieldname: 'air_pressure'
-  ext_sfc_pres_units: 2
+  ext_sfc_pres_units: 2 # indicates hPa
+  ext_sfc_temp_type: 1 # indicates that ext sfc temp data exists (could be either MWR or model)
   ext_sfc_temp_fieldname: 'air_temperature'
-  ext_sfc_temp_units: 2
+  ext_sfc_temp_units: 2 # indicates Kelvin
   ext_sfc_temp_random_error: 0.5  # K - temperature error for surface measurements
+  ext_sfc_wv_type: 1
   ext_sfc_wv_fieldname: 'relative_humidity'
+  ext_sfc_wv_units: 1 # indicates %RH
   ext_sfc_rh_random_error: 3.0  # % - relative humidity error for surface measurements
 
   # Station pressure limits
   station_psfc_max: 1030.0  # hPa - maximum allowed surface pressure
-  station_psfc_min: 800.0  # hPa - minimum allowed surface pressure
+  station_psfc_min: 700.0  # hPa - minimum allowed surface pressure
 
   # The model input
   mod_temp_prof_type: 0
@@ -122,3 +134,7 @@ vip:
   cbh_default_ht: 2.
   # The output information
   output_clobber: 1
+
+  # VIP quality checks:
+  qc_gamma_value: 3
+  qc_rms_value: 2

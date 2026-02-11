@@ -106,8 +106,6 @@ variables:
       units: degree
       comment: “0=North, 90=East, 180=South, 270=West”
   
-  # TODO: add quality_flag and quality_flag_status, possibly also freq-dependent vars
-
   # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
   # Not working at the moment -> change the time vector !
   # time_bnds:
@@ -146,7 +144,8 @@ variables:
 # ##########################################################################################################
 # # QC fields
 # ##########################################################################################################
-  
+
+  # TODO: remove the TROPoe flag once we are confident that conversion to quality_flag is working
   qc_flag:
     name: qc_flag
     dim:
@@ -155,10 +154,21 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
-      long_name: Quality flag
-      comment: ''
-      units: "1"
+      long_name: original TROPoe quality control flag
 
+  quality_flag:
+    name: quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag
+      standard_name: quality_flag
+      flag_masks: [1, 2, 4, 8]
+      flag_meanings: 'suspect_quality non_convergence high_rms high_gamma'
+      comment: 0 indicates data with good quality.
 
 ##########################################################################################################
 # Temperature fields 
@@ -245,11 +255,13 @@ variables:
     dim:
       - time
       - altitude
-    type: f4
-    _FillValue: -999.
+    type: i1
+    _FillValue: -128
     optional: True
     attributes:
       long_name: Quality flag for temperature profile
+      flag_values: [0, 1]
+      flag_meanings: good_quality bad_quality
       units: "1"
 
 ##########################################################################################################
@@ -338,11 +350,13 @@ variables:
     dim:
       - time
       - altitude
-    type: f4
-    _FillValue: -999.
+    type: i1
+    _FillValue: -128
     optional: True
     attributes:
       long_name: Quality flag for water vapour profile
+      flag_values: [0, 1]
+      flag_meanings: good_quality bad_quality
       units: "1"
 
   rh:
@@ -482,11 +496,13 @@ variables:
     name: lwp_quality_flag
     dim:
       - time
-    type: f4
-    _FillValue: -999.
+    type: i1
+    _FillValue: -128
     optional: True
     attributes:
       long_name: Quality flag for column-integrated liquid water path
+      flag_values: [0, 1]
+      flag_meanings: good_quality bad_quality
       units: "1"
 
   pwv:

@@ -131,4 +131,24 @@ def lists_to_np(indict):
             indict[key] = np.array(val)
     return indict
 
+def setbit(x, nth_bit):
+    """set n-th bit (i.e. set to 1) in an integer or array of integers
+    Function taken from Rolf's mwr_raw2l1 code. It is used to set quality flags in the retrieval output.
+
+    Args:
+        x: integer or :class:`numpy.ndarray` of integers
+        nth_bit: position of bit to be set (0, 1, 2, ..)
+    Returns:
+        integer or array of integers where n-th bit is set while all other bits are kept as in input x
+    Examples:
+        >>> setbit(0, 1)
+            2
+        >>> setbit(3, 2)
+            7
+    """
+    if nth_bit < 0:
+        raise ValueError('position of bit cannot be negative')
+    mask = 1 << nth_bit
+    return x | mask
+
 
