@@ -1,9 +1,15 @@
 # config file for general retrieval settings #
 ##############################################
-#
+# 
+# the general section contains general settings for the retrieval
 # the data section contains paths of data files and age of data to consider
 # the vip section contains configurations for the TROPoe retrieval
 # this file defines the settings common to all stations.
+
+general: 
+  # general settings for the retrieval
+  operational: False
+  retrieval_time: 15
 
 # definitions of which data to use for retrieval. Paths are absolute or relative to mwr_l12l2 project dir
 data:
@@ -13,6 +19,9 @@ data:
 
   # check MWR quality flags and filter out bad data (at the moment, can't be applied to past data as quality flags were not yet properly set, but should be applied to future data)
   check_mwr_quality: False
+
+  # minimum fraction of retrieval time that must be covered by MWR observations to run the retrieval (between 0 and 1)
+  mwr_obs_duration_threshold: 0.6
 
   # maximum difference between the lat, lon and alt variables defined in the MWR L1 and the config file
   tolerance_lat_lon: 0.2
@@ -78,7 +87,7 @@ data:
 vip:
   # Set the temporal resolution and vertical grid of the retrieval
   avg_instant: 0
-  tres: 15
+  #tres: 15
   zgrid: [0, 0.060, 0.120, 0.240, 0.480, 0.720, 0.960, 1.2, 1.44, 1.68, 1.98, 2.28, 2.58, 2.88, 3.25, 3.6, 4.014, 4.426, 4.879, 5.376, 5.924, 6.526, 7.189, 7.918, 8.72, 9.602, 10.572, 11.639, 12.813, 14.104, 15.525, 17.087]
 
   # Indicate that this is a MWR-based retrieval

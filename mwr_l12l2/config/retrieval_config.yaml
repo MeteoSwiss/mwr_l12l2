@@ -1,9 +1,15 @@
 # config file for general retrieval settings #
 ##############################################
 #
+# the general section contains general settings for the retrieval
 # the data section contains paths of data files and age of data to consider
 # the vip section contains configurations for the TROPoe retrieval
 # this file defines the settings common to all stations.
+
+general: 
+  # general settings for the retrieval
+  operational: False
+  retrieval_time: 15
 
 # definitions of which data to use for retrieval. Paths are absolute or relative to mwr_l12l2 project dir
 data:
@@ -11,10 +17,24 @@ data:
   # maximum age of MWR data to be considered for retrieval in minutes. Set to null for unlimited
   max_age: 90
 
+  # check MWR quality flags and filter out bad data (at the moment, can't be applied to past data as quality flags were not yet properly set, but should be applied to future data)
+  check_mwr_quality: False
+
+  # minimum fraction of retrieval time that must be covered by MWR observations to run the retrieval (between 0 and 1)
+  mwr_obs_duration_threshold: 0.6
+  
   # maximum difference between the lat, lon and alt variables defined in the MWR L1 and the config file
   tolerance_lat_lon: 0.2
   tolerance_alt: 50
 
+  # maximum altitude range to keep in the MWR L2 retrieval output (in m.a.g.l)
+  max_altitude_magl: 5000
+
+  # Threshold for cumulated degree of freedom of the signal (DFS) above which the retrieval should be disregarded. Set to null for unlimited.
+  # This is a quality control threshold that can be applied to the retrieval results.
+  temperature_cdf_threshold: 0.95
+  waterVapor_cdf_threshold: 0.95
+  
   # info on instrument configuration files
   inst_config_dir: mwr_l12l2/config/
   inst_config_file_prefix: config_

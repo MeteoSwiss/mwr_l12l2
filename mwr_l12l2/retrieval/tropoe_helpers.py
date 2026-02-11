@@ -133,7 +133,7 @@ def model_to_tropoe(model, station_altitude, OmB=False):
 
 
 def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data, 
-                    met_sfc_offset, tropoe_paths, output_basename, vip_conf):
+                    met_sfc_offset, tropoe_paths, output_basename, retrieval_conf):
     """Build VIP configuration dictionary for TROPoe.
     
     Args:
@@ -155,6 +155,7 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
     Raises:
         MWRConfigError: If channel configuration is invalid
     """
+    vip_conf = retrieval_conf['vip']
     ch_zenith = inst_conf['retrieval']['zenith_channels']
     ch_scan = inst_conf['retrieval']['scan_channels']
     
@@ -168,6 +169,8 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
     
     # Build configuration updates to merge with base vip_conf
     vip_updates = {
+        'tres': retrieval_conf['general']['retrieval_time'],  # retrieval time in minutes
+        
         # Station information
         'station_lat': station_coords['latitude'],
         'station_lon': station_coords['longitude'],
