@@ -136,8 +136,8 @@ variables:
     optional: True
     attributes:
       long_name: 'Flag for the observation geometry'
-      flags_meaning: ''
-      comment: 'TO BE DEFINED'
+      flag_values: [0, 1]
+      flags_meaning: 'single_pointing scanning'
       units: "1"
 
 

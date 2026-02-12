@@ -199,7 +199,7 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
     }
     
     # Add scan configuration if available #TODO: check that specified scan channels are actually present in the data and handle case where they are not (e.g. if scan data is missing for this instrument)
-    if any(ch_scan):
+    if any(ch_scan) & len( inst_conf['retrieval']['scan_ele'])>0:
         logger.info('Configuring scan data for retrieval')
         scan_config = {
             'mwrscan_type': TROPoeRetrievalConstants.MWR_SCAN_TYPE,
@@ -408,7 +408,7 @@ def add_variables_attrs(data, derived_product_list):
 
     return data
 
-def extract_prior(data, tropoe_out_config):
+def extract_prior(data, tropoe_conf):
     """
     Extracts prior information from the given data based on the TROPoe output configuration.
     #TODO: this function could be done more generic, e.g. by inputing a list of variables to extract prior information from.
@@ -423,13 +423,6 @@ def extract_prior(data, tropoe_out_config):
     Raises:
         FileExistsError: If the tropoe_out_config argument is not a dictionary.
     """
-
-    # read config file for TROPoe output
-    if isinstance(tropoe_out_config, dict):
-        tropoe_conf = tropoe_out_config
-    else:
-        raise FileExistsError("The argument 'conf' must be a conf dictionary")
-
     # Temperature
     data = data.assign(
         temperature_prior = xr.DataArray(
@@ -460,9 +453,9 @@ def extract_prior(data, tropoe_out_config):
     )
     return data
 
-def add_flags(data, cdfs_thresholds_dict):
+def add_quality_flags(data, cdfs_thresholds_dict):
     """
-    Convert TROPoe integer quality flags to bitwise encoding.
+    Convert TROPoe integer quality flags to bitwise encoding and add retrieved specific variable flags
     
     TROPoe qc_flag values:
     - 0: Good quality (retrieval OK)
@@ -529,7 +522,39 @@ def add_flags(data, cdfs_thresholds_dict):
 
     return data
 
-def extract_avk(data, tropoe_out_config):
+def set_observation_flag(data, tropoe_conf):
+    '''
+    Set the observing_geometry_flag in data based on the presence of scan data in the TROPoe output. If scan data is present, we set the flag to 0 (scanning), otherwise to 1 (single-pointing). 
+
+    In TROPoe, the scanning angles used in the retrieval at each time step is encoded in the obs_vector variable.
+    '''
+    # Initiate the observing_geometry_flag variable with 0
+    data['observing_geometry_flag'] = xr.DataArray(
+        data=np.zeros_like(data.time.data, dtype=int),
+        coords={'time': data.time},
+        dims=['time'],
+    )
+    
+    scan_tb_tropoe = xr.DataArray(
+        data.obs_vector[:,data.obs_flag==tropoe_conf['scanTb']].data,
+        coords= {'time':data.time, 'scan_obs':data.obs_dimension[data.obs_flag==tropoe_conf['scanTb']].data},
+        dims=['time','scan_obs'],
+        attrs={'long_name':'scan brightness temperature observations'}
+        )
+    
+    if scan_tb_tropoe.size < 3:  # if there are less than 3 scan observations, we consider that there is no scan data (TROPoe outputs some default values even if no scan data is provided, so we cannot just check for the presence of the variable)
+        data['observing_geometry_flag'] = setbit(data['observing_geometry_flag'], 1)  # single-pointing
+    else:
+        data['observing_geometry_flag'] = setbit(data['observing_geometry_flag'], 0)  # scanning
+        # encode angle used
+        data['observing_geometry_flag'].attrs['comment'] = 'Observing geometry flag: bit 0: 0 for scanning, 1 for single-pointing. Determined based on the presence of scan brightness temperature observations in the TROPoe output (less than 3 scan observations is considered as no scan data).'
+        # scan angles are ?= scan_tb_tropoe.scan_obs.data -> add value in data attrs as string to avoid issues with encoding when writing to netcdf (e.g. if we want to write the actual angles used in the retrieval, which can be different from the ones specified in the config file if some of them were not used by TROPoe for some reason, e.g. due to quality control)
+        str_angles = ','.join([str(angle) for angle in scan_tb_tropoe.scan_obs.data])
+        data['observing_geometry_flag'].attrs['scan_angles_used_in_retrieval'] = str_angles
+        # propagate attributes from tropoe obs_flag "value_10"
+        data['observing_geometry_flag'].attrs['value_10_comment1'] = data.obs_flag.attrs['value_10_comment1'] 
+    
+def extract_avk(data, tropoe_conf):
     """
     Extracts prior information from the given data based on the TROPoe output configuration.
     #TODO: this function could be done more generic, e.g. by inputing a list of variables to extract prior information from.
@@ -544,12 +569,6 @@ def extract_avk(data, tropoe_out_config):
     Raises:
         FileExistsError: If the tropoe_out_config argument is not a dictionary.
     """
-
-    # read config file for TROPoe output
-    if isinstance(tropoe_out_config, dict):
-        tropoe_conf = tropoe_out_config
-    else:
-        raise FileExistsError("The argument 'conf' must be a conf dictionary")
     
     data = data.assign(
         temperature_avk = xr.DataArray(
@@ -662,13 +681,19 @@ def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_c
     Returns:
         xarray Dataset ready for E-Profile output
     """
-    
+    # read config file for TROPoe output
+    if isinstance(tropoe_out_config, dict):
+        tropoe_conf = tropoe_out_config
+    else:
+        raise FileExistsError("The argument 'conf' must be a conf dictionary")
     
     # Extract prior information
-    data = extract_prior(tropoe_data, tropoe_out_config)
+    data = extract_prior(tropoe_data, tropoe_conf)
     
     # Propagate some L1 variables
     data['azi'] = np.median(mwr_l1_data.azi.values)
+    
+    data = set_observation_flag(data, tropoe_conf)
     
     # Transform units to E-PROFILE standards
     data = transform_units(data)
@@ -682,7 +707,7 @@ def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_c
     data = extract_avk(data, tropoe_out_config)
     
     # Add quality flags
-    data = add_flags(data, cdfs_thresholds_dict={
+    data = add_quality_flags(data, cdfs_thresholds_dict={
         'temperature_cdf_threshold': retrieval_conf['data']['temperature_cdf_threshold'],
         'waterVapor_cdf_threshold': retrieval_conf['data']['waterVapor_cdf_threshold'],
     })
