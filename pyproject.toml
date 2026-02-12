@@ -8,10 +8,15 @@ readme = "README.md"
 homepage = "https://github.com/MeteoSwiss/mwr_l12l2"
 repository = "https://github.com/MeteoSwiss/mwr_l12l2"
 documentation = "https://mwr-l12l2.readthedocs.io"
-keywords = ["microwave", "radiometer", "retrieval", "e-profile","remote sensing"]
+keywords = ["microwave", "radiometer", "retrieval", "e-profile", "remote sensing"]
 classifiers = [
     "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
+include = ["CHANGELOG.md"]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -36,7 +41,43 @@ color = ["colorlog"]
 [tool.poetry.group.dev.dependencies]
 flask = "*"
 waitress = "*"
+pytest = "^8.0"
+pylint = "^3.0"
+mypy = "^1.0"
+yapf = {version = "^0.40", optional = true}
 
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = "120"
+
+[tool.pylint.master]
+disable = [
+    'C0114',  # missing-module-docstring
+    'C0115',  # missing-class-docstring
+    'C0116',  # missing-function-docstring
+    'W0511',  # fixme or todo comments
+]
+
+[tool.pylint.basic]
+argument-naming-style = 'any'
+attr-naming-style = 'any'
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.design]
+min-public-methods = 0
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
