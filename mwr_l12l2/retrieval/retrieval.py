@@ -18,6 +18,7 @@ from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has
     scalars_to_time, vectors_to_time
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file, \
     generate_output_filename
+from mwr_l12l2.utils.atmosphere_utils import calculate_pressure_from_std_atmosphere
 from mwr_l12l2.write_netcdf import Writer
 
 
@@ -73,11 +74,14 @@ class Retrieval(object):
         self.time_min = None  # min time of MWR observations available and considered
         self.time_max = None  # max time of MWR observations available and considered
         self.time_mean = None  # average time of period containing considered MWR observations
+        self.scan_angle_info = None # Information on the 
         self.sfc_temp_obs_exists = None  # is temperature measured by met station of MWR instrument?
         self.sfc_rh_obs_exists = None  # is rel humidity measured by met station of MWR instrument?
         self.sfc_p_obs_exists = None  # is pressure measured by met station of MWR instrument?
         self.alc_exists = None  # is cloud base measured by co-located ceilometer?
-
+        self.station_psfc_min = None  # minimum allowed surface pressure for the station (calculated from altitude and std atmosphere)
+        self.station_psfc_max = None  # maximum allowed surface pressure for the station (calculated from altitude and std atmosphere)
+        
         # set by choose_mode_files():
         self.model_fc_file = None
         self.model_zg_file = None
@@ -274,7 +278,7 @@ class Retrieval(object):
                 logger.info('OmB calculation done.')
             except Exception as e:
                 logger.error(f'Error during OmB calculation: {e}, SKIPPING OmB calculation.')
-        
+
     def prepare_paths(self, datestamp='', netcdf_ext='.nc'):
         """prepare input and output paths and filenames from config"""
         self.tropoe_dir = os.path.join(self.conf['data']['tropoe_basedir'],
@@ -411,13 +415,8 @@ class Retrieval(object):
         # Calculate noise level from MWR data
         self._calculate_noise_level(mwr)
         
-        # Check if there are enough (4 ?) scanning observations
-        if not has_data(mwr.where(mwr.pointing_flag == 1), 'tb'):
-            logger.critical('No scanning observations available in the MWR data between '
-                            f'{self.time_min} and {self.time_max}.')
-            self.conf['vip'].mwr_scanning_obs_available = False
-            raise MissingDataError('No scanning observations available in the MWR data between '
-                                   f'{self.time_min} and {self.time_max}. ')
+        # Check which scan angles are present in the mwr dataset and compare with config
+        self.scan_angle_info = self._check_scan_angles(mwr)        
         
         # Extract station coordinates and validate
         self._extract_and_validate_coordinates(mwr)
@@ -480,10 +479,10 @@ class Retrieval(object):
             raise MissingDataError(f'No MWR data for {self.wigos} {self.inst_id} in time range '
                                  f'{self.time_min} to {self.time_max}')
         
-        min_duration = np.timedelta64(self.conf['vip']['tres'], 'm')
+        min_duration = np.timedelta64(self.conf['general']['retrieval_time'], 'm')
         data_duration = mwr.time.max().values - mwr.time.min().values
-        
-        if data_duration < min_duration:
+
+        if data_duration < self.conf['data']['mwr_obs_duration_threshold'] * min_duration:
             logger.critical('Not enough data to run the retrieval. Skipping this instrument.')
             raise MissingDataError(f'Insufficient data duration: {data_duration} < {min_duration}')
         
@@ -524,6 +523,91 @@ class Retrieval(object):
         mwr['noise_level'] = noise_level
         mwr.noise_level.attrs['units'] = 'K'
         mwr.noise_level.attrs['long_name'] = 'Estimated noise level of tb observations'
+
+    def _check_scan_angles(self, mwr):
+        """Check which scan angles are present in MWR data and compare with instrument config.
+        
+        This method identifies the unique elevation angles present in scanning observations
+        and compares them with the scan_channels specified in the instrument configuration.
+        It logs warnings if there are mismatches and updates flags accordingly.
+        
+        Args:
+            mwr: MWR dataset to analyze
+            
+        Returns:
+            dict: Dictionary with keys 'available_angles', 'expected_angles', 'missing_angles', 'extra_angles'
+        """
+        # Get scan angles from MWR data (only scanning observations, not zenith)
+        
+        scan_freq_sel = self.inst_conf['retrieval'].get('scan_channels', [])
+        scan_data = mwr.where(mwr.pointing_flag == 1, drop=True).sel(frequency=scan_freq_sel)
+        
+        if not has_data(scan_data, 'tb'):
+            logger.warning('No scanning observations found in MWR data')
+            return {
+                'available_angles': [],
+                'expected_angles': self.inst_conf['retrieval'].get('scan_ele', []),
+                'missing_angles': self.inst_conf['retrieval'].get('scan_ele', []),
+                'extra_angles': []
+            }
+            
+        # Check that the scan data brightness temperature in "scan channels" are not empty
+        
+        
+        # Get unique elevation angles from the data (rounded to 1 decimal to handle small variations)
+        available_angles = np.unique(np.round(scan_data.ele.values, 1))
+        available_angles = available_angles[~np.isnan(available_angles)]  # Remove NaN values
+        available_angles = available_angles[np.abs(90 - available_angles) > 1] 
+        available_angles = sorted(available_angles.tolist())
+        
+        # Get expected scan angles from instrument config
+        expected_angles = self.inst_conf['retrieval'].get('scan_ele')
+        
+        # If scan_channels is not defined in config, log warning and return
+        if len(expected_angles)==0:
+            logger.warning('No scan_channels defined in instrument configuration. '
+                         f'Found the following elevation angles in data: {available_angles}')
+            return {
+                'available_angles': available_angles,
+                'expected_angles': [],
+                'missing_angles': [],
+                'extra_angles': available_angles
+            }
+        
+        # Convert expected angles to set for comparison (rounded to match data processing)
+        expected_angles_set = set(np.round(expected_angles, 1))
+        available_angles_set = set(np.round(available_angles, 1))  
+        
+        # Find missing and extra angles
+        missing_angles = sorted(list(expected_angles_set - available_angles_set))
+        extra_angles = sorted(list(available_angles_set - expected_angles_set))
+        
+        # Log results
+        logger.info(f'Scan angle check:')
+        logger.info(f'Expected angles from config: {sorted(list(expected_angles_set))}')
+        logger.info(f'Available angles in data: {available_angles_set}')
+        
+        if missing_angles:
+            logger.warning(f'  Missing scan angles (in config but not in data): {missing_angles}')
+        
+        if extra_angles:
+            logger.warning(f'  Extra scan angles (in data but not in config): {extra_angles}')
+        
+        if not missing_angles and not extra_angles:
+            logger.info('   All expected scan angles are present in the data')
+        
+        # Count observations per angle for diagnostic purposes
+        logger.debug('Observations per elevation angle:')
+        for angle in available_angles:
+            count = np.sum(np.abs(scan_data.ele.values - angle) < 0.1)
+            logger.debug(f'  {angle:5.1f}°: {count} observations')
+        
+        return {
+            'available_angles': available_angles,
+            'expected_angles': sorted(list(expected_angles_set)),
+            'missing_angles': missing_angles,
+            'extra_angles': extra_angles
+        }
 
     def _extract_and_validate_coordinates(self, mwr):
         """Extract station coordinates from MWR data and validate against config.
@@ -574,10 +658,14 @@ class Retrieval(object):
         self.sfc_rh_obs_exists = has_data(mwr, 'relative_humidity')
         self.sfc_p_obs_exists = has_data(mwr, 'air_pressure')
         
+        # station_pressure is required by TROPoe, therefore we will calculate a default one based on the station altitude and a standard atmosphere if no pressure observations are available
+        station_pressure_std_atm, self.station_psfc_min, self.station_psfc_max = calculate_pressure_from_std_atmosphere(self.station_altitude)  
+  
         if self.sfc_p_obs_exists:
             self.station_pressure = np.nanmedian(mwr.air_pressure.values)
         else:
-            self.station_pressure = None
+            self.station_pressure = station_pressure_std_atm
+            logger.warning(f'No pressure observations available. Calculated station pressure from altitude: {self.station_pressure:.1f} hPa')
 
         self.mwr = mwr
 
@@ -677,13 +765,18 @@ class Retrieval(object):
             'latitude': self.station_latitude,
             'longitude': self.station_longitude,
             'altitude': self.station_altitude,
-            'pressure': self.station_pressure
+            'pressure': self.station_pressure,
+            'station_psfc_min': self.station_psfc_min,
+            'station_psfc_max': self.station_psfc_max
         }
         
         tropoe_paths = {
             'mountpoint': self.tropoe_dir_mountpoint,
             'mwr_basename': self.conf['data']['mwr_basefilename_tropoe']
         }
+        
+        # Update the scan related parameters in self.inst_conf based on actual scan data in mwr:
+        self.inst_conf['retrieval']['scan_ele'] = self.scan_angle_info['available_angles']
         
         # Build VIP configuration using helper function from tropoe_helpers
         vip_full, sfc_data_type = build_vip_config(
@@ -694,7 +787,7 @@ class Retrieval(object):
             met_sfc_offset=self.met_sfc_offset,
             tropoe_paths=tropoe_paths,
             output_basename=self.tropoe_output_basename,
-            vip_conf=self.conf['vip']
+            retrieval_conf=self.conf
         )
         
         # Store surface data type for later use

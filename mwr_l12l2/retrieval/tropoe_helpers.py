@@ -166,7 +166,7 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
             f'zenith_channels={len(ch_zenith)}, scan_channels={len(ch_scan)}, '
             f'frequency dimension={len(mwr_data.frequency)}. All must be equal.'
         )
-    
+  
     # Build configuration updates to merge with base vip_conf
     vip_updates = {
         'tres': retrieval_conf['general']['retrieval_time'],  # retrieval time in minutes
@@ -176,6 +176,8 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
         'station_lon': station_coords['longitude'],
         'station_alt': station_coords['altitude'],
         'station_pres': station_coords['pressure'],
+        'station_psfc_min': station_coords['station_psfc_min'],
+        'station_psfc_max': station_coords['station_psfc_max'],
 
         # MWR zenith configuration
         'mwr_n_tb_fields': len(mwr_data.frequency[ch_zenith]),
@@ -552,7 +554,9 @@ def set_observation_flag(data, tropoe_conf):
         str_angles = ','.join([str(angle) for angle in scan_tb_tropoe.scan_obs.data])
         data['observing_geometry_flag'].attrs['scan_angles_used_in_retrieval'] = str_angles
         # propagate attributes from tropoe obs_flag "value_10"
-        data['observing_geometry_flag'].attrs['value_10_comment1'] = data.obs_flag.attrs['value_10_comment1'] 
+        data['observing_geometry_flag'].attrs['value_10_comment1'] = data.obs_flag.attrs['value_10_comment1']
+    
+    return data
     
 def extract_avk(data, tropoe_conf):
     """
