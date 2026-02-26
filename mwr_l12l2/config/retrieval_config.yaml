@@ -59,7 +59,7 @@ data:
   model_z_file_ext: .grb
 
   # location and filenames of temporary TROPoe files
-  tropoe_img: 'davidturner53/tropoe:v0.20'
+  tropoe_img: 'davidturner53/tropoe:v1.0'
   tropoe_basedir: mwr_l12l2/data/tropoe/  # base directory where folder with tmp files for tropoe runs is saved
   tropoe_subfolder_basename: node_  # basename of subfolders for different (parallel) TROPoe runs
   tropoe_dir_mountpoint: /data  # where the tropoe subfolder shall be mounted inside the TROPoe container
@@ -114,10 +114,6 @@ vip:
   ext_sfc_temp_random_error: 0.5  # K - temperature error for surface measurements
   ext_sfc_wv_fieldname: 'relative_humidity'
   ext_sfc_rh_random_error: 3.0  # % - relative humidity error for surface measurements
-
-  # Station pressure limits
-  station_psfc_max: 1030.0  # hPa - maximum allowed surface pressure
-  station_psfc_min: 800.0  # hPa - minimum allowed surface pressure
 
   # The model input
   mod_temp_prof_type: 0
