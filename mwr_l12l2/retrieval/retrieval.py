@@ -828,6 +828,10 @@ class Retrieval(object):
             ext_sfc_data_type=self.ext_sfc_data_type
         )
         
+        # Add the time_bnds variable based on the data time dimension and the tresolution defined in the config file:
+        time_bnds = self.calculate_time_bnds(data.time, self.conf['general']['retrieval_time'])
+        data = data.assign(time_bnds=time_bnds)
+        
         # If provided, crop to max altitude defined in config file
         max_altitude_magl = self.conf['data']['max_altitude_magl']
         if max_altitude_magl is not None:
@@ -845,6 +849,25 @@ class Retrieval(object):
         if self._should_upload_to_s3():
             self._upload_to_s3(output_filename, tropoe_output_file)
     
+    def calculate_time_bnds(self, time, tresolution_minutes):
+        """Calculate time bounds for each time step based on the specified time resolution.
+        
+        Args:
+            time: xarray DataArray of time steps
+            tresolution_minutes: Time resolution in minutes
+            
+        Returns:
+            xarray DataArray of time bounds with dimensions (time, 2)
+        """
+
+        avg_time = np.timedelta64(int(tresolution_minutes * 60), 's')
+        time_bnds = xr.DataArray(
+            data=np.array([time, time + avg_time]).transpose(),
+            coords={'time': time},
+            dims=['time', 'bnds'],
+        )
+        return time_bnds
+        
     def _find_tropoe_output_file(self):
         """Find the TROPoe output file.
         
@@ -884,8 +907,8 @@ class Retrieval(object):
         
         # TODO: use actual retrieved period instead of mwr_files for filename
         filename = generate_output_filename(
-            basename, 'time_mean', 
-            files_in=self.mwr_files, 
+            basename, 
+            'time_min', 
             time=data.time
         )
         

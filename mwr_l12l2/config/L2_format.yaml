@@ -106,22 +106,34 @@ variables:
       units: degree
       comment: “0=North, 90=East, 180=South, 270=West”
   
+  quality_flag_status:
+    name: quality_flag_status
+    dim:
+      - time
+    type: i2
+    _FillValue: -999
+    optional: False
+    attributes:
+      long_name: Checks not executed in determination of quality_flag
+      flag_masks: [1, 2, 4, 8, 16, 32, 64, 128]
+      flag_meanings: missing_tb_not_checked tb_lower_threshold_not_checked tb_upper_threshold_not_checked spectral_consistency_not_checked receiver_sanity_not_checked rain_not_checked sun_in_beam_not_checked tb_offset_not_checked
+
   # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
   # Not working at the moment -> change the time vector !
-  # time_bnds:
-  #   name: time_bnds 
-  #   dim:
-  #     - time
-  #     - bnds
-  #   type: f8
-  #   _FillValue: -999. #CF compliance checker says that time_bnds should not have a FillValue...
-  #   optional: True
-  #   attributes:
-  #     long_name: Start and end time (UTC) of the measurements
-  #     standard_name: time
-  #     units: seconds since 1970-01-01 00:00:00
-  #     calendar: standard
-  #     comment: Variable not set at the moment, to be implemented in the future
+  time_bnds:
+    name: time_bnds 
+    dim:
+      - time
+      - bnds
+    type: f8
+    _FillValue: null #CF compliance checker says that time_bnds should not have a FillValue...
+    optional: True
+    attributes:
+      long_name: Start and end time (UTC) of the measurements
+      standard_name: time
+      units: seconds since 1970-01-01 00:00:00
+      calendar: standard
+      #comment: Variable not set at the moment, to be implemented in the future
 
 ##########################################################################################################
 # Measurement mode
@@ -131,13 +143,13 @@ variables:
     name: observing_geometry_flag
     dim:
       - time
-    type: f4
-    _FillValue: -999.
+    type: i1
+    _FillValue: -128
     optional: True
     attributes:
-      long_name: 'Flag for the observation geometry'
-      flag_values: [0, 1]
-      flags_meaning: 'single_pointing scanning'
+      long_name: 'Flag for the observing geometry'
+      flag_values: [0, 1, 2]
+      flags_meaning: 'single_pointing scanning unknown'
       units: "1"
 
 
