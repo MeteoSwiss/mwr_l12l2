@@ -455,26 +455,27 @@ def extract_prior(data, tropoe_conf):
     )
     return data
 
-def add_quality_flags(data, cdfs_thresholds_dict):
+def add_quality_flags(data, mwr_quality_checked, cdfs_thresholds_dict):
     """
     Convert TROPoe integer quality flags to bitwise encoding and add retrieved specific variable flags
     
     TROPoe qc_flag values:
     - 0: Good quality (retrieval OK)
-    - 1: Generic suspect quality (non-zero value)
     - 2: Retrieval did not converge
     - 3: Retrieval converged but RMS between observed_vector and forward_calc is too large
     - 4: Gamma value of the retrieval was too large
     
     Bitwise mapping:
     - 0 (no bits set): Good quality (qc_flag == 0)
-    - bit 0: Generic suspect quality (qc_flag == 1)
+    - bit 0: Careful, MWR L1 checked not performed (qc_flag == 1)
     - bit 1: Non-convergence (qc_flag == 2)
     - bit 2: High RMS (qc_flag == 3)
     - bit 3: High gamma (qc_flag == 4)
 
     Parameters:
     data (xarray.Dataset): The input data with qc_flag variable.
+    mwr_quality_checked (bool): Flag indicating whether MWR quality checks have been performed.
+    cdfs_thresholds_dict (dict): Dictionary containing the thresholds for the cumulative distribution functions (CDFs) of temperature and water vapor.
 
     Returns:
     xarray.Dataset: The data with bitwise quality flags added.
@@ -483,8 +484,10 @@ def add_quality_flags(data, cdfs_thresholds_dict):
     quality_flag = data.qc_flag.copy(data=np.zeros_like(data.qc_flag.data, dtype=int))
     
     # Convert TROPoe integer flags to bitwise encoding
-    # bit 0: Generic suspect quality (value 1)
-    quality_flag = xr.where(data.qc_flag == 1, setbit(quality_flag, 0), quality_flag)
+    # bit 0: when no checks have been performed on MWR L1 data
+    if not mwr_quality_checked:
+        quality_flag = setbit(quality_flag, 0)
+    
     # bit 1: Non-convergence (value 2)
     quality_flag = xr.where(data.qc_flag == 2, setbit(quality_flag, 1), quality_flag)
     # bit 2: High RMS (value 3)
@@ -512,15 +515,15 @@ def add_quality_flags(data, cdfs_thresholds_dict):
         temp_threshold = cdfs_thresholds_dict['temperature_cdf_threshold']*data.cdfs_temperature.max(dim='altitude') # we multiply the threshold by the max cdf value to get the actual threshold value for this profile, as the cdf values can be between 0 and 1 and the threshold in the config file is defined as a fraction of the max cdf value (e.g. 0.5 means that we want to flag all altitudes where cdf is above 50% of its max value)
         wv_threshold = cdfs_thresholds_dict['waterVapor_cdf_threshold']*data.cdfs_waterVapor.max(dim='altitude')
         
-        temp_good_altitudes = np.nanmax(data.where(data.cdfs_temperature < temp_threshold, drop=True).altitude.data)
-        wv_good_altitudes = np.nanmax(data.where(data.cdfs_waterVapor < wv_threshold, drop=True).altitude.data)
+        temp_max_altitudes = np.nanmax(data.where(data.cdfs_temperature < temp_threshold, drop=True).altitude.data)
+        wv_max_altitudes = np.nanmax(data.where(data.cdfs_waterVapor < wv_threshold, drop=True).altitude.data)
 
-        # Set the bits for altitudes above the good altitude limits to "bad quality"
-        data['temperature_quality_flag'] = data['temperature_quality_flag'].where(data.altitude < temp_good_altitudes, setbit(data['temperature_quality_flag'], 1)) # bit 1 for temperature cdf threshold
-        data['waterVapor_quality_flag'] = data['waterVapor_quality_flag'].where(data.altitude < wv_good_altitudes, setbit(data['waterVapor_quality_flag'], 1)) # bit 1 for water vapor cdf threshold
+        # Set the bits for altitudes above the good altitude limits to "bad quality" (value == 1)
+        data['temperature_quality_flag'] = data['temperature_quality_flag'].where(data.altitude < temp_max_altitudes, 1) # 1 for temperature cdf threshold
+        data['waterVapor_quality_flag'] = data['waterVapor_quality_flag'].where(data.altitude < wv_max_altitudes, 1) # 1 for water vapor cdf threshold
         
     # Liquid water path
-    data['lwp_quality_flag'] = xr.where(quality_flag==0, 0, 1)  # bit 0 for generic suspect quality, we set lwp to bad quality if the profile is flagged as suspect, otherwise good quality by default (can be further refined based on specific criteria, e.g. cdf thresholds)
+    data['lwp_quality_flag'] = xr.where(quality_flag==0, 0, 1)  # 0 for generic suspect quality, we set lwp to bad quality if the profile is flagged as suspect, otherwise good quality by default (can be further refined based on specific criteria, e.g. cdf thresholds)
 
     return data
 
@@ -554,7 +557,7 @@ def set_observation_flag(data, tropoe_conf):
         str_angles = ','.join([str(angle) for angle in scan_tb_tropoe.scan_obs.data])
         data['observing_geometry_flag'].attrs['scan_angles_used_in_retrieval'] = str_angles
         # propagate attributes from tropoe obs_flag "value_10"
-        data['observing_geometry_flag'].attrs['value_10_comment1'] = data.obs_flag.attrs['value_10_comment1']
+        data['observing_geometry_flag'].attrs['scan_angles_encoding_comment'] = data.obs_flag.attrs['value_10_comment1']
     
     return data
     
@@ -694,24 +697,26 @@ def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_c
     # Extract prior information
     data = extract_prior(tropoe_data, tropoe_conf)
     
-    # Propagate some L1 variables
+    # Propagate some L1 variable
     data['azi'] = np.median(mwr_l1_data.azi.values)
+    data['quality_flag_status'] = mwr_l1_data.quality_flag_status.isel(time=0, frequency=0).values
     
+    # Set the observing geometry flag based on the presence of scan data in the TROPoe output (0 for scanning, 1 for single-pointing)
     data = set_observation_flag(data, tropoe_conf)
     
     # Transform units to E-PROFILE standards
     data = transform_units(data)
-    
+            
     # Convert height to altitude
     data = height_to_altitude(data, mwr_l1_data.station_altitude)
     data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude', 'lwp_prior'])
-    data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior'])
+    data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior', 'quality_flag_status'])
     
     # Extract averaging kernels
     data = extract_avk(data, tropoe_out_config)
     
     # Add quality flags
-    data = add_quality_flags(data, cdfs_thresholds_dict={
+    data = add_quality_flags(data, retrieval_conf['data']['check_mwr_quality'], cdfs_thresholds_dict={
         'temperature_cdf_threshold': retrieval_conf['data']['temperature_cdf_threshold'],
         'waterVapor_cdf_threshold': retrieval_conf['data']['waterVapor_cdf_threshold'],
     })
