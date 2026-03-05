@@ -14,7 +14,7 @@ variables:
     name: time  # variable name in output NetCDF
     dim:
       - time
-    type: f8
+    type: i8
     _FillValue: null
     optional: False
     attributes:
@@ -91,6 +91,23 @@ variables:
       standard_name: surface_altitude
       units: m
 
+  # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
+  # Not working at the moment -> change the time vector !
+  time_bnds:
+    name: time_bnds 
+    dim:
+      - time
+      - bnds
+    type: i8
+    _FillValue: null #CF compliance checker says that time_bnds should not have a FillValue...
+    optional: False
+    attributes:
+      long_name: Start and end time (UTC) of the measurements
+      #standard_name: time_bnds
+      units: seconds since 1970-01-01 00:00:00
+      calendar: standard
+      #comment: Variable not set at the moment, to be implemented in the future
+
 ####################################
 # Propagated from L1
   azi: 
@@ -117,23 +134,6 @@ variables:
       long_name: Checks not executed in determination of quality_flag
       flag_masks: [1, 2, 4, 8, 16, 32, 64, 128]
       flag_meanings: missing_tb_not_checked tb_lower_threshold_not_checked tb_upper_threshold_not_checked spectral_consistency_not_checked receiver_sanity_not_checked rain_not_checked sun_in_beam_not_checked tb_offset_not_checked
-
-  # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
-  # Not working at the moment -> change the time vector !
-  time_bnds:
-    name: time_bnds 
-    dim:
-      - time
-      - bnds
-    type: f8
-    _FillValue: null #CF compliance checker says that time_bnds should not have a FillValue...
-    optional: True
-    attributes:
-      long_name: Start and end time (UTC) of the measurements
-      standard_name: time
-      units: seconds since 1970-01-01 00:00:00
-      calendar: standard
-      #comment: Variable not set at the moment, to be implemented in the future
 
 ##########################################################################################################
 # Measurement mode
@@ -179,7 +179,7 @@ variables:
       long_name: Quality flag
       standard_name: quality_flag
       flag_masks: [1, 2, 4, 8]
-      flag_meanings: 'suspect_quality non_convergence high_rms high_gamma'
+      flag_meanings: 'no_L1_QC non_convergence high_rms high_gamma'
       comment: 0 indicates data with good quality.
 
 ##########################################################################################################

@@ -176,14 +176,17 @@ class Writer(object):
         time_vars.extend([var for var in self.data.keys() if 'calendar' in self.data[var].attrs])  # all with calendar
         for var in time_vars:
             encs = {}
+            # Make sure we only use integer type, for this we need to round to seconds:
+            if np.issubdtype(self.data[var].dtype, np.datetime64):
+                self.data[var] = self.data[var].dt.round('s')
+            
             for att in ['units', 'calendar']:
                 if att in self.data[var].attrs:
-                    encs[att] = self.data[var].attrs.pop(att)
+                    encs[att] = self.data[var].attrs.pop(att) # we can't have both in attrs and endoding
             self.data[var].encoding.update(encs)
 
     # def prepare_time_bnds(self):
     #     """Function to setup correctly the bnds coordinates and time_bnds variables"""
-
     #     # Set the bnds coordinates:
     #     self.data['bnds'] = [0,1]
 
