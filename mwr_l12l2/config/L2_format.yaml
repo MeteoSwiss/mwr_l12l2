@@ -91,8 +91,6 @@ variables:
       standard_name: surface_altitude
       units: m
 
-  # TODO: Add time bnds, is there a straightforward solution for multiple time retrieval ?
-  # Not working at the moment -> change the time vector !
   time_bnds:
     name: time_bnds 
     dim:
@@ -148,8 +146,8 @@ variables:
     optional: True
     attributes:
       long_name: 'Flag for the observing geometry'
-      flag_values: [0, 1, 2]
-      flags_meaning: 'single_pointing scanning unknown'
+      flag_values: [0, 1]
+      flags_meaning: 'single_pointing multiple_pointing'
       units: "1"
 
 
@@ -198,6 +196,7 @@ variables:
       long_name: Temperature profile
       standard_name: air_temperature
       units: K
+      ancillary_variables: temperature_apriori temperature_random_error temperature_systematic_error temperature_avk temperature_vertical_resolution temperature_quality_flag
       #units_metadata: "temperature: on_scale" -> for CF1.11
 
   temperature_prior:
@@ -292,6 +291,7 @@ variables:
       long_name: Water vapor profile
       standard_name: humidity_mixing_ratio
       units: ppm
+      ancillary_variables: water_vapor_vmr_apriori water_vapor_vmr_random_error water_vapor_vmr_systematic_error water_vapor_vmr_avk water_vapor_vmr_vertical_resolution water_vapor_vmr_quality_flag
       # TODO should probably transform this to ppm to comply with the format definition doc. Synchronise with this document
       # TODO: check for standard name and adequate units: https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
 
@@ -384,6 +384,7 @@ variables:
       standard_name: relative_humidity
       units: "1"
       comment: ''
+      ancillary_variables: quality_flag
 
   theta:
     name: potential_temperature
@@ -398,6 +399,7 @@ variables:
       standard_name: air_potential_temperature
       units: K
       comment: ''
+      ancillary_variables: quality_flag
 
   thetae:
     name: equivalent_potential_temperature
@@ -412,6 +414,7 @@ variables:
       standard_name: air_equivalent_potential_temperature
       units: K
       comment: ''
+      ancillary_variables: quality_flag
 
   dewpt:
     name: dew_point_temperature
@@ -426,6 +429,7 @@ variables:
       standard_name: dew_point_temperature
       units: K
       comment: ''
+      ancillary_variables: quality_flag
 
 ##########################################################################################################
 # Measurement related fields
@@ -458,6 +462,7 @@ variables:
       comment: ''
       # TODO: indicate source
       units: kg m-2
+      ancillary_variables: lwp_apriori lwp_random_error lwp_systematic_error lwp_avk lwp_quality_flag
 
   lwp_prior:
     name: lwp_apriori
@@ -529,6 +534,7 @@ variables:
       long_name: Column-integrated water vapour
       comment: ''
       units: kg m-2
+      ancillary_variables: iwv_random_error iwv_systematic_error quality_flag
 
   sigma_pwv:
     name: iwv_random_error
@@ -567,6 +573,7 @@ variables:
       standard_name: atmosphere_convective_available_potential_energy
       long_name: Convective available potential energy for a mixed-layer parcel
       units: J kg-1
+      ancillary_variables: cape_random_error quality_flag
 
   sigma_mlCAPE:
     name: cape_random_error
@@ -590,6 +597,7 @@ variables:
       standard_name: atmosphere_convective_inhibition
       long_name: Convective inhibition for a mixed-layer parcel
       units: J kg-1
+      ancillary_variables: cin_random_error quality_flag
 
   sigma_mlCIN:
     name: cin_random_error
@@ -614,6 +622,7 @@ variables:
       standard_name: atmosphere_level_of_free_convection
       long_name: Lifted condensation level
       units: m
+      ancillary_variables: lcl_random_error quality_flag
 
   sigma_mlLCL:
     name: lcl_random_error
