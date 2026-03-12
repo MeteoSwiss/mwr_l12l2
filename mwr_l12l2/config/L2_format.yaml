@@ -54,7 +54,33 @@ variables:
       axis: Z
       comment: Used for the AVKs second dimension, same as altitude
 
-  lat:
+  latitude:
+    name: latitude
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Latitude of measurement station
+      standard_name: latitude
+      units: degree_north
+    
+  longitude:
+    name: longitude
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Longitude of measurement station
+      standard_name: longitude
+      units: degree_east
+
+  station_latitude:
     name: station_latitude
     dim:
       - time
@@ -63,10 +89,10 @@ variables:
     optional: False
     attributes:
       long_name: Latitude of measurement station
-      standard_name: latitude
+      standard_name: deployment_latitude
       units: degree_north
 
-  lon:
+  station_longitude:
     name: station_longitude
     dim:
       - time
@@ -75,7 +101,7 @@ variables:
     optional: False
     attributes:
       long_name: Longitude of measurement station
-      standard_name: longitude
+      standard_name: deployment_latitude
       units: degree_east
 
   # in this case, the variable has already been created 

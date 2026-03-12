@@ -455,7 +455,7 @@ def extract_prior(data, tropoe_conf):
     )
     return data
 
-def add_quality_flags(data, mwr_quality_checked, cdfs_thresholds_dict):
+def add_quality_flags(data, operational, mwr_quality_checked, cdfs_thresholds_dict):
     """
     Convert TROPoe integer quality flags to bitwise encoding and add retrieved specific variable flags
     
@@ -485,7 +485,7 @@ def add_quality_flags(data, mwr_quality_checked, cdfs_thresholds_dict):
     
     # Convert TROPoe integer flags to bitwise encoding
     # bit 0: when no checks have been performed on MWR L1 data
-    if not mwr_quality_checked:
+    if not mwr_quality_checked and operational:  # we only set this bit if we are in operational mode, otherwise for research mode we want to keep all data even if MWR quality checks have not been performed (e.g. for testing purposes)
         quality_flag = setbit(quality_flag, 0)
     
     # bit 1: Non-convergence (value 2)
@@ -540,16 +540,18 @@ def set_observation_flag(data, tropoe_conf):
         dims=['time'],
     )
     
-    scan_tb_tropoe = xr.DataArray(
-        data.obs_vector[:,data.obs_flag==tropoe_conf['scanTb']].data,
-        coords= {'time':data.time, 'scan_obs':data.obs_dimension[data.obs_flag==tropoe_conf['scanTb']].data},
-        dims=['time','scan_obs'],
-        attrs={'long_name':'scan brightness temperature observations'}
-        )
-    
-    if scan_tb_tropoe.size < 3:  # if there are less than 3 scan observations, we consider that there is no scan data (TROPoe outputs some default values even if no scan data is provided, so we cannot just check for the presence of the variable)
+    scan_data = data.obs_vector[:,data.obs_flag==tropoe_conf['scanTb']].data
+
+    if scan_data.size < 2:  # if there are less than 2 scan observations, we consider that there is no scan data (TROPoe outputs some default values even if no scan data is provided, so we cannot just check for the presence of the variable)
         data['observing_geometry_flag'] = setbit(data['observing_geometry_flag'], 1)  # single-pointing
     else:
+        scan_tb_tropoe = xr.DataArray(
+            data.obs_vector[:,data.obs_flag==tropoe_conf['scanTb']].data,
+            coords= {'time':data.time, 'scan_obs':data.obs_dimension[data.obs_flag==tropoe_conf['scanTb']].data},
+            dims=['time','scan_obs'],
+            attrs={'long_name':'scan brightness temperature observations'}
+        )
+            
         data['observing_geometry_flag'] = setbit(data['observing_geometry_flag'], 0)  # scanning
         # encode angle used
         data['observing_geometry_flag'].attrs['comment'] = 'Observing geometry flag: bit 0: 0 for scanning, 1 for single-pointing. Determined based on the presence of scan brightness temperature observations in the TROPoe output (less than 3 scan observations is considered as no scan data).'
@@ -664,6 +666,39 @@ def extract_zenith_tbs(data, tropoe_out_config):
     )
     return data
 
+def add_lat_lon_vectors(data):
+    # First rename the latitude and longitude variables to station_latitude and station_longitude
+    data = data.rename({'lat': 'station_latitude', 'lon': 'station_longitude'})
+    
+    # add proper standard attributes to the station latitude and longitude variables
+    data['station_latitude'].attrs.update({'standard_name': 'deployment_latitude'})
+    data['station_longitude'].attrs.update({'standard_name': 'deployment_longitude'})
+    # Add the latitude and longitude variables as 2D vector (with same value repeated in all altitudes)
+    data = data.assign(
+        latitude = xr.DataArray(
+        data=np.repeat(data.station_latitude.values[:, np.newaxis], data.dims['altitude'], axis=1),
+        coords= {'time':data.time, 'altitude':data.altitude.data},
+        dims=['time','altitude'],
+        attrs={'standard_name':'latitude',
+               'long_name':'Latitude for each measurement',
+               'units':'degrees_north',
+            }
+        ),
+    )
+    data = data.assign(
+        longitude = xr.DataArray(
+        data=np.repeat(data.station_longitude.values[:, np.newaxis], data.dims['altitude'], axis=1),
+        coords= {'time':data.time, 'altitude':data.altitude.data},
+        dims=['time','altitude'],
+        attrs={'standard_name':'longitude',
+               'long_name':'Longitude for each measurement',
+               'units':'degrees_east',
+            }
+        ),
+    )
+    return data
+    
+
 def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_config, 
                                use_model_data=False, ext_sfc_data_type=None):
     """
@@ -712,14 +747,22 @@ def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_c
     data = scalars_to_time(data, ['lat', 'lon', 'azi', 'station_altitude', 'lwp_prior'])
     data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior', 'quality_flag_status'])
     
+    # Add the latitude and longitude variables as 2D vector
+    data = add_lat_lon_vectors(data)
+    
     # Extract averaging kernels
     data = extract_avk(data, tropoe_out_config)
     
-    # Add quality flags
-    data = add_quality_flags(data, retrieval_conf['data']['check_mwr_quality'], cdfs_thresholds_dict={
-        'temperature_cdf_threshold': retrieval_conf['data']['temperature_cdf_threshold'],
-        'waterVapor_cdf_threshold': retrieval_conf['data']['waterVapor_cdf_threshold'],
-    })
+    # Add quality flags       
+    data = add_quality_flags(
+        data, 
+        operational=retrieval_conf['general']['operational'], 
+        mwr_quality_checked=retrieval_conf['data']['check_mwr_quality'], 
+        cdfs_thresholds_dict={
+            'temperature_cdf_threshold': retrieval_conf['data']['temperature_cdf_threshold'],
+            'waterVapor_cdf_threshold': retrieval_conf['data']['waterVapor_cdf_threshold'],
+        }
+    )
     
     # Add variable attributes for derived products
     derived_products = ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 
