@@ -155,7 +155,7 @@ variables:
     _FillValue: -999
     optional: False
     attributes:
-      long_name: Checks not executed in determination of quality_flag
+      long_name: Checks not executed in determination of L1 data quality
       flag_masks: [1, 2, 4, 8, 16, 32, 64, 128]
       flag_meanings: missing_tb_not_checked tb_lower_threshold_not_checked tb_upper_threshold_not_checked spectral_consistency_not_checked receiver_sanity_not_checked rain_not_checked sun_in_beam_not_checked tb_offset_not_checked
 
@@ -176,21 +176,20 @@ variables:
       flags_meaning: 'single_pointing multiple_pointing'
       units: "1"
 
-
 # ##########################################################################################################
 # # QC fields
 # ##########################################################################################################
 
-  # TODO: remove the TROPoe flag once we are confident that conversion to quality_flag is working
-  qc_flag:
-    name: qc_flag
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: True
-    attributes:
-      long_name: original TROPoe quality control flag
+  # # TODO: remove the TROPoe flag once we are confident that conversion to quality_flag is working
+  # qc_flag:
+  #   name: qc_flag
+  #   dim:
+  #     - time
+  #   type: f4
+  #   _FillValue: -999.
+  #   optional: True
+  #   attributes:
+  #     long_name: original TROPoe quality control flag
 
   quality_flag:
     name: quality_flag
@@ -306,7 +305,7 @@ variables:
 ##########################################################################################################
 
   waterVapor:
-    name: water_vapor_vmr
+    name: water_vapor_mr
     dim:
       - time
       - altitude
@@ -314,15 +313,13 @@ variables:
     _FillValue: -999.
     optional: True
     attributes:
-      long_name: Water vapor profile
+      long_name: Water vapor mixing ratio profile
       standard_name: humidity_mixing_ratio
       units: ppm
-      ancillary_variables: water_vapor_vmr_apriori water_vapor_vmr_random_error water_vapor_vmr_systematic_error water_vapor_vmr_avk water_vapor_vmr_vertical_resolution water_vapor_vmr_quality_flag
-      # TODO should probably transform this to ppm to comply with the format definition doc. Synchronise with this document
-      # TODO: check for standard name and adequate units: https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
+      ancillary_variables: water_vapor_mr_apriori water_vapor_mr_random_error water_vapor_mr_systematic_error water_vapor_mr_avk water_vapor_mr_vertical_resolution water_vapor_mr_quality_flag
 
   waterVapor_prior:
-    name: water_vapor_vmr_apriori
+    name: water_vapor_mr_apriori
     dim:
       - time
       - altitude
@@ -334,7 +331,7 @@ variables:
       units: ppm
 
   sigma_waterVapor:
-    name: water_vapor_vmr_random_error
+    name: water_vapor_mr_random_error
     dim:
       - time
       - altitude
@@ -346,7 +343,7 @@ variables:
       units: ppm
 
   humidity_mixing_ratio_systematic_error:
-    name: water_vapor_vmr_systematic_error
+    name: water_vapor_mr_systematic_error
     dim:
       - time
       - altitude
@@ -358,7 +355,7 @@ variables:
       units: ppm
 
   waterVapor_avk:
-    name: water_vapor_vmr_avk
+    name: water_vapor_mr_avk
     dim:
       - time
       - altitude
@@ -371,7 +368,7 @@ variables:
       units: "1"
 
   vres_waterVapor_no_model:
-    name: water_vapor_vmr_vertical_resolution
+    name: water_vapor_mr_vertical_resolution
     dim:
       - time
       - altitude
@@ -384,7 +381,7 @@ variables:
       units: m
 
   waterVapor_quality_flag:
-    name: water_vapor_vmr_quality_flag
+    name: water_vapor_mr_quality_flag
     dim:
       - time
       - altitude
