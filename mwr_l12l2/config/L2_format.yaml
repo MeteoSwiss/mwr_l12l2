@@ -173,7 +173,7 @@ variables:
     attributes:
       long_name: 'Flag for the observing geometry'
       flag_values: [0, 1]
-      flags_meaning: 'single_pointing multiple_pointing'
+      flags_meaning: 'multiple_pointing single_pointing'
       units: "1"
 
 # ##########################################################################################################
@@ -221,7 +221,7 @@ variables:
       long_name: Temperature profile
       standard_name: air_temperature
       units: K
-      ancillary_variables: temperature_apriori temperature_random_error temperature_systematic_error temperature_avk temperature_vertical_resolution temperature_quality_flag
+      ancillary_variables: temperature_apriori temperature_random_uncertainty temperature_systematic_uncertainty temperature_avk temperature_vertical_resolution temperature_quality_flag
       #units_metadata: "temperature: on_scale" -> for CF1.11
 
   temperature_prior:
@@ -237,7 +237,7 @@ variables:
       units: K
 
   sigma_temperature:
-    name: temperature_random_error
+    name: temperature_random_uncertainty
     dim:
       - time
       - altitude
@@ -248,8 +248,8 @@ variables:
       long_name: Random uncertainty of temperature profile
       units: K
 
-  temperature_systematic_error:
-    name: temperature_systematic_error
+  temperature_systematic_uncertainty:
+    name: temperature_systematic_uncertainty
     dim:
       - time
       - altitude
@@ -316,7 +316,7 @@ variables:
       long_name: Water vapor mixing ratio profile
       standard_name: humidity_mixing_ratio
       units: ppm
-      ancillary_variables: water_vapor_mr_apriori water_vapor_mr_random_error water_vapor_mr_systematic_error water_vapor_mr_avk water_vapor_mr_vertical_resolution water_vapor_mr_quality_flag
+      ancillary_variables: water_vapor_mr_apriori water_vapor_mr_random_uncertainty water_vapor_mr_systematic_uncertainty water_vapor_mr_avk water_vapor_mr_vertical_resolution water_vapor_mr_quality_flag
 
   waterVapor_prior:
     name: water_vapor_mr_apriori
@@ -331,7 +331,7 @@ variables:
       units: ppm
 
   sigma_waterVapor:
-    name: water_vapor_mr_random_error
+    name: water_vapor_mr_random_uncertainty
     dim:
       - time
       - altitude
@@ -342,8 +342,8 @@ variables:
       long_name: Random uncertainty of water vapour profile
       units: ppm
 
-  humidity_mixing_ratio_systematic_error:
-    name: water_vapor_mr_systematic_error
+  humidity_mixing_ratio_systematic_uncertainty:
+    name: water_vapor_mr_systematic_uncertainty
     dim:
       - time
       - altitude
@@ -465,7 +465,7 @@ variables:
   #   _FillValue: -999.
   #   optional: True
   #   attributes:
-  #     long_name: Root mean square error between IRS and MWR obs in the observation vector and the forward calculation
+  #     long_name: Root mean square uncertainty between IRS and MWR obs in the observation vector and the forward calculation
   #     units: "1"
 
 ##########################################################################################################
@@ -485,7 +485,7 @@ variables:
       comment: ''
       # TODO: indicate source
       units: kg m-2
-      ancillary_variables: lwp_apriori lwp_random_error lwp_systematic_error lwp_avk lwp_quality_flag
+      ancillary_variables: lwp_apriori lwp_random_uncertainty lwp_systematic_uncertainty lwp_avk lwp_quality_flag
 
   lwp_prior:
     name: lwp_apriori
@@ -500,7 +500,7 @@ variables:
       units: kg m-2
 
   sigma_lwp:
-    name: lwp_random_error
+    name: lwp_random_uncertainty
     dim:
       - time
     type: f4
@@ -510,8 +510,8 @@ variables:
       long_name: Random uncertainty of column-integrated liquid water path
       units: kg m-2
 
-  lwp_systematic_error:
-    name: lwp_systematic_error
+  lwp_systematic_uncertainty:
+    name: lwp_systematic_uncertainty
     dim:
       - time
     type: f4
@@ -557,10 +557,10 @@ variables:
       long_name: Column-integrated water vapour
       comment: ''
       units: kg m-2
-      ancillary_variables: iwv_random_error iwv_systematic_error quality_flag
+      ancillary_variables: iwv_random_uncertainty iwv_systematic_uncertainty quality_flag
 
   sigma_pwv:
-    name: iwv_random_error
+    name: iwv_random_uncertainty
     dim:
       - time
     type: f4
@@ -570,8 +570,8 @@ variables:
       long_name: Random uncertainty of column-integrated water vapour
       units: kg m-2
 
-  iwv_systematic_error:
-    name: iwv_systematic_error
+  iwv_systematic_uncertainty:
+    name: iwv_systematic_uncertainty
     dim:
       - time
     type: f4
@@ -596,10 +596,10 @@ variables:
       standard_name: atmosphere_convective_available_potential_energy
       long_name: Convective available potential energy for a mixed-layer parcel
       units: J kg-1
-      ancillary_variables: cape_random_error quality_flag
+      ancillary_variables: cape_random_uncertainty quality_flag
 
   sigma_mlCAPE:
-    name: cape_random_error
+    name: cape_random_uncertainty
     dim:
       - time
     type: f4
@@ -620,10 +620,10 @@ variables:
       standard_name: atmosphere_convective_inhibition
       long_name: Convective inhibition for a mixed-layer parcel
       units: J kg-1
-      ancillary_variables: cin_random_error quality_flag
+      ancillary_variables: cin_random_uncertainty quality_flag
 
   sigma_mlCIN:
-    name: cin_random_error
+    name: cin_random_uncertainty
     dim:
       - time
     type: f4
@@ -643,29 +643,30 @@ variables:
     optional: True
     attributes:
       standard_name: atmosphere_level_of_free_convection
-      long_name: Lifted condensation level
+      long_name: Lifted condensation level for a mixed-layer parcel
       units: m
-      ancillary_variables: lcl_random_error quality_flag
+      ancillary_variables: lcl_random_uncertainty quality_flag
 
   sigma_mlLCL:
-    name: lcl_random_error
+    name: lcl_random_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
     optional: True
     attributes:
-      long_name: 1-sigma uncertainties in the LCL for a mixed-layer parcel
+      long_name: Random uncertainty of the lifted condensation level for a mixed-layer parcel
+      comment: 1-sigma uncertainties in the LCL for a mixed-layer parcel
       units: m
 
-  # TODO: add errors to quantities and decide whether to report as random error or systematic error
+  # TODO: add uncertainties to quantities and decide whether to report as random uncertainty or systematic uncertainty
 
 # global attributes common to all instruments. Additional instrument-specific attrs in their config under nc_attributes.
 # If the same fields are present in the instrument-specific config, the general ones from below will be overwritten
 attributes:
   Conventions: CF-1.8
-  references: E-Profile data format description document (v01.9)
-  license: Closed-Use Non-Commercial General Licence 1.0 (CUNCGL)
+  references: E-Profile data format description document (v01.10)
+  license: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0), https://creativecommons.org/licenses/by-nc/4.0/
   network_name: E-Profile
   campaign_name: ''
   comment: ''
