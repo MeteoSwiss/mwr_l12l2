@@ -521,6 +521,9 @@ def add_quality_flags(data, operational, mwr_quality_checked, cdfs_thresholds_di
         # Set the bits for altitudes above the good altitude limits to "bad quality" (value == 1)
         data['temperature_quality_flag'] = data['temperature_quality_flag'].where(data.altitude < temp_max_altitudes, 1) # 1 for temperature cdf threshold
         data['waterVapor_quality_flag'] = data['waterVapor_quality_flag'].where(data.altitude < wv_max_altitudes, 1) # 1 for water vapor cdf threshold
+        # Add comments on how the flags were set based on the cdf thresholds
+        data['temperature_quality_flag'].attrs['comment'] = 'Temperature quality flag set to 0 (good quality) for altitudes where the cdf of temperature retrievals is below the threshold of {}% of the max cdf value, and 1 (bad quality) for altitudes above this limit.'.format(cdfs_thresholds_dict['temperature_cdf_threshold']*100)
+        data['waterVapor_quality_flag'].attrs['comment'] = 'Water vapor quality flag set to 0 (good quality) for altitudes where the cdf of water vapor retrievals is below the threshold of {}% of the max cdf value, and 1 (bad quality) for altitudes above this limit.'.format(cdfs_thresholds_dict['waterVapor_cdf_threshold']*100)
         
     # Liquid water path
     data['lwp_quality_flag'] = xr.where(quality_flag==0, 0, 1)  # 0 for generic suspect quality, we set lwp to bad quality if the profile is flagged as suspect, otherwise good quality by default (can be further refined based on specific criteria, e.g. cdf thresholds)
@@ -533,9 +536,9 @@ def set_observation_flag(data, tropoe_conf):
 
     In TROPoe, the scanning angles used in the retrieval at each time step is encoded in the obs_vector variable.
     '''
-    # Initiate the observing_geometry_flag variable with 0 (= single_pointing) by default, we will set it to 1 for time steps where scan data is present
+    # Initiate the observing_geometry_flag variable with 1 (= single_pointing) by default, we will set it to 0 for time steps where scan data is present
     data['observing_geometry_flag'] = xr.DataArray(
-        data=np.zeros_like(data.time.data, dtype=int),
+        data=np.ones_like(data.time.data, dtype=int),
         coords={'time': data.time},
         dims=['time'],
     )
@@ -551,11 +554,11 @@ def set_observation_flag(data, tropoe_conf):
         )
         
         # set observing_geometry_flag to 1 for time steps where scan data is present (multiple-pointing), otherwise keep it at 0 (single-pointing)    
-        data['observing_geometry_flag'] = xr.where(scan_tb_tropoe.scan_obs.data.size > 0, 1, data['observing_geometry_flag'])
+        data['observing_geometry_flag'] = xr.where(scan_tb_tropoe.scan_obs.data.size > 0, 0, data['observing_geometry_flag'])
         # encode angle used
-        data['observing_geometry_flag'].attrs['comment'] = 'Observing geometry flag: 0 for single-pointing, 1 for multiple-pointing. Determined based on the presence of scan brightness temperature observations in the MWR observations'
+        data['observing_geometry_flag'].attrs['comment'] = 'Observing geometry flag: 0 for multiple-pointing, 1 for single-pointing. Determined based on the presence of scan brightness temperature observations in the MWR observations and actually used in retrievals'
         # scan angles are ?= scan_tb_tropoe.scan_obs.data -> add value in data attrs as string to avoid issues with encoding when writing to netcdf (e.g. if we want to write the actual angles used in the retrieval, which can be different from the ones specified in the config file if some of them were not used by TROPoe for some reason, e.g. due to quality control)
-        str_angles = ','.join([str(angle) for angle in scan_tb_tropoe.scan_obs.data])
+        str_angles = ','.join([str(np.round(angle,5)) for angle in scan_tb_tropoe.scan_obs.data])
         data['observing_geometry_flag'].attrs['scan_angles_used_in_retrieval'] = str_angles
         # propagate attributes from tropoe obs_flag "value_10"
         data['observing_geometry_flag'].attrs['scan_angles_encoding_comment'] = data.obs_flag.attrs['value_10_comment1']

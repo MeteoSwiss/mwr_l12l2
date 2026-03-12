@@ -10,7 +10,9 @@ general:
   # general settings for the retrieval
   operational: False
   retrieval_time: 15
-
+  L2_format_config_file: 'L2_format.yaml'
+  TROPoe_output_config_file: 'tropoe_output_config.yaml'
+  
 # definitions of which data to use for retrieval. Paths are absolute or relative to mwr_l12l2 project dir
 data:
 
@@ -33,7 +35,7 @@ data:
   # Threshold for cumulated degree of freedom of the signal (DFS) above which the retrieval should be disregarded. Set to null for unlimited.
   # This is a quality control threshold that can be applied to the retrieval results.
   temperature_cdf_threshold: 0.95
-  waterVapor_cdf_threshold: 0.95
+  waterVapor_cdf_threshold: 0.8
 
   # info on instrument configuration files
   inst_config_dir: /home/eric/eprofile_config/mwr/l12l2/
@@ -47,7 +49,7 @@ data:
   output_file_prefix: MWR_2C01_
   
   # location and filenames of input E-PROFILE data
-  mwr_dir: /data/eprofile-mwr-l1/  # directory for microwave radiometer input data
+  mwr_dir: /data/eprofile-mwr-dev-l1/  # directory for microwave radiometer input data
   mwr_file_prefix: MWR_1C01_
   alc_dir: /data/eprofile-alc-l2/  # directory for automatic lidar's or ceilometer's cloud base input data
   alc_file_prefix: L2_
