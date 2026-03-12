@@ -533,7 +533,7 @@ def set_observation_flag(data, tropoe_conf):
 
     In TROPoe, the scanning angles used in the retrieval at each time step is encoded in the obs_vector variable.
     '''
-    # Initiate the observing_geometry_flag variable with 0
+    # Initiate the observing_geometry_flag variable with 0 (= single_pointing) by default, we will set it to 1 for time steps where scan data is present
     data['observing_geometry_flag'] = xr.DataArray(
         data=np.zeros_like(data.time.data, dtype=int),
         coords={'time': data.time},
@@ -542,19 +542,18 @@ def set_observation_flag(data, tropoe_conf):
     
     scan_data = data.obs_vector[:,data.obs_flag==tropoe_conf['scanTb']].data
 
-    if scan_data.size < 2:  # if there are less than 2 scan observations, we consider that there is no scan data (TROPoe outputs some default values even if no scan data is provided, so we cannot just check for the presence of the variable)
-        data['observing_geometry_flag'] = setbit(data['observing_geometry_flag'], 1)  # single-pointing
-    else:
+    if scan_data.size > 1:
         scan_tb_tropoe = xr.DataArray(
             data.obs_vector[:,data.obs_flag==tropoe_conf['scanTb']].data,
             coords= {'time':data.time, 'scan_obs':data.obs_dimension[data.obs_flag==tropoe_conf['scanTb']].data},
             dims=['time','scan_obs'],
             attrs={'long_name':'scan brightness temperature observations'}
         )
-            
-        data['observing_geometry_flag'] = setbit(data['observing_geometry_flag'], 0)  # scanning
+        
+        # set observing_geometry_flag to 1 for time steps where scan data is present (multiple-pointing), otherwise keep it at 0 (single-pointing)    
+        data['observing_geometry_flag'] = xr.where(scan_tb_tropoe.scan_obs.data.size > 0, 1, data['observing_geometry_flag'])
         # encode angle used
-        data['observing_geometry_flag'].attrs['comment'] = 'Observing geometry flag: bit 0: 0 for scanning, 1 for single-pointing. Determined based on the presence of scan brightness temperature observations in the TROPoe output (less than 3 scan observations is considered as no scan data).'
+        data['observing_geometry_flag'].attrs['comment'] = 'Observing geometry flag: 0 for single-pointing, 1 for multiple-pointing. Determined based on the presence of scan brightness temperature observations in the MWR observations'
         # scan angles are ?= scan_tb_tropoe.scan_obs.data -> add value in data attrs as string to avoid issues with encoding when writing to netcdf (e.g. if we want to write the actual angles used in the retrieval, which can be different from the ones specified in the config file if some of them were not used by TROPoe for some reason, e.g. due to quality control)
         str_angles = ','.join([str(angle) for angle in scan_tb_tropoe.scan_obs.data])
         data['observing_geometry_flag'].attrs['scan_angles_used_in_retrieval'] = str_angles
