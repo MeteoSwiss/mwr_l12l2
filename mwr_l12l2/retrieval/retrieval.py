@@ -575,8 +575,8 @@ class Retrieval(object):
             }
         
         # Convert expected angles to set for comparison (rounded to match data processing)
-        expected_angles_set = set(np.round(expected_angles, 1))
-        available_angles_set = set(np.round(available_angles, 1))  
+        expected_angles_set = set(np.round(expected_angles, 0))
+        available_angles_set = set(np.round(available_angles, 0))  
         
         # Find missing and extra angles
         missing_angles = sorted(list(expected_angles_set - available_angles_set))
@@ -599,7 +599,7 @@ class Retrieval(object):
         # Count observations per angle for diagnostic purposes
         logger.debug('Observations per elevation angle:')
         for angle in available_angles:
-            count = np.sum(np.abs(scan_data.ele.values - angle) < 0.1)
+            count = np.sum(np.abs(scan_data.ele.values - angle) < 1)
             logger.debug(f'  {angle:5.1f}°: {count} observations')
         
         return {
@@ -815,8 +815,8 @@ class Retrieval(object):
         tropoe_data = xr.open_dataset(tropoe_output_file)
         
         # Load configuration files for transformation and output
-        tropoe_out_config = get_conf(abs_file_path('mwr_l12l2/config/tropoe_output_config.yaml'))
-        eprofile_l2_config = get_nc_format_config(abs_file_path('mwr_l12l2/config/L2_format.yaml'))
+        tropoe_out_config = get_conf(abs_file_path(f'mwr_l12l2/config/{self.conf["general"]["TROPoe_output_config_file"]}'))
+        eprofile_l2_config = get_nc_format_config(abs_file_path(f"mwr_l12l2/config/{self.conf['general']['L2_format_config_file']}"))
         
         # Transform data using helper
         data = convert_tropoe_output(
