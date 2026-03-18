@@ -373,7 +373,7 @@ def height_to_altitude(data, station_altitude):
     data['altitude'] = data['height'] + data['station_altitude']
     return data.swap_dims({'height': 'altitude'})
 
-def add_variables_attrs(data, derived_product_list):
+def add_retrieved_variables_attrs(data):
     """Add variables attributes linked to the retrieval_type, retrieval_elevation_angles and retrieval_frequency"""
     
     # temperature
@@ -402,11 +402,6 @@ def add_variables_attrs(data, derived_product_list):
     data['lwp'].attrs['retrieval_frequency'] = data.attrs['VIP_mwr_tb_freqs']
     data['lwp'].attrs['retrieval_auxiliary_input'] = ''
     data['lwp'].attrs['retrieval_description'] = ''
-
-    for var in derived_product_list:
-        data[var].attrs['retrieval_type'] = 'derived product'
-        # data[var].attrs['retrieval_elevation_angles'] = ''
-        # data[var].attrs['retrieval_frequency'] = ''
 
     return data
 
@@ -700,7 +695,6 @@ def add_lat_lon_vectors(data):
     )
     return data
     
-
 def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_config, 
                                use_model_data=False, ext_sfc_data_type=None):
     """
@@ -750,7 +744,9 @@ def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_c
     data = vectors_to_time(data, ['temperature_prior', 'waterVapor_prior', 'quality_flag_status'])
     
     # Add the latitude and longitude variables as 2D vector
-    data = add_lat_lon_vectors(data)
+    # TODO: remove the if condition once L2 data format is agreed
+    if retrieval_conf['general']['operational']:
+        data = add_lat_lon_vectors(data)
     
     # Extract averaging kernels
     data = extract_avk(data, tropoe_out_config)
@@ -766,10 +762,9 @@ def convert_tropoe_output(retrieval_conf, tropoe_data, mwr_l1_data, tropoe_out_c
         }
     )
     
-    # Add variable attributes for derived products
-    derived_products = ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 
-                        'mlCAPE', 'mlCIN', 'mlLCL']
-    data = add_variables_attrs(data, derived_products)
+    # Add variable attributes for retrieved products
+    data = add_retrieved_variables_attrs(data)
+    
     # Propagate L1 global attributes
     for attr in mwr_l1_data.attrs:
         data.attrs[attr] = mwr_l1_data.attrs[attr]

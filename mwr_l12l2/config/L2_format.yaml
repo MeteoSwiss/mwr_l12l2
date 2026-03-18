@@ -496,7 +496,6 @@ variables:
     optional: True
     attributes:
       long_name: A priori value for column-integrated liquid water path
-      #standard_name: atmosphere_cloud_liquid_water_content 
       units: kg m-2
 
   sigma_lwp:
@@ -582,16 +581,19 @@ variables:
       units: kg m-2
 
 ##########################################################################################################
-# Forecast indices
+# Forecast indices and related uncertainties
 ##########################################################################################################
+# Should include following indices according to L2 data format requirements: 
+# cape, ko_index, total_totals k_index lifted_index lcl showalter_index s_index thompson_index 
+# jefferson_index fog_threat mdpi tq_index cin 
 
   mlCAPE:
     name: cape
     dim:
       - time
     type: f4
-    _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
-    optional: True
+    _FillValue: -999.  
+    optional: False
     attributes:
       standard_name: atmosphere_convective_available_potential_energy
       long_name: Convective available potential energy for a mixed-layer parcel
@@ -603,49 +605,181 @@ variables:
     dim:
       - time
     type: f4
-    _FillValue: -999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
-    optional: True
+    _FillValue: -999.
+    optional: False
     attributes:
       long_name: 1-sigma uncertainties in mixed-layer CAPE
       units: J kg-1
 
-  mlCIN:
-    name: cin
+  systematic_mlCAPE:
+    name: cape_systematic_uncertainty
     dim:
       - time
     type: f4
-    _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
-    optional: True
+    _FillValue: -999.
+    optional: False
     attributes:
-      standard_name: atmosphere_convective_inhibition
-      long_name: Convective inhibition for a mixed-layer parcel
+      long_name: Systematic uncertainties in mixed-layer CAPE
       units: J kg-1
-      ancillary_variables: cin_random_uncertainty quality_flag
 
-  sigma_mlCIN:
-    name: cin_random_uncertainty
+#####################################################
+
+  ko_index:
+    name: ko_index
     dim:
       - time
     type: f4
-    _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
-    optional: True
+    _FillValue: -999.  
+    optional: False
     attributes:
-      standard_name: atmosphere_convective_inhibition
-      long_name: 1-sigma uncertainties in mixed-layer CIN
-      units: J kg-1
+      long_name: K index
+      units: °C
+      ancillary_variables: ko_index_random_uncertainty ko_index_systematic_uncertainty quality_flag
+
+  sigma_ko_index:
+    name: ko_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in K index
+      units: °C
+
+  systematic_ko_index:
+    name: ko_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in K index
+      units: °C
+
+#####################################################
+
+  total_totals:
+    name: total_totals
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Total totals index
+      units: °C
+      ancillary_variables: total_totals_random_uncertainty total_totals_systematic_uncertainty quality_flag
+
+  sigma_total_totals:
+    name: total_totals_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in total totals index
+      units: °C
+
+  systematic_total_totals:
+    name: total_totals_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in total totals index
+      units: °C
+
+#####################################################
+
+  k_index:
+    name: k_index
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: K index
+      units: °C
+      ancillary_variables: k_index_random_uncertainty k_index_systematic_uncertainty quality_flag
+
+  sigma_k_index:
+    name: k_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in K index
+      units: °C
+
+  systematic_k_index:
+    name: k_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in K index
+      units: °C
+
+#####################################################
+
+  lifted_index:
+    name: lifted_index
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Lifted index
+      units: °C
+      ancillary_variables: lifted_index_random_uncertainty lifted_index_systematic_uncertainty quality_flag
+
+  sigma_lifted_index:
+    name: lifted_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in lifted index
+      units: °C
+
+  systematic_lifted_index:
+    name: lifted_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in lifted index
+      units: °C
+
+#####################################################
 
   mlLCL:
     name: lcl
     dim:
       - time
     type: f4
-    _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
-    optional: True
+    _FillValue: -999.
+    optional: False
     attributes:
       standard_name: atmosphere_level_of_free_convection
       long_name: Lifted condensation level for a mixed-layer parcel
       units: m
-      ancillary_variables: lcl_random_uncertainty quality_flag
+      ancillary_variables: lcl_random_uncertainty lcl_systematic_uncertaintyquality_flag
 
   sigma_mlLCL:
     name: lcl_random_uncertainty
@@ -653,13 +787,311 @@ variables:
       - time
     type: f4
     _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
-    optional: True
+    optional: False
     attributes:
       long_name: Random uncertainty of the lifted condensation level for a mixed-layer parcel
       comment: 1-sigma uncertainties in the LCL for a mixed-layer parcel
       units: m
 
-  # TODO: add uncertainties to quantities and decide whether to report as random uncertainty or systematic uncertainty
+  systematic_mlLCL:
+    name: lcl_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainty of the lifted condensation level for a mixed-layer parcel
+      units: m
+
+#####################################################
+
+  showalter_index:
+    name: showalter_index
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Showalter index
+      units: °C
+      ancillary_variables: showalter_index_random_uncertainty showalter_index_systematic_uncertainty quality_flag
+
+  sigma_showalter_index:
+    name: showalter_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in Showalter index
+      units: °C
+
+  systematic_showalter_index:
+    name: showalter_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in Showalter index
+      units: °C
+
+#####################################################
+
+  s_index:
+    name: s_index
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: S index
+      units: °C
+      ancillary_variables: s_index_random_uncertainty s_index_systematic_uncertainty quality_flag
+
+  sigma_s_index:
+    name: s_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in S index
+      units: °C
+
+  systematic_s_index:
+    name: s_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in S index
+      units: °C
+
+#####################################################
+
+  thompson_index:
+    name: thompson_index
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Thompson index
+      units: °C
+      ancillary_variables: thompson_index_random_uncertainty thompson_index_systematic_uncertainty quality_flag
+
+  sigma_thompson_index:
+    name: thompson_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in Thompson index
+      units: °C
+
+  systematic_thompson_index:
+    name: thompson_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in Thompson index
+      units: °C
+
+#####################################################
+
+  jefferson_index:
+    name: jefferson_index
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Jefferson index
+      units: °C
+      ancillary_variables: jefferson_index_random_uncertainty jefferson_index_systematic_uncertainty quality_flag
+
+  sigma_jefferson_index:
+    name: jefferson_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in Jefferson index
+      units: °C
+
+  systematic_jefferson_index:
+    name: jefferson_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in Jefferson index
+      units: °C
+
+#####################################################
+
+  fog_threat:
+    name: fog_threat
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Fog threat index
+      units: °C
+      ancillary_variables: fog_threat_random_uncertainty fog_threat_systematic_uncertainty quality_flag
+
+  sigma_fog_threat:
+    name: fog_threat_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in fog threat index
+      units: °C
+
+  systematic_fog_threat:
+    name: fog_threat_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in fog threat index
+      units: °C
+
+#####################################################
+
+  mdpi:
+    name: mdpi
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Microburst day potential index
+      units: °C kts-1
+      ancillary_variables: mdpi_random_uncertainty mdpi_systematic_uncertainty quality_flag
+
+  sigma_mdpi:
+    name: mdpi_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes: 
+      long_name: Random uncertainties in microburst day potential index
+      units: °C kts-1 
+
+  systematic_mdpi:
+    name: mdpi_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:      
+      long_name: Systematic uncertainties in microburst day potential index
+      units: °C kts-1
+
+#####################################################
+
+  tq_index:
+    name: tq_index
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.  
+    optional: False
+    attributes:
+      long_name: Total totals quotient index
+      units: °C
+      ancillary_variables: tq_index_random_uncertainty tq_index_systematic_uncertainty quality_flag
+
+  sigma_tq_index:
+    name: tq_index_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Random uncertainties in total totals quotient index
+      units: °C
+
+  systematic_tq_index:
+    name: tq_index_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in total totals quotient index
+      units: °C
+
+#####################################################
+
+  mlCIN:
+    name: cin
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      standard_name: atmosphere_convective_inhibition
+      long_name: Convective inhibition for a mixed-layer parcel
+      units: J kg-1
+      ancillary_variables: cin_random_uncertainty cin_systematic_uncertaintyquality_flag
+
+  sigma_mlCIN:
+    name: cin_random_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: 1-sigma uncertainties in mixed-layer CIN
+      units: J kg-1
+
+  systematic_mlCIN:
+    name: cin_systematic_uncertainty
+    dim:
+      - time
+    type: f4
+    _FillValue: -999.
+    optional: False
+    attributes:
+      long_name: Systematic uncertainties in mixed-layer CIN
+      units: J kg-1
 
 # global attributes common to all instruments. Additional instrument-specific attrs in their config under nc_attributes.
 # If the same fields are present in the instrument-specific config, the general ones from below will be overwritten

@@ -18,7 +18,7 @@ from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has
     scalars_to_time, vectors_to_time
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file, \
     generate_output_filename
-from mwr_l12l2.utils.atmosphere_utils import calculate_pressure_from_std_atmosphere
+from mwr_l12l2.utils.atmosphere_utils import calculate_pressure_from_std_atmosphere, calculate_derived_product
 from mwr_l12l2.write_netcdf import Writer
 
 
@@ -832,6 +832,10 @@ class Retrieval(object):
         time_bnds = self.calculate_time_bnds(data.time, self.conf['general']['retrieval_time'])
         data = data.assign(time_bnds=time_bnds)
         
+        # Complete the derived_variables and add the retrieval_type attribute to them
+        derived_product_list = self.conf['data']['derived_product_list']
+        data = self.derived_variables(data, derived_product_list)
+        
         # If provided, crop to max altitude defined in config file
         max_altitude_magl = self.conf['data']['max_altitude_magl']
         if max_altitude_magl is not None:
@@ -848,6 +852,34 @@ class Retrieval(object):
         # Upload to S3 if configured
         if self._should_upload_to_s3():
             self._upload_to_s3(output_filename, tropoe_output_file)
+    
+    def derived_variables(self, data, derived_product_list):
+        
+        logger.info(f'Calculating or completing derived products: {derived_product_list}')
+        
+        for var in derived_product_list:
+            if var not in data.variables:
+                try:
+                    derived = calculate_derived_product(data, var)
+                    data = data.assign({var: derived})
+                except Exception as e:
+                    logger.error(f'Error calculating derived variable {var}: {e}')
+            
+            # Also, all derived producs must have an associated "sigma_{var}" and "systematic_{var}" variable for the uncertainty. We will check if these variables exist and if not create them with NaN values and the right dimensions and attributes:
+            sigma_var = 'sigma_' + var
+            systematic_var = 'systematic_' + var
+            if sigma_var not in data.variables:
+                data = data.assign({sigma_var: (data[var].dims, np.full(data[var].shape, np.nan))})
+                data[sigma_var].attrs['units'] = data[var].attrs.get('units', '')  # use same units as the variable if defined
+            
+            if systematic_var not in data.variables:
+                data = data.assign({systematic_var: (data[var].dims, np.full(data[var].shape, np.nan))})
+                data[systematic_var].attrs['units'] = data[var].attrs.get('units', '')  # use same units as the variable if defined
+            
+            data[var].attrs['retrieval_type'] = 'derived product'
+            data[sigma_var].attrs['retrieval_type'] = 'derived product'
+            data[systematic_var].attrs['retrieval_type'] = 'derived product'
+        return data
     
     def calculate_time_bnds(self, time, tresolution_minutes):
         """Calculate time bounds for each time step based on the specified time resolution.

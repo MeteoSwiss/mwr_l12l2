@@ -47,3 +47,22 @@ def calculate_pressure_from_std_atmosphere(altitude_m):
     station_psfc_max = 1.1 * station_pressure_std_atm  # Maximum allowed surface pressure in hPa, based on observed record high pressures
     
     return station_pressure_std_atm, station_psfc_min, station_psfc_max
+
+def calculate_derived_product(data, product_name):
+    """
+    Calculate a derived product based on the retrieved variables in the data.
+    
+    Parameters:
+    data (xarray.Dataset): Dataset containing the retrieved variables.
+    product_name (str): Name of the derived product to calculate.
+    
+    Returns:
+    derived_product (xarray.DataArray): Calculated derived product or empty variables if the product is not implemented.
+    """
+    if product_name == 'test':
+        pass
+    else:
+        # If the product is not implemented, return an empty 1D Dataarray along time to dataset with the NaN values
+        data[product_name] = (('time'), np.full(data.time.shape, np.nan))
+
+    return data[product_name] 
