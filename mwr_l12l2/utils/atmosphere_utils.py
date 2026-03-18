@@ -1,5 +1,8 @@
 from mwr_l12l2.errors import MWRDataError
 import numpy as np
+from metpy import calc
+from metpy.units import units
+
 
 class AtmosphericConstants:
     """
@@ -8,6 +11,7 @@ class AtmosphericConstants:
     """
     P0 = 1013.25  # Sea level standard atmospheric pressure in hPa
     T0 = 288.15   # Sea level standard temperature in K
+    TK = 273.15    # Conversion from Celsius to Kelvin
     L = 0.0065    # Temperature lapse rate in K/m
     R = 8.31447   # Universal gas constant in J/(mol*K)
     M = 0.0289644 # Molar mass of Earth's air in kg/mol
@@ -48,6 +52,55 @@ def calculate_pressure_from_std_atmosphere(altitude_m):
     
     return station_pressure_std_atm, station_psfc_min, station_psfc_max
 
+def calculate_forecast_indice_from_metpy(data, indice):
+    """
+    Calculate forecast indice based on the retrieved variables in the data. 
+    
+    Note: all metpy function work on 1D profile -> we need to iterate over time dimension and apply the function to each profile.
+    Note 2: all tempetature should be provided in °C
+    
+    Parameters:
+    data (xarray.Dataset): Dataset containing the retrieved variables.
+    indice (str): Name of the indice to calculate (e.g., 'k_index', 'tq_index', 'mdpi') as defined in metpy.calc.
+    
+    Returns:
+    data (xarray.Dataset): Dataset with the calculated indices added as new variables.
+    """
+    # Initilialie with empty
+    data[indice] =  (('time'), np.full(data.time.shape, np.nan))
+    
+    # Check if indice is implemented in metpy:
+    for t, time in enumerate(data.time):
+        try:
+            data_t = data.sel(time=time)
+            
+            # extract useful profiles and attributes units:
+            pressure = data_t['pressure'].data * units("hPa")
+            temperature = data_t['temperature'].data * units("degC")
+            dewpt = data_t['dewpt'].data * units("degC")
+            
+            # Calculate the indice using the appropriate variables from the dataset
+            if indice == 'k_index':
+                indice_values_t = calc.k_index(pressure, temperature, dewpt)
+            elif indice == 'lifted_index':
+                parcel_profile = calc.parcel_profile(pressure, temperature, dewpt)
+                indice_values_t = calc.lifted_index(pressure, temperature, parcel_profile)
+            elif indice == 'showalter_index':
+                indice_values_t = calc.showalter_index(pressure, temperature, dewpt)
+            elif indice == 'total_totals':
+                indice_values_t = calc.total_totals_index(pressure, temperature, dewpt)
+            else:
+                raise NotImplementedError(f"Indice {indice} is not implemented in the MetPy.")
+            
+            data[indice][t] = indice_values_t
+            
+        except Exception as e:  # TODO: catch specific exceptions related to missing variables or units issues
+            # If the indice is not implemented, return an empty 1D Dataarray along time to dataset with the NaN values
+            pass
+    
+    return data
+
+
 def calculate_derived_product(data, product_name):
     """
     Calculate a derived product based on the retrieved variables in the data.
@@ -57,12 +110,13 @@ def calculate_derived_product(data, product_name):
     product_name (str): Name of the derived product to calculate.
     
     Returns:
-    derived_product (xarray.DataArray): Calculated derived product or empty variables if the product is not implemented.
+    data (xarray.Dataset): Dataset with the calculated derived product added as a new variable.
     """
-    if product_name == 'test':
-        pass
+    if product_name in ['total_totals', 'k_index', 'tq_index', 'lifted_index']:
+        data = calculate_forecast_indice_from_metpy(data, product_name)
+        # 'showalter_index', 's_index', 'thompson_index', 'jefferson_index', 'fog_threat', 'mdpi'
     else:
         # If the product is not implemented, return an empty 1D Dataarray along time to dataset with the NaN values
         data[product_name] = (('time'), np.full(data.time.shape, np.nan))
 
-    return data[product_name] 
+    return data

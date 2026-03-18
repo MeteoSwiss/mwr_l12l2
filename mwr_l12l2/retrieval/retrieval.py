@@ -860,8 +860,7 @@ class Retrieval(object):
         for var in derived_product_list:
             if var not in data.variables:
                 try:
-                    derived = calculate_derived_product(data, var)
-                    data = data.assign({var: derived})
+                    data = calculate_derived_product(data, var)
                 except Exception as e:
                     logger.error(f'Error calculating derived variable {var}: {e}')
             
