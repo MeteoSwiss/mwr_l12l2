@@ -13,7 +13,7 @@ from mwr_l12l2.utils.config_utils import get_inst_config, get_nc_format_config
 ENC_NO_FILLVALUE = None  # tutorials from 2017 said False must be used, but with xarray 0.20.1 only None works
 
 
-class Writer(object):
+class Writer:
     """Class for writing data (Dataset) to NetCDF according to the format definition in conf_file
 
     Args:
@@ -56,7 +56,7 @@ class Writer(object):
             self.global_attrs_from_conf(self.conf_inst, attr_key='nc_attributes')
         # self.add_title_attr()  # compose title #TODO: add an adequate title here
         self.add_history_attr()
-        self.data.to_netcdf(self.filename, format=self.nc_format)  # write to output NetCDF file
+        self.data.to_netcdf(self.filename, engine='h5netcdf',format=self.nc_format)  # write to output NetCDF file
         logger.info('Data written to ' + self.filename)
 
     def prepare_datavars(self):

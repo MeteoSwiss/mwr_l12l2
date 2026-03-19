@@ -22,7 +22,7 @@ def get_from_nc_files(files_in, concat_dim='time'):
     # Create a list of datasets
     ds_list = []
     for f in files_in:
-        ds_list.append(xr.open_dataset(f, engine='netcdf4'))
+        ds_list.append(xr.open_dataset(f, engine='h5netcdf'))
     # Concatenate the list of datasets
     data = xr.concat(ds_list, data_vars='all', dim=concat_dim)
     # Identify duplicated time values
