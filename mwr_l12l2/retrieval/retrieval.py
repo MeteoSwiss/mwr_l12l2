@@ -22,7 +22,7 @@ from mwr_l12l2.utils.atmosphere_utils import calculate_pressure_from_std_atmosph
 from mwr_l12l2.write_netcdf import Writer
 
 
-class Retrieval(object):
+class Retrieval:
     """Class for gathering and preparing all necessary information to run the retrieval
 
     Args:

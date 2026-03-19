@@ -11,7 +11,7 @@ from mwr_l12l2.utils.file_utils import abs_file_path
 from mwr_l12l2.utils.monitoring_utils import read_mwr_summary_csv, Level1, ObservationMinusBackground
 from mwr_l12l2.retrieval.retrieval import Retrieval
 
-class Level1Monitoring(object):
+class Level1Monitoring:
     """Class to monitor Level 1 data and create summary plots and statistics
 
     Args:
