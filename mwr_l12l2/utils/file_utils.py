@@ -137,6 +137,75 @@ def timestamp_to_float(timestamp):
     return int(timestamp)/10**len(timestamp)
 
 
+def round_datetime(datetime_obj, round_to_minutes=15):
+    """Round a :class:`datetime.datetime` down to the nearest multiple of *round_to_minutes*.
+
+    Args:
+        datetime_obj: :class:`datetime.datetime` object to round
+        round_to_minutes: interval in minutes to round down to. Defaults to 15.
+
+    Returns:
+        :class:`datetime.datetime` floored to the nearest *round_to_minutes* boundary
+    """
+    return datetime_obj - dt.timedelta(
+        minutes=datetime_obj.minute % round_to_minutes,
+        seconds=datetime_obj.second,
+        microseconds=datetime_obj.microsecond,
+    )
+
+
+def create_batch(file_dict, retrieval_start_time, retrieval_end_time):
+    """Create a retrieval batch dictionary from a parsed file dictionary.
+
+    Args:
+        file_dict: dictionary with keys ``file``, ``wigos_and_id``, ``file_start_time``,
+            ``file_end_time``, ``file_length``
+        retrieval_start_time: :class:`datetime.datetime` start of the retrieval window
+        retrieval_end_time: :class:`datetime.datetime` end of the retrieval window
+
+    Returns:
+        dict representing the batch
+    """
+    return {
+        'files': [file_dict['file']],
+        'wigos_and_id': file_dict['wigos_and_id'],
+        'batch_start_time': file_dict['file_start_time'],
+        'batch_end_time': file_dict['file_end_time'],
+        'batch_length_sec': file_dict['file_length'],
+        'retrieval_start_time': retrieval_start_time,
+        'retrieval_end_time': retrieval_end_time,
+        'batch_creation_time': dt.datetime.now(),
+    }
+
+
+def get_mwr_file_times(filepath):
+    """Return the start and end time contained in an MWR L1 NetCDF file.
+
+    Opens the file with :mod:`xarray`, reads the ``time`` coordinate and
+    returns its minimum and maximum as :class:`datetime.datetime` objects.
+
+    Args:
+        filepath: path to the NetCDF file
+
+    Returns:
+        tuple: ``(file_start_time, file_end_time)`` as :class:`datetime.datetime`, or
+        ``(None, None)`` if the time dimension cannot be read.
+    """
+    try:
+        import xarray as xr
+        with xr.open_dataset(filepath) as ds:
+            times = ds['time'].values
+        file_start_time = dt.datetime.utcfromtimestamp(
+            int(np.datetime64(times.min(), 's').astype('int64'))
+        )
+        file_end_time = dt.datetime.utcfromtimestamp(
+            int(np.datetime64(times.max(), 's').astype('int64'))
+        )
+        return file_start_time, file_end_time
+    except Exception:
+        return None, None
+
+
 def dict_to_file(data, file, sep, header=None, remove_brackets=False, remove_parentheses=False, remove_braces=False):
     """write dictionary contents to a file. One item per line matching keys and values using 'sep'.
 
