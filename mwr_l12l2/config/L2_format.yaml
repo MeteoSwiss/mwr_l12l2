@@ -14,7 +14,7 @@ variables:
     name: time  # variable name in output NetCDF
     dim:
       - time
-    type: f4
+    type: i4
     _FillValue: null
     optional: False
     attributes:
@@ -122,7 +122,7 @@ variables:
     dim:
       - time
       - bnds
-    type: f4
+    type: i4
     _FillValue: null #CF compliance checker says that time_bnds should not have a FillValue...
     optional: False
     attributes:
@@ -315,7 +315,7 @@ variables:
     attributes:
       long_name: Water vapor mixing ratio profile
       standard_name: humidity_mixing_ratio
-      units: ppm
+      units: kg kg-1
       ancillary_variables: water_vapor_mr_apriori water_vapor_mr_random_uncertainty water_vapor_mr_systematic_uncertainty water_vapor_mr_avk water_vapor_mr_vertical_resolution water_vapor_mr_quality_flag
 
   waterVapor_prior:
@@ -328,7 +328,7 @@ variables:
     optional: True
     attributes:
       long_name: A priori water vapour profile of retrieval
-      units: ppm
+      units: kg kg-1
 
   sigma_waterVapor:
     name: water_vapor_mr_random_uncertainty
@@ -340,7 +340,7 @@ variables:
     optional: True
     attributes:
       long_name: Random uncertainty of water vapour profile
-      units: ppm
+      units: kg kg-1
 
   humidity_mixing_ratio_systematic_uncertainty:
     name: water_vapor_mr_systematic_uncertainty
@@ -352,7 +352,7 @@ variables:
     optional: True  
     attributes:
       long_name: Systematic uncertainty of water vapour profile
-      units: ppm
+      units: kg kg-1
 
   waterVapor_avk:
     name: water_vapor_mr_avk
@@ -394,6 +394,11 @@ variables:
       flag_meanings: good_quality bad_quality
       units: "1"
 
+##########################################################################################################
+# Derived fields
+##########################################################################################################
+# For the derived fiels, we keep on an "uncertainty" associated variables and describe how it is obtained
+
   rh:
     name: relative_humidity
     dim:
@@ -405,9 +410,22 @@ variables:
     attributes:
       long_name: Relative Humidity
       standard_name: relative_humidity
-      units: "1"
+      units: "%"
       comment: ''
       ancillary_variables: quality_flag
+  
+  sigma_rh:
+    name: relative_humidity_uncertainty
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Uncertainty of relative humidity
+      comment: 'Calculated from the uncertainties of temperature and water vapour profiles using error propagation'
+      units: "%"
 
   theta:
     name: potential_temperature
@@ -422,7 +440,19 @@ variables:
       standard_name: air_potential_temperature
       units: K
       comment: ''
-      ancillary_variables: quality_flag
+      ancillary_variables: quality_flag potential_temperature_uncertainty
+  
+  sigma_theta:
+    name: potential_temperature_uncertainty
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Random uncertainty of potential temperature
+      units: K
 
   thetae:
     name: equivalent_potential_temperature
@@ -437,7 +467,19 @@ variables:
       standard_name: air_equivalent_potential_temperature
       units: K
       comment: ''
-      ancillary_variables: quality_flag
+      ancillary_variables: equivalent_potential_temperature_uncertainty quality_flag
+
+  sigma_thetae:
+    name: equivalent_potential_temperature_uncertainty
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Uncertainty of equivalent potential temperature
+      units: K
 
   dewpt:
     name: dew_point_temperature
@@ -452,8 +494,20 @@ variables:
       standard_name: dew_point_temperature
       units: K
       comment: ''
-      ancillary_variables: quality_flag
+      ancillary_variables: dew_point_temperature_uncertainty quality_flag
 
+  sigma_dewpt:
+    name: dew_point_temperature_uncertainty
+    dim:
+      - time
+      - altitude
+    type: f4
+    _FillValue: -999.
+    optional: True
+    attributes:
+      long_name: Uncertainty of dew point temperature
+      units: K
+      comment: 'Calculated from the uncertainties of temperature and water vapour profile'
 ##########################################################################################################
 # Measurement related fields
 ##########################################################################################################
@@ -585,6 +639,7 @@ variables:
 # Should include following indices according to L2 data format requirements: 
 # cape, ko_index, total_totals k_index lifted_index lcl showalter_index s_index thompson_index 
 # jefferson_index fog_threat mdpi tq_index cin 
+# For the forecast indices, we should have the same structure as derived field, with a single uncertainty variables and describe how it is obtained
 
   mlCAPE:
     name: cape
@@ -597,10 +652,10 @@ variables:
       standard_name: atmosphere_convective_available_potential_energy
       long_name: Convective available potential energy for a mixed-layer parcel
       units: J kg-1
-      ancillary_variables: cape_random_uncertainty quality_flag
+      ancillary_variables: cape_uncertainty quality_flag
 
   sigma_mlCAPE:
-    name: cape_random_uncertainty
+    name: cape_uncertainty
     dim:
       - time
     type: f4
@@ -608,17 +663,6 @@ variables:
     optional: False
     attributes:
       long_name: 1-sigma uncertainties in mixed-layer CAPE
-      units: J kg-1
-
-  systematic_mlCAPE:
-    name: cape_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in mixed-layer CAPE
       units: J kg-1
 
 #####################################################
@@ -633,28 +677,17 @@ variables:
     attributes:
       long_name: K index
       units: °C
-      ancillary_variables: ko_index_random_uncertainty ko_index_systematic_uncertainty quality_flag
+      ancillary_variables: ko_index_uncertainty quality_flag
 
   sigma_ko_index:
-    name: ko_index_random_uncertainty
+    name: ko_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in K index
-      units: °C
-
-  systematic_ko_index:
-    name: ko_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in K index
+      long_name: Uncertainty in K index
       units: °C
 
 #####################################################
@@ -669,28 +702,17 @@ variables:
     attributes:
       long_name: Total totals index
       units: °C
-      ancillary_variables: total_totals_random_uncertainty total_totals_systematic_uncertainty quality_flag
+      ancillary_variables: total_totals_uncertainty quality_flag
 
   sigma_total_totals:
-    name: total_totals_random_uncertainty
+    name: total_totals_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in total totals index
-      units: °C
-
-  systematic_total_totals:
-    name: total_totals_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in total totals index
+      long_name: Uncertainty in total totals index
       units: °C
 
 #####################################################
@@ -705,28 +727,17 @@ variables:
     attributes:
       long_name: K index
       units: °C
-      ancillary_variables: k_index_random_uncertainty k_index_systematic_uncertainty quality_flag
+      ancillary_variables: k_index_uncertainty quality_flag
 
   sigma_k_index:
-    name: k_index_random_uncertainty
+    name: k_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in K index
-      units: °C
-
-  systematic_k_index:
-    name: k_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in K index
+      long_name: Uncertainty in K index
       units: °C
 
 #####################################################
@@ -741,28 +752,17 @@ variables:
     attributes:
       long_name: Lifted index
       units: °C
-      ancillary_variables: lifted_index_random_uncertainty lifted_index_systematic_uncertainty quality_flag
+      ancillary_variables: lifted_index_uncertainty quality_flag
 
   sigma_lifted_index:
-    name: lifted_index_random_uncertainty
+    name: lifted_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in lifted index
-      units: °C
-
-  systematic_lifted_index:
-    name: lifted_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in lifted index
+      long_name: Uncertainty in lifted index
       units: °C
 
 #####################################################
@@ -778,29 +778,18 @@ variables:
       standard_name: atmosphere_level_of_free_convection
       long_name: Lifted condensation level for a mixed-layer parcel
       units: m
-      ancillary_variables: lcl_random_uncertainty lcl_systematic_uncertainty quality_flag
+      ancillary_variables: lcl_uncertainty quality_flag
 
   sigma_mlLCL:
-    name: lcl_random_uncertainty
+    name: lcl_uncertainty
     dim:
       - time
     type: f4
-    _FillValue: -9999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
+    _FillValue: -999.  # TODO: this matches tropoe output. think of transforming to -999. for consistency
     optional: False
     attributes:
-      long_name: Random uncertainty of the lifted condensation level for a mixed-layer parcel
+      long_name: Uncertainty of the lifted condensation level for a mixed-layer parcel
       comment: 1-sigma uncertainties in the LCL for a mixed-layer parcel
-      units: m
-
-  systematic_mlLCL:
-    name: lcl_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainty of the lifted condensation level for a mixed-layer parcel
       units: m
 
 #####################################################
@@ -815,28 +804,17 @@ variables:
     attributes:
       long_name: Showalter index
       units: °C
-      ancillary_variables: showalter_index_random_uncertainty showalter_index_systematic_uncertainty quality_flag
+      ancillary_variables: showalter_index_uncertainty quality_flag
 
   sigma_showalter_index:
-    name: showalter_index_random_uncertainty
+    name: showalter_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in Showalter index
-      units: °C
-
-  systematic_showalter_index:
-    name: showalter_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in Showalter index
+      long_name: Uncertainty in Showalter index
       units: °C
 
 #####################################################
@@ -851,28 +829,17 @@ variables:
     attributes:
       long_name: S index
       units: °C
-      ancillary_variables: s_index_random_uncertainty s_index_systematic_uncertainty quality_flag
+      ancillary_variables: s_index_uncertainty quality_flag
 
   sigma_s_index:
-    name: s_index_random_uncertainty
+    name: s_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in S index
-      units: °C
-
-  systematic_s_index:
-    name: s_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in S index
+      long_name: Uncertainty in S index
       units: °C
 
 #####################################################
@@ -887,28 +854,17 @@ variables:
     attributes:
       long_name: Thompson index
       units: °C
-      ancillary_variables: thompson_index_random_uncertainty thompson_index_systematic_uncertainty quality_flag
+      ancillary_variables: thompson_index_uncertainty quality_flag
 
   sigma_thompson_index:
-    name: thompson_index_random_uncertainty
+    name: thompson_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in Thompson index
-      units: °C
-
-  systematic_thompson_index:
-    name: thompson_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in Thompson index
+      long_name: Uncertainty in Thompson index
       units: °C
 
 #####################################################
@@ -923,29 +879,19 @@ variables:
     attributes:
       long_name: Jefferson index
       units: °C
-      ancillary_variables: jefferson_index_random_uncertainty jefferson_index_systematic_uncertainty quality_flag
+      ancillary_variables: jefferson_index_uncertainty quality_flag
 
   sigma_jefferson_index:
-    name: jefferson_index_random_uncertainty
+    name: jefferson_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in Jefferson index
+      long_name: Uncertainty in Jefferson index
       units: °C
 
-  systematic_jefferson_index:
-    name: jefferson_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in Jefferson index
-      units: °C
 
 #####################################################
 
@@ -959,28 +905,17 @@ variables:
     attributes:
       long_name: Fog threat index
       units: °C
-      ancillary_variables: fog_threat_random_uncertainty fog_threat_systematic_uncertainty quality_flag
+      ancillary_variables: fog_threat_uncertainty quality_flag
 
   sigma_fog_threat:
-    name: fog_threat_random_uncertainty
+    name: fog_threat_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in fog threat index
-      units: °C
-
-  systematic_fog_threat:
-    name: fog_threat_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in fog threat index
+      long_name: Uncertainty in fog threat index
       units: °C
 
 #####################################################
@@ -995,10 +930,10 @@ variables:
     attributes:
       long_name: Microburst day potential index
       units: °C kts-1
-      ancillary_variables: mdpi_random_uncertainty mdpi_systematic_uncertainty quality_flag
+      ancillary_variables: mdpi_uncertainty quality_flag
 
   sigma_mdpi:
-    name: mdpi_random_uncertainty
+    name: mdpi_uncertainty
     dim:
       - time
     type: f4
@@ -1007,17 +942,6 @@ variables:
     attributes: 
       long_name: Random uncertainties in microburst day potential index
       units: °C kts-1 
-
-  systematic_mdpi:
-    name: mdpi_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:      
-      long_name: Systematic uncertainties in microburst day potential index
-      units: °C kts-1
 
 #####################################################
 
@@ -1031,28 +955,17 @@ variables:
     attributes:
       long_name: TQ index
       units: °C
-      ancillary_variables: tq_index_random_uncertainty tq_index_systematic_uncertainty quality_flag
+      ancillary_variables: tq_index_uncertainty quality_flag
 
   sigma_tq_index:
-    name: tq_index_random_uncertainty
+    name: tq_index_uncertainty
     dim:
       - time
     type: f4
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Random uncertainties in TQ index
-      units: °C
-
-  systematic_tq_index:
-    name: tq_index_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in TQ index
+      long_name: Uncertainty in TQ index
       units: °C
 
 #####################################################
@@ -1068,10 +981,10 @@ variables:
       standard_name: atmosphere_convective_inhibition
       long_name: Convective inhibition for a mixed-layer parcel
       units: J kg-1
-      ancillary_variables: cin_random_uncertainty cin_systematic_uncertainty quality_flag
+      ancillary_variables: cin_uncertainty quality_flag
 
   sigma_mlCIN:
-    name: cin_random_uncertainty
+    name: cin_uncertainty
     dim:
       - time
     type: f4
@@ -1079,17 +992,6 @@ variables:
     optional: False
     attributes:
       long_name: 1-sigma uncertainties in mixed-layer CIN
-      units: J kg-1
-
-  systematic_mlCIN:
-    name: cin_systematic_uncertainty
-    dim:
-      - time
-    type: f4
-    _FillValue: -999.
-    optional: False
-    attributes:
-      long_name: Systematic uncertainties in mixed-layer CIN
       units: J kg-1
 
 # global attributes common to all instruments. Additional instrument-specific attrs in their config under nc_attributes.
