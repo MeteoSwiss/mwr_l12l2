@@ -36,6 +36,7 @@ sphinxcontrib-napoleon = {version = "^0.7", optional = true}
 metpy = "^1.7.1"
 h5netcdf = "^1.8.1"
 h5py = "^3.16.0"
+watchdog = "^6.0.0"
 
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinxcontrib-napoleon"]
