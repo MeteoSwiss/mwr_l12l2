@@ -19,8 +19,13 @@ data:
   # maximum age of MWR data to be considered for retrieval in minutes. Set to null for unlimited
   max_age: 90
 
+  # real-time mode: delay in minutes after the retrieval window end before triggering the retrieval
+  # (gives time for the last files of the window to arrive in the bucket)
+  nrt_delay_minutes: 1
+
   # check MWR quality flags and filter out bad data (at the moment, can't be applied to past data as quality flags were not yet properly set, but should be applied to future data)
-  check_mwr_quality: False
+  # BEWARE: setting this to False will ignore the filtering of bad quality L1 data and will accordingly flag badly the L2 data !
+  check_mwr_quality: True
 
   # minimum fraction of retrieval time that must be covered by MWR observations to run the retrieval (between 0 and 1)
   mwr_obs_duration_threshold: 0.6
@@ -49,7 +54,8 @@ data:
   output_file_prefix: MWR_2C01_
   
   # location and filenames of input E-PROFILE data
-  mwr_dir: /data/eprofile-mwr-dev-l1/  # directory for microwave radiometer input data
+  mwr_dir: /home/eric/level1/ # /data/eprofile-mwr-dev-l1/  # directory for microwave radiometer input data
+  mwr_bucket: eprofile-mwr-l1 # S3 bucket for microwave radiometer input data
   mwr_file_prefix: MWR_1C01_
   alc_dir: /data/eprofile-alc-l2/  # directory for automatic lidar's or ceilometer's cloud base input data
   alc_file_prefix: L2_
