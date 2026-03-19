@@ -866,18 +866,12 @@ class Retrieval:
             
             # Also, all derived producs must have an associated "sigma_{var}" and "systematic_{var}" variable for the uncertainty. We will check if these variables exist and if not create them with NaN values and the right dimensions and attributes:
             sigma_var = 'sigma_' + var
-            systematic_var = 'systematic_' + var
             if sigma_var not in data.variables:
                 data = data.assign({sigma_var: (data[var].dims, np.full(data[var].shape, np.nan))})
                 data[sigma_var].attrs['units'] = data[var].attrs.get('units', '')  # use same units as the variable if defined
             
-            if systematic_var not in data.variables:
-                data = data.assign({systematic_var: (data[var].dims, np.full(data[var].shape, np.nan))})
-                data[systematic_var].attrs['units'] = data[var].attrs.get('units', '')  # use same units as the variable if defined
-            
             data[var].attrs['retrieval_type'] = 'derived product'
             data[sigma_var].attrs['retrieval_type'] = 'derived product'
-            data[systematic_var].attrs['retrieval_type'] = 'derived product'
         return data
     
     def calculate_time_bnds(self, time, tresolution_minutes):

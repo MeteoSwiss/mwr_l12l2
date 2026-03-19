@@ -8,11 +8,11 @@
 
 general: 
   # general settings for the retrieval
-  operational: False
+  operational: True
   retrieval_time: 15
   L2_format_config_file: 'L2_format.yaml'
   TROPoe_output_config_file: 'tropoe_output_config.yaml'
-  
+
 # definitions of which data to use for retrieval. Paths are absolute or relative to mwr_l12l2 project dir
 data:
 
@@ -84,6 +84,9 @@ data:
 
   default_cbh_km: 2.0  # km - default cloud base height when no ALC available
   tropoe_verbosity: 2  # verbosity level for TROPoe output
+
+  # List of derived products to be included in the output file and have the retrieval_type attribute set to "derived product"
+  derived_product_list: ['rh', 'pwv', 'theta', 'thetae', 'dewpt', 'pblh', 'mlCAPE', 'mlCIN','mlLCL', 'ko_index', 'total_totals', 'k_index', 'showalter_index', 's_index', 'thompson_index', 'jefferson_index', 'fog_threat', 'mdpi', 'tq_index', lifted_index]
 
 # general settings for TROPoe's vip files (must match vip keywords; do not set paths, taken from data.*tropoe* above)
 vip:
