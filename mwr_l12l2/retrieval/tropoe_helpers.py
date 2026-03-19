@@ -335,7 +335,7 @@ def transform_units(data):
     # unit_match contents. key: orig unit; value: (new unit, multiplier, adder)
     unit_match = {'C': ('K', 1, 273.15),
                   'km': ('m', 1e3, 0),
-                  'g/kg': ('ppm', 1e3, 0),
+                  'g/kg': ('kg/kg', 1e-3, 0),
                   'g/m2': ('kg m-2', 1e-3, 0),  # for liquid water path
                   'cm': ('kg m-2', 10, 0),  # for integrated water vapour
                   }
