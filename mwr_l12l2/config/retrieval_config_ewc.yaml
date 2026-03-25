@@ -54,7 +54,7 @@ data:
   output_file_prefix: MWR_2C01_
   
   # location and filenames of input E-PROFILE data
-  mwr_dir: /home/eric/level1/ # /data/eprofile-mwr-dev-l1/  # directory for microwave radiometer input data
+  mwr_dir: /data/eprofile-mwr-l1/ #/home/eric/level1/ # /data/eprofile-mwr-dev-l1/  # directory for microwave radiometer input data
   mwr_bucket: eprofile-mwr-l1 # S3 bucket for microwave radiometer input data
   mwr_file_prefix: MWR_1C01_
   alc_dir: /data/eprofile-alc-l2/  # directory for automatic lidar's or ceilometer's cloud base input data
