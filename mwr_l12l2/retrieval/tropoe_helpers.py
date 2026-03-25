@@ -673,7 +673,7 @@ def add_lat_lon_vectors(data):
     # Add the latitude and longitude variables as 2D vector (with same value repeated in all altitudes)
     data = data.assign(
         latitude = xr.DataArray(
-        data=np.repeat(data.station_latitude.values[:, np.newaxis], data.dims['altitude'], axis=1),
+        data=np.repeat(data.station_latitude.values[:, np.newaxis], data.sizes['altitude'], axis=1),
         coords= {'time':data.time, 'altitude':data.altitude.data},
         dims=['time','altitude'],
         attrs={'standard_name':'latitude',
@@ -684,7 +684,7 @@ def add_lat_lon_vectors(data):
     )
     data = data.assign(
         longitude = xr.DataArray(
-        data=np.repeat(data.station_longitude.values[:, np.newaxis], data.dims['altitude'], axis=1),
+        data=np.repeat(data.station_longitude.values[:, np.newaxis], data.sizes['altitude'], axis=1),
         coords= {'time':data.time, 'altitude':data.altitude.data},
         dims=['time','altitude'],
         attrs={'standard_name':'longitude',
