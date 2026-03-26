@@ -325,9 +325,23 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
            '-e', 'pfile=' + apriori_fullpath,  # path inside container, e.g. relative to dir mapped to /data
            '-e', 'verbose={}'.format(verbosity),
            tropoe_img]
-    tropoe_run = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    logger.info('TROPoe run output:')
-    logger.info(tropoe_run.stdout.decode('utf-8'))
+    logger.debug('Running TROPoe command: %s', ' '.join(cmd))
+    tropoe_run = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+    stdout_lines = tropoe_run.stdout.decode('utf-8', errors='replace').splitlines()
+    if stdout_lines:
+        logger.debug('--- TROPoe stdout ---')
+        for line in stdout_lines:
+            logger.debug('[TROPoe] %s', line)
+
+    stderr_lines = tropoe_run.stderr.decode('utf-8', errors='replace').splitlines()
+    if stderr_lines:
+        logger.warning('--- TROPoe stderr ---')
+        for line in stderr_lines:
+            logger.warning('[TROPoe stderr] %s', line)
+
+    if tropoe_run.returncode != 0:
+        logger.error('TROPoe exited with non-zero return code %d', tropoe_run.returncode)
 
 def transform_units(data):
     """Transform all units of TROPoe output file to match units in E-PROFILE output files"""

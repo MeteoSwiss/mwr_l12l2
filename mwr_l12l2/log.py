@@ -1,6 +1,7 @@
 import datetime as dt
 import os
-from logging import DEBUG, FileHandler, Formatter, StreamHandler, getLogger
+from logging import DEBUG, Formatter, StreamHandler, getLogger
+from logging.handlers import TimedRotatingFileHandler
 from sys import stdout
 
 from mwr_l12l2.utils.config_utils import get_log_config
@@ -58,14 +59,19 @@ console_handler.setLevel(conf['loglevel_stdout'])
 logger.addHandler(console_handler)
 
 
-# logging to file
+# logging to file (daily rotating – new file every day at midnight UTC)
 if conf['write_logfile']:
-    act_time_str = dt.datetime.now(tz=dt.timezone(dt.timedelta(0))).strftime(conf['logfile_timestamp_format'])
-    log_filename = conf['logfile_basename'] + format(act_time_str) + conf['logfile_ext']
+    today_str = dt.datetime.now(tz=dt.timezone(dt.timedelta(0))).strftime('%Y%m%d')
+    log_filename = conf['logfile_basename'] + today_str + conf['logfile_ext']
     log_file = str(abs_file_path(os.path.join(conf['logfile_path'], log_filename)))
 
-    file_handler = FileHandler(log_file)
-    file_handler_formatter = formatter
-    file_handler.setFormatter(file_handler_formatter)
+    file_handler = TimedRotatingFileHandler(
+        log_file,
+        when='midnight',       # rotate at midnight
+        utc=True,              # use UTC for rotation timing
+        backupCount=conf.get('logfile_backup_count', 30),  # keep N days of history
+    )
+    # The rotated files get a '.YYYY-MM-DD' suffix appended automatically
+    file_handler.setFormatter(formatter)
     file_handler.setLevel(conf['loglevel_file'])
     logger.addHandler(file_handler)
