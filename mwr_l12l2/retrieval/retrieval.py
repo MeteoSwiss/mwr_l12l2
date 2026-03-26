@@ -855,7 +855,7 @@ class Retrieval:
     
     def derived_variables(self, data, derived_product_list):
         
-        logger.info(f'Calculating or completing derived products: {derived_product_list}')
+        logger.debug(f'Calculating or completing derived products: {derived_product_list}')
         
         for var in derived_product_list:
             if var not in data.variables:
@@ -940,7 +940,7 @@ class Retrieval:
         nc_writer = Writer(data, filename, conf_nc)
         nc_writer.run()
         
-        logger.info(f'E-PROFILE output written to {filename}')
+        logger.info(f'E-Profile output written to {filename}')
         return filename
     
     def _should_upload_to_s3(self):
@@ -960,7 +960,7 @@ class Retrieval:
             tropoe_file: Path to raw TROPoe output file
         """
         if not os.path.isfile(eprofile_file):
-            logger.warning(f'E-PROFILE output file {eprofile_file} not found. Skipping S3 upload.')
+            logger.warning(f'E-Profile output file {eprofile_file} not found. Skipping S3 upload.')
             return
         
         try:
@@ -979,12 +979,12 @@ class Retrieval:
             bucket_name = self.conf['data']['output_bucket_copy']
             
             # Upload E-PROFILE output
-            s3_key = 'rs-comp/'+os.path.basename(eprofile_file)
+            s3_key = 'real-time/'+os.path.basename(eprofile_file)
             s3.upload_file(eprofile_file, bucket_name, s3_key)
             logger.info(f'Uploaded E-PROFILE output to S3: {bucket_name}/{s3_key}')
             
             # Upload TROPoe output
-            s3_key_tropoe = 'rs-comp/'+os.path.basename(tropoe_file)
+            s3_key_tropoe = 'real-time/'+os.path.basename(tropoe_file)
             s3.upload_file(tropoe_file, bucket_name, s3_key_tropoe)
             logger.info(f'Uploaded TROPoe output to S3: {bucket_name}/{s3_key_tropoe}')
             

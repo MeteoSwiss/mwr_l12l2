@@ -219,7 +219,7 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
         }
         vip_updates.update(scan_config)
     else:
-        logger.info('No scan data for this retrieval')
+        logger.warning('No scan data for this retrieval')
         #TODO: ensure TROPoe handles this correctly when no scan data is provided, seems that it might be using some default RDX values...
     
     # Merge updates into base vip configuration
@@ -230,8 +230,8 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
         logger.info('Surface data are complete and will be read from MWR met station')
         sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_PROVIDED
     else:
-        logger.info('No or incomplete surface met data found')
-        logger.info('For now, we are not implementing partial surface data from model, all or nothing')
+        logger.warning('No or incomplete surface met data found')
+        logger.warning('For now, we are not implementing partial surface data from model, all or nothing')
         sfc_data_type = TROPoeRetrievalConstants.SFC_DATA_TYPE_MISSING
         # # TODO: define this from model data
         # # sfc_pressure = 980.0  # hPa - default value
