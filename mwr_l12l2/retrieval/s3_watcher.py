@@ -9,7 +9,7 @@ from pathlib import Path
 from queue import Queue
 
 from mwr_l12l2.log import logger
-from mwr_l12l2.utils.file_utils import round_datetime, create_batch, get_mwr_file_times
+from mwr_l12l2.utils.file_utils import create_batch, get_mwr_file_times
 
 
 class S3Watcher:
@@ -22,8 +22,7 @@ class S3Watcher:
 
     The batching logic mirrors
     https://github.com/MeteoSwiss/dl_toolbox_runner/blob/main/dl_toolbox_runner/retrieval_manager.py:
-    each incoming file is assigned to a retrieval time window (rounded to the
-    nearest ``retrieval_time`` minutes).  Once a batch window has ended *and*
+    each incoming file is assigned to a retrieval time window.  Once a batch window has ended *and*
     a configurable ``delay`` has passed, the batch is pushed to the queue.
     Batches that are never completed within ``max_batch_age`` minutes are
     discarded.
@@ -42,7 +41,7 @@ class S3Watcher:
         # Batching parameters – driven by the retrieval config where possible
         self.retrieval_time = conf['general'].get('retrieval_time', 15)  # minutes
         self.threshold = conf['data'].get('mwr_obs_duration_threshold', 0.6)
-        self.max_batch_age = conf['data'].get('max_age', 90)  # minutes
+        self.max_batch_age = 120  # minutes
         self.delay = conf['data'].get('nrt_delay_minutes', 15)  # minutes delay before triggering retrieval
 
         self.retrieval_batches = []   # list of open batch dicts
@@ -167,39 +166,66 @@ class S3Watcher:
             'file_mid_time': file_mid_time,
         }
 
-        logger.info(f'New file: {filename}  [{file_start_time} – {file_end_time}]')
+        logger.info(f'New file: {filename}  [{file_start_time} - {file_end_time}]')
+        
+        # Depending on the length of the file, different case needs to be handled:
+        # 1. File is shorter than retrieval time: assign to batch or create new batch
+        # 2. File is longer than retrieval time: split into multiple batches
+        if file_length <= self.retrieval_time * 60:
+            # Try to assign to an existing batch
+            assigned = False
+            for batch in self.retrieval_batches:
+                if batch['wigos_and_id'] != wigos_and_id:
+                    continue
+                # File must overlap the batch's retrieval window
+                if file_end_time <= batch['retrieval_start_time']:
+                    continue
+                if file_start_time >= batch['retrieval_end_time']:
+                    continue
 
-        # Try to assign to an existing batch
-        assigned = False
-        for batch in self.retrieval_batches:
-            if batch['wigos_and_id'] != wigos_and_id:
-                continue
-            # File must overlap the batch's retrieval window
-            if file_end_time <= batch['retrieval_start_time']:
-                continue
-            if file_start_time >= batch['retrieval_end_time']:
-                continue
+                # Fits in this window – add the file
+                batch['files'].append(filepath)
+                batch['batch_length_sec'] += file_length
+                if file_start_time < batch['batch_start_time']:
+                    batch['batch_start_time'] = file_start_time
+                if file_end_time > batch['batch_end_time']:
+                    batch['batch_end_time'] = file_end_time
+                logger.info(f'Added {filename} to existing batch for {wigos_and_id} '
+                            f'[{batch["retrieval_start_time"]} - {batch["retrieval_end_time"]}]')
+                assigned = True
+                break
 
-            # Fits in this window – add the file
-            batch['files'].append(filepath)
-            batch['batch_length_sec'] += file_length
-            if file_start_time < batch['batch_start_time']:
-                batch['batch_start_time'] = file_start_time
-            if file_end_time > batch['batch_end_time']:
-                batch['batch_end_time'] = file_end_time
-            logger.info(f'Added {filename} to existing batch for {wigos_and_id} '
-                        f'[{batch["retrieval_start_time"]} – {batch["retrieval_end_time"]}]')
-            assigned = True
-            break
+            if not assigned:
+                # Create a new batch for this file
+                retrieval_start = file_start_time
+                retrieval_end = retrieval_start + dt.timedelta(minutes=self.retrieval_time)
+                batch = create_batch(file_dict, retrieval_start, retrieval_end)
+                self.retrieval_batches.append(batch)
+                logger.info(f'New batch for {wigos_and_id} '
+                            f'[{retrieval_start} - {retrieval_end}]')
+        else:
+            # File is longer than retrieval time – split into multiple batches
+            num_batches = int(file_length // (self.retrieval_time * 60)) + 1
+            for i in range(num_batches):
+                batch_start = file_start_time + dt.timedelta(minutes=i * self.retrieval_time)
+                batch_end = batch_start + dt.timedelta(minutes=self.retrieval_time)
+                if batch_start >= file_end_time:
+                    break
+                if batch_end > file_end_time:
+                    batch_end = file_end_time
 
-        if not assigned:
-            # Create a new batch for this file
-            retrieval_start = round_datetime(file_mid_time, round_to_minutes=self.retrieval_time)
-            retrieval_end = retrieval_start + dt.timedelta(minutes=self.retrieval_time)
-            batch = create_batch(file_dict, retrieval_start, retrieval_end)
-            self.retrieval_batches.append(batch)
-            logger.info(f'New batch for {wigos_and_id} '
-                        f'[{retrieval_start} – {retrieval_end}]')
+                batch_dict = {
+                    'file': filepath,
+                    'wigos_and_id': wigos_and_id,
+                    'file_start_time': file_start_time,
+                    'file_end_time': file_end_time,
+                    'file_length': file_length,
+                    'file_mid_time': file_mid_time,
+                }
+                batch = create_batch(batch_dict, batch_start, batch_end)
+                self.retrieval_batches.append(batch)
+                logger.info(f'Created batch {i+1}/{num_batches} for {wigos_and_id} '
+                            f'[{batch_start} - {batch_end}]')
 
     def _check_and_process_batch(self, batch):
         """Decide whether a batch is ready to be queued for retrieval.

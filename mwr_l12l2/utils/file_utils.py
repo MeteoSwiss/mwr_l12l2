@@ -136,24 +136,6 @@ def timestamp_to_float(timestamp):
     """transform timestamp string to a float between 0 and 1 (integer of timestamp normalised by its length)"""
     return int(timestamp)/10**len(timestamp)
 
-
-def round_datetime(datetime_obj, round_to_minutes=15):
-    """Round a :class:`datetime.datetime` down to the nearest multiple of *round_to_minutes*.
-
-    Args:
-        datetime_obj: :class:`datetime.datetime` object to round
-        round_to_minutes: interval in minutes to round down to. Defaults to 15.
-
-    Returns:
-        :class:`datetime.datetime` floored to the nearest *round_to_minutes* boundary
-    """
-    return datetime_obj - dt.timedelta(
-        minutes=datetime_obj.minute % round_to_minutes,
-        seconds=datetime_obj.second,
-        microseconds=datetime_obj.microsecond,
-    )
-
-
 def create_batch(file_dict, retrieval_start_time, retrieval_end_time):
     """Create a retrieval batch dictionary from a parsed file dictionary.
 
