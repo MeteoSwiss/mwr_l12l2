@@ -1,5 +1,6 @@
 import os.path
 import subprocess
+import uuid
 
 import numpy as np
 import xarray as xr
@@ -201,7 +202,7 @@ def build_vip_config(mwr_data, inst_conf, station_coords, has_surface_data,
     }
     
     # Add scan configuration if available #TODO: check that specified scan channels are actually present in the data and handle case where they are not (e.g. if scan data is missing for this instrument)
-    if any(ch_scan) & len( inst_conf['retrieval']['scan_ele'])>0:
+    if (any(ch_scan)) & (len(inst_conf['retrieval']['scan_ele'])>0):
         logger.info('Configuring scan data for retrieval')
         scan_config = {
             'mwrscan_type': TROPoeRetrievalConstants.MWR_SCAN_TYPE,
@@ -282,7 +283,7 @@ def write_vip_file(vip_config, output_filepath):
 
 def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
                data_mountpoint='/data', tropoe_img='davidturner53/tropoe', tmp_path='mwr_l12l2/retrieval/tmp',
-               verbosity=1):
+               verbosity=1, memory_limit='4g', cpu_limit=None, container_name=None, timeout=3600):
     """Run TROPoe container using podman for one specific retrieval
 
     Args:
@@ -298,7 +299,14 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
         tropoe_img (optional): reference of TROPoe container image to use. Will take latest available by default
         tmp_path (optional): tmp path that will be mounted to /tmp inside the container. Uses a dummy folder by default
         verbosity (optional): verbosity level of TROPoe. Defaults to 1
+        memory_limit (optional): memory limit for container (e.g., '4g', '2g'). Defaults to '4g'.
+            Set to None to disable memory limiting.
+        cpu_limit (optional): CPU limit for container (e.g., '1.0' for 1 CPU). Defaults to None (no limit).
+        container_name (optional): unique name for the container. Auto-generated if None.
+        timeout (optional): timeout in seconds for the container execution. Defaults to 3600 (1 hour).
+            Set to None to disable timeout.
     """
+    
 
     # generate date string. Accept datetime.datetime and strings/integers (for special calls, e.g. 0 for vip docs)
     try:
@@ -313,20 +321,48 @@ def run_tropoe(data_path, date, start_hour, end_hour, vip_file, apriori_file,
     else:
         apriori_fullpath = replace_path(apriori_file, data_path, data_mountpoint)
 
+    # Generate unique container name for logging purposes
+    if container_name is None:
+        container_name = f'tropoe_{date_str}_{uuid.uuid4().hex[:8]}'
+
+    # Create unique tmp directory using absolute path
+    # Use os.path.abspath to ensure we get a proper absolute path string
+    abs_tmp_path = os.path.abspath(str(abs_file_path(tmp_path)))
+    unique_tmp = os.path.join(abs_tmp_path, container_name)
+    os.makedirs(unique_tmp, exist_ok=True)
+
+    # Get absolute path for data_path as well
+    abs_data_path = os.path.abspath(str(abs_file_path(data_path)))
+
     # construct cmd for subprocess
-    cmd = ['podman', 'run', '-i', '-u', 'root', '--rm',
-           '-v', '{}:{}'.format(abs_file_path(data_path), data_mountpoint),  # map the data path inside the container
-           '-v', '{}:/tmp2'.format(abs_file_path(tmp_path)),  # map the tmp path to /tmp2 (for debug only)
+    # Note: We don't use --name to avoid conflicts when containers fail to clean up
+    cmd = ['podman', 'run', '-u', 'root', '--rm',
+           '--pids-limit', '-1',  # disable PID limit to avoid issues with parallel processes inside container
+           '--ulimit', 'nofile=65535:65535',  # increase open file limit to prevent "Too many open files" errors
+           '-v', '{}:{}'.format(abs_data_path, data_mountpoint),
+           '-v', '{}:/tmp2'.format(unique_tmp),
            '-e', 'app=TROPoe',
            '-e', 'yyyymmdd=' + date_str,
            '-e', 'shour={}'.format(start_hour),
            '-e', 'ehour={}'.format(end_hour),
            '-e', 'vfile=' + vip_fullpath,  # path inside container, e.g. relative to dir mapped to /data
            '-e', 'pfile=' + apriori_fullpath,  # path inside container, e.g. relative to dir mapped to /data
-           '-e', 'verbose={}'.format(verbosity),
-           tropoe_img]
+           '-e', 'verbose={}'.format(verbosity)]
+    
+    # Add resource limits if specified
+    if memory_limit:
+        cmd.extend(['--memory', memory_limit])
+    if cpu_limit:
+        cmd.extend(['--cpus', str(cpu_limit)])
+    
+    cmd.append(tropoe_img)
     logger.debug('Running TROPoe command: %s', ' '.join(cmd))
-    tropoe_run = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    
+    try:
+        tropoe_run = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        logger.error('TROPoe container %s timed out after %d seconds', container_name, timeout)
+        return
 
     stdout_lines = tropoe_run.stdout.decode('utf-8', errors='replace').splitlines()
     if stdout_lines:
