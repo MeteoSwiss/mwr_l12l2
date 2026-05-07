@@ -41,8 +41,9 @@ class S3Watcher:
         # Batching parameters – driven by the retrieval config where possible
         self.retrieval_time = conf['general'].get('retrieval_time', 15)  # minutes
         self.threshold = conf['data'].get('mwr_obs_duration_threshold', 0.6)
-        self.max_batch_age = 120  # minutes
-        self.delay = conf['data'].get('nrt_delay_minutes', 15)  # minutes delay before triggering retrieval
+        self.max_batch_age = 60  # minutes
+        self.delay = conf['data'].get('nrt_delay_minutes', 5)  # minutes delay before triggering retrieval
+        self.max_file_length = 2 # max file length to consider, in hours (files longer than this will be skipped)
 
         self.retrieval_batches = []   # list of open batch dicts
         self._seen_keys = set()       # S3 object keys already processed (or intentionally skipped)
@@ -166,12 +167,12 @@ class S3Watcher:
             'file_mid_time': file_mid_time,
         }
 
-        logger.info(f'New file: {filename}  [{file_start_time} - {file_end_time}]')
+        logger.info(f'New file: {filename} containing {file_length/60:.2f} min: [{file_start_time} - {file_end_time}]')
         
         # Depending on the length of the file, different case needs to be handled:
-        # 1. File is shorter than retrieval time: assign to batch or create new batch
+        # 1. File is shorter or close (up to 20% more) to retrieval time: assign to batch or create new batch
         # 2. File is longer than retrieval time: split into multiple batches
-        if file_length <= self.retrieval_time * 60:
+        if file_length <= 1.2 * self.retrieval_time * 60:
             # Try to assign to an existing batch
             assigned = False
             for batch in self.retrieval_batches:
@@ -203,6 +204,9 @@ class S3Watcher:
                 self.retrieval_batches.append(batch)
                 logger.info(f'New batch for {wigos_and_id} '
                             f'[{retrieval_start} - {retrieval_end}]')
+        elif file_length > self.max_file_length * 3600:
+            logger.warning(f'File {filename} is too long ({file_length/3600:.2f}h) - ignoring')
+            return
         else:
             # File is longer than retrieval time – split into multiple batches
             num_batches = int(file_length // (self.retrieval_time * 60)) + 1
