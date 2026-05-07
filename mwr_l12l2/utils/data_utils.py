@@ -152,3 +152,24 @@ def setbit(x, nth_bit):
     return x | mask
 
 
+def decode_bit_flags(x):
+    """decode bit encoded quality flags to a dict of boolean flags for each bit position
+
+    Args:
+        x: integer or :class:`numpy.ndarray` of integers containing the bit encoded flags
+    Returns:
+        dict of boolean flags for each bit position. The keys are 'bit_0', 'bit_1', etc. and the values are boolean arrays indicating whether the respective bit is set in the input x.
+    """
+    max_bit = int(np.ceil(np.log2(np.max(x)+1)))  # maximum bit position to check based on the maximum value in x
+    # extract the
+    flag_meanings = x.attrs.get('flag_meanings', ' ').split()  # get flag meanings from attributes, separated by space.
+    flag_activated = []
+    
+    # transform binary_str to list of boolean flags for each bit position:
+    for i in range(max_bit):
+        bit_flag = (x.values.astype('int').item() >> i) & 1
+        if bit_flag:
+            flag_activated.append(flag_meanings[i] if i < len(flag_meanings) else f'bit_{i}')
+    
+    return flag_activated
+
