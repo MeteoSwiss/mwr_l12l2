@@ -188,19 +188,19 @@ variables:
   #   attributes:
   #     long_name: original TROPoe quality control flag
 
-  quality_flag:
-    name: quality_flag
-    dim:
-      - time
-    type: i1
-    _FillValue: -128
-    optional: False
-    attributes:
-      long_name: Quality flag
-      standard_name: quality_flag
-      flag_masks: [1, 2, 4, 8]
-      flag_meanings: 'no_L1_QC non_convergence high_rms high_gamma'
-      comment: 0 indicates data with good quality.
+  # quality_flag:
+  #   name: quality_flag
+  #   dim:
+  #     - time
+  #   type: i1
+  #   _FillValue: -128
+  #   optional: False
+  #   attributes:
+  #     long_name: Quality flag
+  #     standard_name: quality_flag
+  #     flag_masks: [1, 2, 4, 8]
+  #     flag_meanings: 'no_L1_QC non_convergence high_rms high_gamma'
+  #     comment: 0 indicates data with good quality.
 
 ##########################################################################################################
 # Temperature fields 
@@ -294,7 +294,7 @@ variables:
     attributes:
       long_name: Quality flag for temperature profile
       flag_masks: [1, 2, 4, 8]
-      flag_meanings: 'non_convergence high_rms high_gamma outside_vertical_range'
+      flag_meanings: 'non_convergence high_rms high_gamma outside_trusted_vertical_range'
       #comment: # set during the processing
       units: "1"
 
@@ -389,7 +389,7 @@ variables:
     attributes:
       long_name: Quality flag for water vapour profile
       flag_masks: [1, 2, 4, 8]
-      flag_meanings: 'non_convergence high_rms high_gamma outside_vertical_range'
+      flag_meanings: 'non_convergence high_rms high_gamma outside_trusted_vertical_range'
       #comment: # set during the processing
       units: "1"
 
@@ -764,7 +764,7 @@ variables:
     _FillValue: -999.  
     optional: False
     attributes:
-      long_name: K index
+      long_name: ko index
       units: °C
       ancillary_variables: ko_index_uncertainty ko_index_quality_flag
 
@@ -776,7 +776,7 @@ variables:
     _FillValue: -999.
     optional: False
     attributes:
-      long_name: Uncertainty in K index
+      long_name: Uncertainty in ko index
       units: °C
 
   ko_index_quality_flag:
@@ -787,7 +787,7 @@ variables:
     _FillValue: -128
     optional: False
     attributes:
-      long_name: Quality flag for K index
+      long_name: Quality flag for ko index
       flag_masks: [1, 2]
       flag_meanings: "bad_quality unknown_quality"
       comment: 0 indicates data with good quality.
@@ -1061,7 +1061,7 @@ variables:
     _FillValue: -128
     optional: False
     attributes:
-      long_name: Quality flag for S index
+      long_name: Quality flag for Thompson index
       flag_masks: [1, 2]
       flag_meanings: "bad_quality unknown_quality"
       comment: 0 indicates data with good quality.
