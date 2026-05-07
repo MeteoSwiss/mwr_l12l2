@@ -8,6 +8,7 @@ import datetime as dt
 from threading import Thread
 from queue import Queue
 from multiprocessing import Pool
+import uuid
 
 from mwr_l12l2.errors import MissingDataError, MWRConfigError
 from mwr_l12l2.log import logger
@@ -79,7 +80,7 @@ def run_retrieval(conf, batch):
             'alc_files': alc_files,
         }
 
-        ret = Retrieval(conf, selected)
+        ret = Retrieval(conf, selected, node=uuid.uuid4().int % 100)
         ret.run(batch['retrieval_start_time'], batch['retrieval_end_time'])
         logger.info(f'Retrieval completed for {wigos_and_id}')
 
