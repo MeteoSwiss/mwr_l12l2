@@ -48,10 +48,7 @@ variables:
     optional: True
     attributes:
       long_name: Height above mean sea level
-      standard_name: altitude
       units: m
-      positive: up
-      axis: Z
       comment: Used for the AVKs second dimension, same as altitude
 
   latitude:
@@ -147,17 +144,17 @@ variables:
       units: degree
       comment: “0=North, 90=East, 180=South, 270=West”
   
-  quality_flag_status:
-    name: quality_flag_status
-    dim:
-      - time
-    type: i2
-    _FillValue: -999
-    optional: False
-    attributes:
-      long_name: Checks not executed in determination of L1 data quality
-      flag_masks: [1, 2, 4, 8, 16, 32, 64, 128]
-      flag_meanings: missing_tb_not_checked tb_lower_threshold_not_checked tb_upper_threshold_not_checked spectral_consistency_not_checked receiver_sanity_not_checked rain_not_checked sun_in_beam_not_checked tb_offset_not_checked
+  # quality_flag_status:
+  #   name: quality_flag_status
+  #   dim:
+  #     - time
+  #   type: i2
+  #   _FillValue: -128
+  #   optional: False
+  #   attributes:
+  #     long_name: Checks not executed in determination of L1 data quality
+  #     flag_masks: [1, 2, 4, 8, 16, 32, 64, 128]
+  #     flag_meanings: missing_tb_not_checked tb_lower_threshold_not_checked tb_upper_threshold_not_checked spectral_consistency_not_checked receiver_sanity_not_checked rain_not_checked sun_in_beam_not_checked tb_offset_not_checked
 
 ##########################################################################################################
 # Measurement mode
@@ -296,8 +293,9 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for temperature profile
-      flag_values: [0, 1]
-      flag_meanings: good_quality bad_quality
+      flag_masks: [1, 2, 4, 8]
+      flag_meanings: 'non_convergence high_rms high_gamma outside_vertical_range'
+      comment: 0 indicates data with good quality.
       units: "1"
 
 ##########################################################################################################
@@ -390,8 +388,9 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for water vapour profile
-      flag_values: [0, 1]
-      flag_meanings: good_quality bad_quality
+      flag_masks: [1, 2, 4, 8]
+      flag_meanings: 'non_convergence high_rms high_gamma outside_vertical_range'
+      comment: 0 indicates data with good quality.
       units: "1"
 
 ##########################################################################################################
@@ -412,7 +411,7 @@ variables:
       standard_name: relative_humidity
       units: "%"
       comment: ''
-      ancillary_variables: quality_flag
+      ancillary_variables: relative_humidity_uncertainty relative_humidity_quality_flag
   
   sigma_rh:
     name: relative_humidity_uncertainty
@@ -427,6 +426,21 @@ variables:
       comment: 'Calculated from the uncertainties of temperature and water vapour profiles using error propagation'
       units: "%"
 
+  rh_quality_flag:
+    name: relative_humidity_quality_flag
+    dim:
+      - time
+      - altitude
+    type: i1
+    _FillValue: -128
+    optional: True
+    attributes:
+      long_name: Quality flag for relative humidity
+      flag_masks: [1, 2]
+      flag_meanings: bad_quality unknown_quality
+      comment: 0 indicates data with good quality.
+      units: "1"
+
   theta:
     name: potential_temperature
     dim:
@@ -440,7 +454,7 @@ variables:
       standard_name: air_potential_temperature
       units: K
       comment: ''
-      ancillary_variables: quality_flag potential_temperature_uncertainty
+      ancillary_variables: potential_temperature_uncertainty potential_temperature_quality_flag
   
   sigma_theta:
     name: potential_temperature_uncertainty
@@ -453,6 +467,21 @@ variables:
     attributes:
       long_name: Random uncertainty of potential temperature
       units: K
+
+  theta_quality_flag:
+    name: potential_temperature_quality_flag
+    dim:
+      - time
+      - altitude
+    type: i1
+    _FillValue: -128
+    optional: True
+    attributes:
+      long_name: Quality flag for potential temperature
+      flag_masks: [1, 2]
+      flag_meanings: bad_quality unknown_quality
+      comment: 0 indicates data with good quality.
+      units: "1"
 
   thetae:
     name: equivalent_potential_temperature
@@ -467,7 +496,7 @@ variables:
       standard_name: air_equivalent_potential_temperature
       units: K
       comment: ''
-      ancillary_variables: equivalent_potential_temperature_uncertainty quality_flag
+      ancillary_variables: equivalent_potential_temperature_uncertainty equivalent_potential_temperature_quality_flag
 
   sigma_thetae:
     name: equivalent_potential_temperature_uncertainty
@@ -480,6 +509,21 @@ variables:
     attributes:
       long_name: Uncertainty of equivalent potential temperature
       units: K
+
+  thetae_quality_flag:
+    name: equivalent_potential_temperature_quality_flag
+    dim:
+      - time
+      - altitude
+    type: i1
+    _FillValue: -128
+    optional: True
+    attributes:
+      long_name: Quality flag for equivalent potential temperature
+      flag_masks: [1, 2]
+      flag_meanings: bad_quality unknown_quality
+      comment: 0 indicates data with good quality.
+      units: "1"
 
   dewpt:
     name: dew_point_temperature
@@ -494,7 +538,7 @@ variables:
       standard_name: dew_point_temperature
       units: K
       comment: ''
-      ancillary_variables: dew_point_temperature_uncertainty quality_flag
+      ancillary_variables: dew_point_temperature_uncertainty dew_point_temperature_quality_flag
 
   sigma_dewpt:
     name: dew_point_temperature_uncertainty
@@ -508,6 +552,22 @@ variables:
       long_name: Uncertainty of dew point temperature
       units: K
       comment: 'Calculated from the uncertainties of temperature and water vapour profile'
+  
+  dewpt_quality_flag:
+    name: dew_point_temperature_quality_flag
+    dim:
+      - time
+      - altitude
+    type: i1
+    _FillValue: -128
+    optional: True
+    attributes:
+      long_name: Quality flag for dew point temperature
+      flag_masks: [1, 2]
+      flag_meanings: bad_quality unknown_quality
+      comment: 0 indicates data with good quality.
+      units: "1"
+  
 ##########################################################################################################
 # Measurement related fields
 ##########################################################################################################
@@ -593,8 +653,9 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for column-integrated liquid water path
-      flag_values: [0, 1]
-      flag_meanings: good_quality bad_quality
+      flag_masks: [1, 2, 4]
+      flag_meanings: 'non_convergence high_rms high_gamma'
+      comment: 0 indicates data with good quality.
       units: "1"
 
   pwv:
@@ -609,7 +670,7 @@ variables:
       long_name: Column-integrated water vapour
       comment: ''
       units: kg m-2
-      ancillary_variables: iwv_random_uncertainty iwv_systematic_uncertainty quality_flag
+      ancillary_variables: iwv_random_uncertainty iwv_systematic_uncertainty iwv_quality_flag
 
   sigma_pwv:
     name: iwv_random_uncertainty
@@ -633,6 +694,20 @@ variables:
       long_name: Systematic uncertainty of column-integrated water vapour
       units: kg m-2
 
+  iwv_quality_flag:
+    name: iwv_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: True
+    attributes:
+      long_name: Quality flag for column-integrated water vapour
+      flag_masks: [1, 2, 4]
+      flag_meanings: 'non_convergence high_rms high_gamma'
+      comment: 0 indicates data with good quality.
+      units: "1"
+
 ##########################################################################################################
 # Forecast indices and related uncertainties
 ##########################################################################################################
@@ -652,7 +727,7 @@ variables:
       standard_name: atmosphere_convective_available_potential_energy
       long_name: Convective available potential energy for a mixed-layer parcel
       units: J kg-1
-      ancillary_variables: cape_uncertainty quality_flag
+      ancillary_variables: cape_uncertainty cape_quality_flag
 
   sigma_mlCAPE:
     name: cape_uncertainty
@@ -664,6 +739,20 @@ variables:
     attributes:
       long_name: 1-sigma uncertainties in mixed-layer CAPE
       units: J kg-1
+
+  mlCAPE_quality_flag:
+    name: cape_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for mixed-layer CAPE
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -677,7 +766,7 @@ variables:
     attributes:
       long_name: K index
       units: °C
-      ancillary_variables: ko_index_uncertainty quality_flag
+      ancillary_variables: ko_index_uncertainty ko_quality_flag
 
   sigma_ko_index:
     name: ko_index_uncertainty
@@ -689,6 +778,20 @@ variables:
     attributes:
       long_name: Uncertainty in K index
       units: °C
+
+  ko_quality_flag:
+    name: ko_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for K index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -702,7 +805,7 @@ variables:
     attributes:
       long_name: Total totals index
       units: °C
-      ancillary_variables: total_totals_uncertainty quality_flag
+      ancillary_variables: total_totals_uncertainty total_totals_quality_flag
 
   sigma_total_totals:
     name: total_totals_uncertainty
@@ -714,6 +817,20 @@ variables:
     attributes:
       long_name: Uncertainty in total totals index
       units: °C
+
+  total_totals_quality_flag:
+    name: total_totals_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for total totals index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -727,7 +844,7 @@ variables:
     attributes:
       long_name: K index
       units: °C
-      ancillary_variables: k_index_uncertainty quality_flag
+      ancillary_variables: k_index_uncertainty k_index_quality_flag
 
   sigma_k_index:
     name: k_index_uncertainty
@@ -740,6 +857,19 @@ variables:
       long_name: Uncertainty in K index
       units: °C
 
+  k_index_quality_flag:
+    name: k_index_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for K index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 #####################################################
 
   lifted_index:
@@ -752,7 +882,7 @@ variables:
     attributes:
       long_name: Lifted index
       units: °C
-      ancillary_variables: lifted_index_uncertainty quality_flag
+      ancillary_variables: lifted_index_uncertainty lifted_index_quality_flag
 
   sigma_lifted_index:
     name: lifted_index_uncertainty
@@ -764,6 +894,20 @@ variables:
     attributes:
       long_name: Uncertainty in lifted index
       units: °C
+
+  lifted_index_quality_flag:
+    name: lifted_index_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for lifted index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -778,7 +922,7 @@ variables:
       standard_name: atmosphere_level_of_free_convection
       long_name: Lifted condensation level for a mixed-layer parcel
       units: m
-      ancillary_variables: lcl_uncertainty quality_flag
+      ancillary_variables: lcl_uncertainty lcl_quality_flag
 
   sigma_mlLCL:
     name: lcl_uncertainty
@@ -792,6 +936,20 @@ variables:
       comment: 1-sigma uncertainties in the LCL for a mixed-layer parcel
       units: m
 
+  mlLCL_quality_flag:
+    name: lcl_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for lifted condensation level for a mixed-layer parcel
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
+
 #####################################################
 
   showalter_index:
@@ -804,7 +962,7 @@ variables:
     attributes:
       long_name: Showalter index
       units: °C
-      ancillary_variables: showalter_index_uncertainty quality_flag
+      ancillary_variables: showalter_index_uncertainty showalter_index_quality_flag
 
   sigma_showalter_index:
     name: showalter_index_uncertainty
@@ -816,6 +974,20 @@ variables:
     attributes:
       long_name: Uncertainty in Showalter index
       units: °C
+
+  showalter_index_quality_flag:
+    name: showalter_index_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for Showalter index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -829,7 +1001,7 @@ variables:
     attributes:
       long_name: S index
       units: °C
-      ancillary_variables: s_index_uncertainty quality_flag
+      ancillary_variables: s_index_uncertainty s_index_quality_fla
 
   sigma_s_index:
     name: s_index_uncertainty
@@ -841,6 +1013,20 @@ variables:
     attributes:
       long_name: Uncertainty in S index
       units: °C
+
+  s_index_quality_flag:
+    name: s_index_quality_fla
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for S index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -854,7 +1040,7 @@ variables:
     attributes:
       long_name: Thompson index
       units: °C
-      ancillary_variables: thompson_index_uncertainty quality_flag
+      ancillary_variables: thompson_index_uncertainty thompson_index_quality_flag
 
   sigma_thompson_index:
     name: thompson_index_uncertainty
@@ -866,6 +1052,20 @@ variables:
     attributes:
       long_name: Uncertainty in Thompson index
       units: °C
+
+  thompson_index_quality_flag:
+    name: thompson_index_quality_fla
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for S index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -879,7 +1079,7 @@ variables:
     attributes:
       long_name: Jefferson index
       units: °C
-      ancillary_variables: jefferson_index_uncertainty quality_flag
+      ancillary_variables: jefferson_index_uncertainty jefferson_index_quality_flag
 
   sigma_jefferson_index:
     name: jefferson_index_uncertainty
@@ -892,6 +1092,19 @@ variables:
       long_name: Uncertainty in Jefferson index
       units: °C
 
+  jefferson_index_quality_flag:
+    name: jefferson_index_quality_fla
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for Jefferson index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -905,7 +1118,7 @@ variables:
     attributes:
       long_name: Fog threat index
       units: °C
-      ancillary_variables: fog_threat_uncertainty quality_flag
+      ancillary_variables: fog_threat_uncertainty fog_threat_quality_flag
 
   sigma_fog_threat:
     name: fog_threat_uncertainty
@@ -917,6 +1130,20 @@ variables:
     attributes:
       long_name: Uncertainty in fog threat index
       units: °C
+
+  fog_threat_quality_flag:
+    name: fog_threat_quality_fla
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for fog threat index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -930,7 +1157,7 @@ variables:
     attributes:
       long_name: Microburst day potential index
       units: °C kts-1
-      ancillary_variables: mdpi_uncertainty quality_flag
+      ancillary_variables: mdpi_uncertainty mdpi_quality_flag
 
   sigma_mdpi:
     name: mdpi_uncertainty
@@ -942,6 +1169,20 @@ variables:
     attributes: 
       long_name: Random uncertainties in microburst day potential index
       units: °C kts-1 
+
+  mdpi_quality_flag:
+    name: mdpi_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for microburst day potential index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -955,7 +1196,7 @@ variables:
     attributes:
       long_name: TQ index
       units: °C
-      ancillary_variables: tq_index_uncertainty quality_flag
+      ancillary_variables: tq_index_uncertainty tq_index_quality_flag
 
   sigma_tq_index:
     name: tq_index_uncertainty
@@ -967,6 +1208,20 @@ variables:
     attributes:
       long_name: Uncertainty in TQ index
       units: °C
+
+  tq_index_quality_flag:
+    name: tq_index_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes:
+      long_name: Quality flag for TQ index
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
 
 #####################################################
 
@@ -981,7 +1236,7 @@ variables:
       standard_name: atmosphere_convective_inhibition
       long_name: Convective inhibition for a mixed-layer parcel
       units: J kg-1
-      ancillary_variables: cin_uncertainty quality_flag
+      ancillary_variables: cin_uncertainty cin_quality_flag
 
   sigma_mlCIN:
     name: cin_uncertainty
@@ -994,6 +1249,22 @@ variables:
       long_name: 1-sigma uncertainties in mixed-layer CIN
       units: J kg-1
 
+  cin_quality_flag:
+    name: cin_quality_flag
+    dim:
+      - time
+    type: i1
+    _FillValue: -128
+    optional: False
+    attributes: 
+      long_name: Quality flag for mixed-layer CIN
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
+      comment: 0 indicates data with good quality.
+      units: "1"
+
+#####################################################
+
 # global attributes common to all instruments. Additional instrument-specific attrs in their config under nc_attributes.
 # If the same fields are present in the instrument-specific config, the general ones from below will be overwritten
 attributes:
@@ -1005,5 +1276,6 @@ attributes:
   comment: ''
   source: Ground Based Remote Sensing
   dependencies: None
+  level1_quality_flag_status: "The following checks were NOT performed to flag the level 1 data:" # This attrs gets completed during the processing
   # retrieval_type: optimal estimation -> to be set at each retrieval
   # history is directly set in NetCDF writer
