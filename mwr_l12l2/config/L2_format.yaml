@@ -295,7 +295,7 @@ variables:
       long_name: Quality flag for temperature profile
       flag_masks: [1, 2, 4, 8]
       flag_meanings: 'non_convergence high_rms high_gamma outside_vertical_range'
-      comment: 0 indicates data with good quality.
+      #comment: # set during the processing
       units: "1"
 
 ##########################################################################################################
@@ -390,7 +390,7 @@ variables:
       long_name: Quality flag for water vapour profile
       flag_masks: [1, 2, 4, 8]
       flag_meanings: 'non_convergence high_rms high_gamma outside_vertical_range'
-      comment: 0 indicates data with good quality.
+      #comment: # set during the processing
       units: "1"
 
 ##########################################################################################################
@@ -410,7 +410,7 @@ variables:
       long_name: Relative Humidity
       standard_name: relative_humidity
       units: "%"
-      comment: ''
+      #comment: ''
       ancillary_variables: relative_humidity_uncertainty relative_humidity_quality_flag
   
   sigma_rh:
@@ -453,7 +453,7 @@ variables:
       long_name: Potential Temperature
       standard_name: air_potential_temperature
       units: K
-      comment: ''
+      #comment: ''
       ancillary_variables: potential_temperature_uncertainty potential_temperature_quality_flag
   
   sigma_theta:
@@ -495,7 +495,7 @@ variables:
       long_name: Equivalent potential temperature
       standard_name: air_equivalent_potential_temperature
       units: K
-      comment: ''
+      #comment: ''
       ancillary_variables: equivalent_potential_temperature_uncertainty equivalent_potential_temperature_quality_flag
 
   sigma_thetae:
@@ -537,7 +537,7 @@ variables:
       long_name: Dew point temperature
       standard_name: dew_point_temperature
       units: K
-      comment: ''
+      #comment: ''
       ancillary_variables: dew_point_temperature_uncertainty dew_point_temperature_quality_flag
 
   sigma_dewpt:
@@ -596,7 +596,7 @@ variables:
     attributes:
       long_name: Column-integrated liquid water path
       standard_name: atmosphere_cloud_liquid_water_content 
-      comment: ''
+      #comment: ''
       units: kg m-2
       ancillary_variables: lwp_apriori lwp_random_uncertainty lwp_systematic_uncertainty lwp_avk lwp_quality_flag
 
@@ -668,7 +668,7 @@ variables:
     attributes:
       standard_name: atmosphere_mass_content_of_water_vapor
       long_name: Column-integrated water vapour
-      comment: ''
+      #comment: ''
       units: kg m-2
       ancillary_variables: iwv_random_uncertainty iwv_systematic_uncertainty iwv_quality_flag
 
@@ -766,7 +766,7 @@ variables:
     attributes:
       long_name: K index
       units: °C
-      ancillary_variables: ko_index_uncertainty ko_quality_flag
+      ancillary_variables: ko_index_uncertainty ko_index_quality_flag
 
   sigma_ko_index:
     name: ko_index_uncertainty
@@ -779,8 +779,8 @@ variables:
       long_name: Uncertainty in K index
       units: °C
 
-  ko_quality_flag:
-    name: ko_quality_flag
+  ko_index_quality_flag:
+    name: ko_index_quality_flag
     dim:
       - time
     type: i1
@@ -1054,7 +1054,7 @@ variables:
       units: °C
 
   thompson_index_quality_flag:
-    name: thompson_index_quality_fla
+    name: thompson_index_quality_flag
     dim:
       - time
     type: i1
@@ -1093,7 +1093,7 @@ variables:
       units: °C
 
   jefferson_index_quality_flag:
-    name: jefferson_index_quality_fla
+    name: jefferson_index_quality_flag
     dim:
       - time
     type: i1
@@ -1132,7 +1132,7 @@ variables:
       units: °C
 
   fog_threat_quality_flag:
-    name: fog_threat_quality_fla
+    name: fog_threat_quality_flag
     dim:
       - time
     type: i1
@@ -1249,7 +1249,7 @@ variables:
       long_name: 1-sigma uncertainties in mixed-layer CIN
       units: J kg-1
 
-  cin_quality_flag:
+  mlCIN_quality_flag:
     name: cin_quality_flag
     dim:
       - time
@@ -1276,6 +1276,6 @@ attributes:
   comment: ''
   source: Ground Based Remote Sensing
   dependencies: None
-  level1_quality_flag_status: "The following checks were NOT performed to flag the level 1 data:" # This attrs gets completed during the processing
-  # retrieval_type: optimal estimation -> to be set at each retrieval
+  # level1_quality_flag_status: "The following checks were NOT performed to flag the level 1 data:" # This attrs gets completed during the processing
+  # retrieval_type: optimal estimation -> to be set for each product
   # history is directly set in NetCDF writer
