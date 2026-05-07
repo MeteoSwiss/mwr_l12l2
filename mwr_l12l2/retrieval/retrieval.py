@@ -237,9 +237,8 @@ class Retrieval:
             self.select_instrument()
             self.list_obs_files()
 
-        self.prepare_obs(start_time=start_time, end_time=end_time,
-                         delete_mwr_in=False)  # TODO: switch delete_mwr_in to True for operational processing
-        # TODO: Make sure that we have at least 10 minutes of data before running the retrieval and deleting files !
+        self.prepare_obs(start_time=start_time, end_time=end_time)
+        # TODO: Make sure that we have at least 10 minutes of data before running the retrieval
         # only read model data if it's actually required
         
         if OmB:
@@ -454,9 +453,10 @@ class Retrieval:
         self.time_mean = self.time_min + (self.time_max - self.time_min) / 2
         
         # Check if we should preserve files for future processing
-        if self.time_max < mwr.time.max().values:
-            delete_mwr_in = False
-            logger.warning('End time is before latest data in files. Preserving files for future processing.')
+        # TODO: this prevents a lot of RDX files to be discarded. Check how to improve this.
+        # if self.time_max < mwr.time.max().values:
+        #     delete_mwr_in = False
+        #     logger.warning('End time is before latest data in files. Preserving files for future processing.')
 
         # Filter data by time range
         mwr = mwr.where((mwr.time >= self.time_min) & (mwr.time <= self.time_max), drop=True)
@@ -585,7 +585,7 @@ class Retrieval:
         # Log results
         logger.info(f'Scan angle check:')
         logger.info(f'Expected angles from config: {sorted(list(expected_angles_set))}')
-        logger.info(f'Available angles in data: {available_angles_set}')
+        logger.info(f'Available angles in data: {available_angles}')
         
         if missing_angles:
             logger.warning(f'  Missing scan angles (in config but not in data): {missing_angles}')
@@ -832,7 +832,7 @@ class Retrieval:
         time_bnds = self.calculate_time_bnds(data.time, self.conf['general']['retrieval_time'])
         data = data.assign(time_bnds=time_bnds)
         
-        # Complete the derived_variables and add the retrieval_type attribute to them
+        # Complete the derived_variables and add the quality flags and retrieval_type attribute to them
         derived_product_list = self.conf['data']['derived_product_list']
         data = self.derived_variables(data, derived_product_list)
         
@@ -854,6 +854,9 @@ class Retrieval:
             self._upload_to_s3(output_filename, tropoe_output_file)
     
     def derived_variables(self, data, derived_product_list):
+        '''
+        Calculate or complete derived products in the dataset.
+        '''
         
         logger.debug(f'Calculating or completing derived products: {derived_product_list}')
         
@@ -864,16 +867,42 @@ class Retrieval:
                 except Exception as e:
                     logger.error(f'Error calculating derived variable {var}: {e}')
             
-            # Also, all derived producs must have an associated "sigma_{var}" and "systematic_{var}" variable for the uncertainty. We will check if these variables exist and if not create them with NaN values and the right dimensions and attributes:
+            # Also, all derived producs must have an associated "sigma_{var}" variable for the uncertainty. We will check if these variables exist and if not create them with NaN values and the right dimensions and attributes:
             sigma_var = 'sigma_' + var
             if sigma_var not in data.variables:
                 data = data.assign({sigma_var: (data[var].dims, np.full(data[var].shape, np.nan))})
                 data[sigma_var].attrs['units'] = data[var].attrs.get('units', '')  # use same units as the variable if defined
             
+            # Finally for each of these derived products we add the associated quality flags (if not existing) or fill them using the retrieved quality flags
+            data = self.add_quality_flags_derived_products(var, data)
+            
             data[var].attrs['retrieval_type'] = 'derived product'
             data[sigma_var].attrs['retrieval_type'] = 'derived product'
         return data
     
+    def add_quality_flags_derived_products(self, var, data):
+        '''
+        
+        '''
+        # Check if var_quality_flag is alredy defined in the dataset, if not create it with the same dimensions as var and fill it with 0 (good quality) values:
+        var_quality_flag = var + '_quality_flag'
+                
+        # Check if 1D or 2D quality flags is needed based on the dimensions of the variable and create the variable if not existing:
+        if 'altitude' in data[var].dims:
+            data = data.assign({var_quality_flag: (('time', 'altitude'), np.zeros((data.time.size, data.altitude.size), dtype=np.int8))})
+            # For 2D variable, we will combined the temperature_quality_flag and the water_vapour_quality_flag to create the var_quality_flag. If one of the two flags is 1 (bad quality) then the var_quality_flag will be set to 1 (bad quality), if both flags are 0 (good quality) then the var_quality_flag will be set to 0 (good quality):
+            quality_flag_2d = np.where(
+                (data['temperature_quality_flag'].data > 0) | (data['waterVapor_quality_flag'].data > 0),
+                1,  # bad quality
+                0   # good quality
+            )
+            data = data.assign({var_quality_flag: (('time', 'altitude'), quality_flag_2d.astype(np.int8))})
+        else:
+            # for 1D variable, we use the "quality_flag"
+            quality_flag_1d = data['quality_flag']
+            data = data.assign({var_quality_flag: (('time',), quality_flag_1d.data.astype(np.int8))})        
+        return data
+        
     def calculate_time_bnds(self, time, tresolution_minutes):
         """Calculate time bounds for each time step based on the specified time resolution.
         
