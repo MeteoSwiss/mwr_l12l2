@@ -109,6 +109,8 @@ def calculate_derived_product(data, product_name):
     data (xarray.Dataset): Dataset containing the retrieved variables.
     product_name (str): Name of the derived product to calculate.
     
+    #TODO: add uncertainty calculations for derived forecast indices based on the uncertainties of the input variables 
+    
     Returns:
     data (xarray.Dataset): Dataset with the calculated derived product added as a new variable.
     """
