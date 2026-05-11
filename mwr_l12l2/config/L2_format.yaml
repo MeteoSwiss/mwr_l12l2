@@ -1001,7 +1001,7 @@ variables:
     attributes:
       long_name: S index
       units: °C
-      ancillary_variables: s_index_uncertainty s_index_quality_fla
+      ancillary_variables: s_index_uncertainty s_index_quality_flag
 
   sigma_s_index:
     name: s_index_uncertainty
@@ -1015,7 +1015,7 @@ variables:
       units: °C
 
   s_index_quality_flag:
-    name: s_index_quality_fla
+    name: s_index_quality_flag
     dim:
       - time
     type: i1
