@@ -3,22 +3,9 @@ import pandas as pd
 import xarray as xr
 
 
-# def get_from_nc_files(files_in, concat_dim='time'):
-#     """read (several) NetCDF input files to a :class:`xarray.Dataset` and fix time encoding for correct nc output"""
-#     data = xr.open_mfdataset(files_in, data_vars='all', concat_dim=concat_dim, combine='nested')
-#     data = drop_duplicates(data, dim=concat_dim)
-
-#     # correct time encoding (especially units) which is broken by open_mfdateset by explicitly loading first file
-#     data_first = xr.open_dataset(files_in[0])
-#     data = set_encoding(data, ['time', 'time_bnds'], data_first.time.encoding)
-
-#     return data
-
 def get_from_nc_files(files_in, concat_dim='time'):
     """Read a list of MWR L1 E-Profile files and return a xarray dataset"""
 
-    # Read the first file to get the time dimension
-    # ds = xr.open_dataset(files_in[0], engine='netcdf4')
     # Create a list of datasets
     ds_list = []
     for f in files_in:
