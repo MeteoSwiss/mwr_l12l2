@@ -1,16 +1,19 @@
 import os
 import time
+import uuid
 import glob
 
 import datetime as dt
+import pandas as pd
+import numpy as np
 
 from mwr_l12l2.errors import MissingDataError, MWRConfigError
 from mwr_l12l2.log import logger
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config
 from mwr_l12l2.utils.file_utils import abs_file_path
-from retrieval import Retrieval
+from mwr_l12l2.retrieval.retrieval import Retrieval
 
-class InstrumentSelector(object):
+class InstrumentSelector:
     """Class that select an instrument for retrieval based on configuration file
     It is aimed at performing specific retrievals and not for operational use.
 
@@ -93,7 +96,7 @@ class InstrumentSelector(object):
                                                self.wigos, self.inst_id)
         self.inst_conf = get_inst_config(os.path.join(self.conf['data']['inst_config_dir'], inst_conf_file))
 
-    def retrieve_single(self, start_time, end_time, wigos, inst_id):
+    def retrieve_single(self, start_time=None, end_time=None, wigos=None, inst_id=None):
         """Method to run the retrieval for a single instrument specified by its WIGOS and Instrument ID.
 
         Args:
@@ -115,7 +118,7 @@ class InstrumentSelector(object):
             'alc_files': None
         }
 
-        ret = Retrieval(self.conf, selected_instrument, node=1)
+        ret = Retrieval(self.conf, selected_instrument, node=uuid.uuid4().int % 100)
         ret.run(start_time, end_time)
 
     def retrieve_radiosonde(self, day, wigos, inst_id):
@@ -134,20 +137,38 @@ class InstrumentSelector(object):
             'alc_files': None
         }
 
-        ret = Retrieval(self.conf, selected_instrument, node=1)
+        ret = Retrieval(self.conf, selected_instrument, node=uuid.uuid4().int % 100)
+        start_time = day.replace(hour=5, minute=0, second=0, microsecond=0)
+        end_time = day.replace(hour=5, minute=30, second=0, microsecond=0)
+        ret.run(start_time, end_time)
         
         start_time = day.replace(hour=11, minute=0, second=0, microsecond=0)
         end_time = day.replace(hour=11, minute=30, second=0, microsecond=0)
         ret.run(start_time, end_time)
         
+        start_time_noon = day.replace(hour=17, minute=0, second=0, microsecond=0)
+        end_time_noon = day.replace(hour=17, minute=30, second=0, microsecond=0)
+        ret.run(start_time_noon, end_time_noon)
+        
         start_time_noon = day.replace(hour=23, minute=0, second=0, microsecond=0)
         end_time_noon = day.replace(hour=23, minute=30, second=0, microsecond=0)
         ret.run(start_time_noon, end_time_noon)
         
+        
 if __name__ == '__main__':
     start = time.time()
-    instrument = InstrumentSelector(abs_file_path('mwr_l12l2/config/retrieval_config.yaml'))
-    instrument.retrieve_single(start_time=None, end_time=None, wigos='0-20000-0-06620', inst_id = 'A')
+    instrument = InstrumentSelector(abs_file_path('mwr_l12l2/config/retrieval_config_ewc.yaml'))
+    instrument.retrieve_single(start_time=None, end_time=None, wigos='0-276-13-20039',  inst_id = 'A')
+    # instrument.retrieve_single(start_time=dt.datetime(2026, 1, 13, 13, 0, 0), end_time=dt.datetime(2026, 1, 13, 16, 0, 0), wigos='0-276-13-20039', inst_id = 'A')
+    # dates_in_2025 = pd.date_range(start='2025-12-21', end='2025-12-31', freq='D')
+    # for date in dates_in_2025:
+    #         try:
+    #             instrument.retrieve_radiosonde(date, wigos='0-276-4-14995', inst_id = 'A')
+    #             # instrument.retrieve_radiosonde(date, wigos='0-20000-0-06610', inst_id = 'A')
+    #             #instrument.retrieve_single(start_time=dt.datetime(2025, month, day, 0, 0, 0), end_time=dt.datetime(2025, month, day, 23, 59, 59), wigos='0-20000-0-06610', inst_id = 'A')
+    #         except Exception as e:
+    #             print(f"Retrieval failed for date {date.date()}: {e}")
+    #instrument.retrieve_single(start_time=dt.datetime(2025, 1, 22, 0, 0, 0), end_time=dt.datetime(2025, 1, 22, 0, 15, 59), wigos='0-276-4-14997', inst_id = 'C')
     end = time.time()
     print('Time taken to run the retrieval: {} seconds'.format(end-start))
 
