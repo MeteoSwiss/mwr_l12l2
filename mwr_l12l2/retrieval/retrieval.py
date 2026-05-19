@@ -15,7 +15,7 @@ from mwr_l12l2.retrieval.tropoe_helpers import (model_to_tropoe, run_tropoe,
                                                   build_vip_config, write_vip_file, convert_tropoe_output)
 from mwr_l12l2.utils.config_utils import get_retrieval_config, get_inst_config, get_nc_format_config, get_conf
 from mwr_l12l2.utils.data_utils import datetime64_to_str, get_from_nc_files, has_data, datetime64_to_hour, \
-    scalars_to_time, vectors_to_time
+    scalars_to_time, vectors_to_time, setbit
 from mwr_l12l2.utils.file_utils import abs_file_path, concat_filename, datetime64_from_filename, dict_to_file, \
     generate_output_filename
 from mwr_l12l2.utils.atmosphere_utils import calculate_pressure_from_std_atmosphere, calculate_derived_product
@@ -886,21 +886,21 @@ class Retrieval:
         '''
         # Check if var_quality_flag is alredy defined in the dataset, if not create it with the same dimensions as var and fill it with 0 (good quality) values:
         var_quality_flag = var + '_quality_flag'
-                
+        
+        if var_quality_flag in data.variables:
+            logger.debug(f'Quality flag {var_quality_flag} already exists for variable {var}')
+            return data
+        
         # Check if 1D or 2D quality flags is needed based on the dimensions of the variable and create the variable if not existing:
         if 'altitude' in data[var].dims:
             data = data.assign({var_quality_flag: (('time', 'altitude'), np.zeros((data.time.size, data.altitude.size), dtype=np.int8))})
-            # For 2D variable, we will combined the temperature_quality_flag and the water_vapour_quality_flag to create the var_quality_flag. If one of the two flags is 1 (bad quality) then the var_quality_flag will be set to 1 (bad quality), if both flags are 0 (good quality) then the var_quality_flag will be set to 0 (good quality):
-            quality_flag_2d = np.where(
-                (data['temperature_quality_flag'].data > 0) | (data['waterVapor_quality_flag'].data > 0),
-                1,  # bad quality
-                0   # good quality
-            )
-            data = data.assign({var_quality_flag: (('time', 'altitude'), quality_flag_2d.astype(np.int8))})
+            # setup bit 1 if temperature_quality_flag > 0, setup bit 2 if waterVapor_quality_flag > 0. We will use the existing temperature_quality_flag and waterVapor_quality_flag to fill the var_quality_flag. If either of the two flags is > 0 (bad quality) then the var_quality_flag will be set to 1 (bad quality), if both flags are 0 (good quality) then the var_quality_flag will be set to 0 (good quality):
+            data[var_quality_flag] = xr.where(data['temperature_quality_flag'].data > 0, setbit(data[var_quality_flag], 1), data[var_quality_flag])  # set bit 1 to 1 (bad quality) if temperature_quality_flag is > 0
+            data[var_quality_flag] = xr.where(data['waterVapor_quality_flag'].data > 0, setbit(data[var_quality_flag], 2), data[var_quality_flag])  # set bit 2 to 1 (bad quality) if waterVapor_quality_flag is > 0
         else:
-            # for 1D variable, we use the "quality_flag"
-            quality_flag_1d = data['quality_flag']
-            data = data.assign({var_quality_flag: (('time',), quality_flag_1d.data.astype(np.int8))})        
+            # for 1D variable, we use the "quality_flag" variable to extract the quality information. If quality_flag is > 0 (bad quality) then var_quality_flag will be set to 1 (bad quality), if quality_flag is 0 (good quality) then var_quality_flag will be set to 0 (good quality):
+            data = data.assign({var_quality_flag: (('time',),  np.zeros(data.time.size, dtype=np.int8))}) 
+            data[var_quality_flag] = xr.where(data['quality_flag'].data > 0, setbit(data[var_quality_flag], 0), data[var_quality_flag])  # set bit 0 to 1 (bad quality) if quality_flag is > 0    
         return data
         
     def calculate_time_bnds(self, time, tresolution_minutes):

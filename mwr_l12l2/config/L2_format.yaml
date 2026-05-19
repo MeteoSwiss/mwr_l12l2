@@ -436,8 +436,8 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for relative humidity
-      flag_masks: [1, 2]
-      flag_meanings: bad_quality unknown_quality
+      flag_masks: [1, 2, 4]
+      flag_meanings: bad_temperature_profile bad_water_vapour_profile unknown_quality
       comment: 0 indicates data with good quality.
       units: "1"
 
@@ -478,8 +478,8 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for potential temperature
-      flag_masks: [1, 2]
-      flag_meanings: bad_quality unknown_quality
+      flag_masks: [1, 2, 4]
+      flag_meanings: bad_temperature_profile bad_water_vapour_profile unknown_quality
       comment: 0 indicates data with good quality.
       units: "1"
 
@@ -520,8 +520,8 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for equivalent potential temperature
-      flag_masks: [1, 2]
-      flag_meanings: bad_quality unknown_quality
+      flag_masks: [1, 2, 4]
+      flag_meanings: bad_temperature_profile bad_water_vapour_profile unknown_quality
       comment: 0 indicates data with good quality.
       units: "1"
 
@@ -563,8 +563,8 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for dew point temperature
-      flag_masks: [1, 2]
-      flag_meanings: bad_quality unknown_quality
+      flag_masks: [1, 2, 4]
+      flag_meanings: bad_temperature_profile bad_water_vapour_profile unknown_quality
       comment: 0 indicates data with good quality.
       units: "1"
   
@@ -703,8 +703,8 @@ variables:
     optional: True
     attributes:
       long_name: Quality flag for column-integrated water vapour
-      flag_masks: [1, 2, 4]
-      flag_meanings: 'non_convergence high_rms high_gamma'
+      flag_masks: [1, 2]
+      flag_meanings: "bad_quality unknown_quality"
       comment: 0 indicates data with good quality.
       units: "1"
 
